@@ -124,6 +124,8 @@ def path_table(hubs: list[dict], target_asn: str):
         trailing = len(hubs) - last_real - 1
         hubs = hubs[:last_real + 1]
 
+    show_p95 = console.width >= 90
+
     table = Table(
         box=box.SIMPLE_HEAD,
         show_header=True,
@@ -138,6 +140,8 @@ def path_table(hubs: list[dict], target_asn: str):
     table.add_column("Avg", justify="right", width=9)
     table.add_column("Best", justify="right", width=9)
     table.add_column("Worst", justify="right", width=9)
+    if show_p95:
+        table.add_column("p95", justify="right", width=9)
 
     prev_asn = None
     for hub in hubs:
@@ -150,9 +154,12 @@ def path_table(hubs: list[dict], target_asn: str):
         worst = hub.get("Wrst", 0.0)
 
         if host in ("???", "", None):
-            table.add_row(hop, Text("* * *", style="dim"), Text("—", style="dim"),
-                          Text("—", style="dim"), Text("—", style="dim"),
-                          Text("—", style="dim"), Text("—", style="dim"))
+            row = [hop, Text("* * *", style="dim"), Text("—", style="dim"),
+                   Text("—", style="dim"), Text("—", style="dim"),
+                   Text("—", style="dim"), Text("—", style="dim")]
+            if show_p95:
+                row.append(Text("—", style="dim"))
+            table.add_row(*row)
             prev_asn = asn
             continue
 
@@ -165,15 +172,14 @@ def path_table(hubs: list[dict], target_asn: str):
         elif asn == target_asn:
             asn_text.stylize("green")
 
-        table.add_row(
-            hop,
-            host,
-            asn_text,
-            fmt_loss(loss),
-            fmt_latency(avg),
-            fmt_latency(best),
-            fmt_latency(worst),
-        )
+        row = [
+            hop, host, asn_text,
+            fmt_loss(loss), fmt_latency(avg), fmt_latency(best), fmt_latency(worst),
+        ]
+        if show_p95:
+            p95 = hub.get("p95")
+            row.append(fmt_latency(p95) if p95 is not None else Text("—", style="dim"))
+        table.add_row(*row)
         prev_asn = asn
 
     console.print(table)
@@ -355,6 +361,56 @@ def country_summary(code: str, results: list[dict]):
             table.add_row(asn, name, transit, latency)
 
     console.print(table)
+    console.print()
+
+
+def bufferbloat_line(idle_ms: float | None, loaded_ms: float | None) -> None:
+    idle_str = f"{idle_ms:.1f} ms" if idle_ms is not None else "—"
+    if loaded_ms is None:
+        console.print(
+            f"  [dim]Bufferbloat:[/dim]  idle {idle_str}  loaded [dim]unavailable[/dim]"
+        )
+        console.print()
+        return
+    loaded_str = f"{loaded_ms:.1f} ms"
+    delta = loaded_ms - (idle_ms if idle_ms is not None else 0.0)
+    delta_str = f"{delta:+.1f} ms"
+    if delta < 5:
+        delta_markup = f"[dim]{delta_str}[/dim]"
+        label_markup = "[dim]None[/dim]"
+    elif delta <= 30:
+        delta_markup = f"[yellow]{delta_str}[/yellow]"
+        label_markup = "[yellow]Moderate[/yellow]"
+    else:
+        delta_markup = f"[bold red]{delta_str}[/bold red]"
+        label_markup = "[bold red]Severe[/bold red]"
+    console.print(
+        f"  [dim]Bufferbloat:[/dim]  idle {idle_str}  loaded {loaded_str}  {delta_markup}  {label_markup}"
+    )
+    console.print()
+
+
+def verdict_panel(verdict: dict) -> None:
+    severity = verdict.get("severity", "ok")
+    label = verdict.get("verdict", "Healthy")
+    detail = verdict.get("detail", "")
+    signals = verdict.get("signals", [])
+
+    severity_styles = {"ok": "bold green", "warning": "bold yellow", "critical": "bold red"}
+    border_colors   = {"ok": "green",      "warning": "yellow",       "critical": "red"}
+    style  = severity_styles.get(severity, "bold green")
+    border = border_colors.get(severity, "green")
+
+    lines = [f"  [{style}]{label}[/{style}]", f"  {detail}"]
+    if signals:
+        lines.append("")
+        for sig in signals:
+            lines.append(f"  • {sig}")
+
+    console.print(
+        Panel("\n".join(lines), title="[bold]Diagnosis[/bold]",
+              border_style=border, expand=False)
+    )
     console.print()
 
 

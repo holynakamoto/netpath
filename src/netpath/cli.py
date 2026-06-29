@@ -1,4 +1,9 @@
+import json
 import os
+import queue
+import re
+import subprocess
+import threading
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
@@ -6,6 +11,7 @@ from netpath import __version__
 from netpath import country as country_mod
 from netpath import display, iperf as iperf_mod, mtr, rum as rum_mod, servers, speedtest
 from netpath.asn import normalize_asn
+from netpath.diagnosis import diagnose
 
 app = typer.Typer(
     help="netpath — probe throughput, latency, and packet loss to an ASN.",
@@ -42,6 +48,39 @@ def _extract_last_rtt(hubs: list[dict]) -> float | None:
     return None
 
 
+def _parse_ping_avg(output: str) -> float | None:
+    m = re.search(r'rtt min/avg/max/mdev = [\d.]+/([\d.]+)/', output)
+    if m:
+        return float(m.group(1))
+    m = re.search(r'round-trip min/avg/max/stddev = [\d.]+/([\d.]+)/', output)
+    if m:
+        return float(m.group(1))
+    return None
+
+
+def _run_ping_probe(host: str, duration: int, result_q: queue.Queue) -> None:
+    count = min(duration, 5)
+    try:
+        proc = subprocess.run(
+            ["ping", "-c", str(count), "-i", "1", host],
+            capture_output=True, text=True, timeout=count + 10,
+        )
+        if proc.returncode != 0:
+            stderr_lower = proc.stderr.lower()
+            if "permission" in stderr_lower or "operation not permitted" in stderr_lower:
+                result_q.put(None)
+                return
+        result_q.put(_parse_ping_avg(proc.stdout))
+    except FileNotFoundError:
+        result_q.put(None)
+    except PermissionError:
+        result_q.put(None)
+    except subprocess.TimeoutExpired:
+        result_q.put(None)
+    except Exception:
+        result_q.put(None)
+
+
 def _check_deps(no_throughput: bool) -> bool:
     if not mtr.available():
         display.error("mtr not found — install with: brew install mtr")
@@ -70,82 +109,138 @@ def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
 
 def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               cycles: int, duration: int, skip_throughput: bool,
-              cf_token: str | None = None, show_server_heading: bool = True) -> dict:
-    """Run trace + optional throughput test. Returns {as_path, last_rtt_ms, rum}."""
-    result: dict = {"as_path": [], "last_rtt_ms": None, "rum": None}
+              cf_token: str | None = None, show_server_heading: bool = True,
+              json_mode: bool = False) -> dict:
+    """Run trace + optional throughput test. Returns enriched result dict."""
+    result: dict = {"as_path": [], "last_rtt_ms": None, "rum": None,
+                    "hubs": [], "bufferbloat_ms": None,
+                    "download_mbps": None, "upload_mbps": None, "verdict": {}}
 
-    if show_server_heading:
+    if show_server_heading and not json_mode:
         display.server_heading(server_meta)
 
-    display.console.print(f"  [dim]Tracing path ({cycles} probes)…[/dim]")
+    if not json_mode:
+        display.console.print(f"  [dim]Tracing path ({cycles} probes)…[/dim]")
     try:
-        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                      console=display.console, transient=True) as p:
-            p.add_task(f"probing → {host}", total=None)
+        if not json_mode:
+            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                          console=display.console, transient=True) as p:
+                p.add_task(f"probing → {host}", total=None)
+                hubs, method = _trace(host, cycles)
+        else:
             hubs, method = _trace(host, cycles)
     except RuntimeError as e:
-        display.error(f"trace: {e}")
+        if not json_mode:
+            display.error(f"trace: {e}")
         return result
 
-    if method == "traceroute":
+    if method == "traceroute" and not json_mode:
         display.console.print("  [dim](mtr unavailable — using traceroute + Cymru ASN lookup)[/dim]\n")
 
-    display.path_table(hubs, target_asn)
-    display.as_path_summary(hubs)
+    if not json_mode:
+        display.path_table(hubs, target_asn)
+        display.as_path_summary(hubs)
 
     result["as_path"]     = _extract_as_path(hubs)
     result["last_rtt_ms"] = _extract_last_rtt(hubs)
+    result["hubs"]        = hubs
 
     rum_data = _fetch_rum(target_asn, cf_token)
     result["rum"] = rum_data
 
     if skip_throughput:
-        if rum_data:
+        if rum_data and not json_mode:
             display.rum_only_panel(rum_data, target_asn)
+        verdict = diagnose(result)
+        result["verdict"] = verdict
+        if not json_mode:
+            display.verdict_panel(verdict)
         return result
 
     # iperf3 measures the actual path from this host to the server in target_asn.
     # Fall back to HTTP speedtest only if iperf3 is unavailable (that measures
     # user → Cloudflare, not user → target ASN).
     if iperf_mod.available():
-        display.console.print(
-            f"  [dim]Measuring throughput via iperf3 to {host}:{port} ({duration}s each direction)…[/dim]"
+        if not json_mode:
+            display.console.print(
+                f"  [dim]Measuring throughput via iperf3 to {host}:{port} ({duration}s each direction)…[/dim]"
+            )
+        idle_rtt = result["last_rtt_ms"]
+        ping_q: queue.Queue = queue.Queue()
+        ping_thread = threading.Thread(
+            target=_run_ping_probe, args=(host, duration, ping_q), daemon=True
         )
+        ping_thread.start()
         try:
-            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                          console=display.console, transient=True) as p:
-                p.add_task(f"iperf3 → {host} ↑↓", total=None)
+            if not json_mode:
+                with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                              console=display.console, transient=True) as p:
+                    p.add_task(f"iperf3 → {host} ↑↓", total=None)
+                    upload, download = iperf_mod.run_bidirectional(host, port, duration)
+            else:
                 upload, download = iperf_mod.run_bidirectional(host, port, duration)
-            display.throughput_and_rum(upload, download, rum=rum_data,
-                                       server=f"{host} (iperf3)")
+            ping_thread.join(timeout=duration + 10)
+            try:
+                loaded_rtt = ping_q.get_nowait()
+            except queue.Empty:
+                loaded_rtt = None
+            if idle_rtt is not None and loaded_rtt is not None:
+                result["bufferbloat_ms"] = round(loaded_rtt - idle_rtt, 1)
+            result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
+            result["upload_mbps"]   = upload.get("bps", 0) / 1e6
+            verdict = diagnose(result)
+            result["verdict"] = verdict
+            if not json_mode:
+                display.throughput_and_rum(upload, download, rum=rum_data,
+                                           server=f"{host} (iperf3)")
+                display.bufferbloat_line(idle_rtt, loaded_rtt)
+                display.verdict_panel(verdict)
             return result
         except RuntimeError as e:
-            display.warn(f"iperf3 to {host}:{port} failed: {e}")
-            if rum_data:
-                display.rum_only_panel(rum_data, target_asn)
+            ping_thread.join(timeout=5)
+            if not json_mode:
+                display.warn(f"iperf3 to {host}:{port} failed: {e}")
+                if rum_data:
+                    display.rum_only_panel(rum_data, target_asn)
+            verdict = diagnose(result)
+            result["verdict"] = verdict
+            if not json_mode:
+                display.verdict_panel(verdict)
             return result
 
     # iperf3 not installed — fall back to HTTP speedtest as a baseline.
     # This measures user → Cloudflare, NOT user → target ASN.
-    display.console.print(
-        f"  [dim]iperf3 not installed — showing Cloudflare baseline "
-        f"(install iperf3 for cross-ASN measurement)…[/dim]"
-    )
+    if not json_mode:
+        display.console.print(
+            f"  [dim]iperf3 not installed — showing Cloudflare baseline "
+            f"(install iperf3 for cross-ASN measurement)…[/dim]"
+        )
     try:
-        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                      console=display.console, transient=True) as p:
-            p.add_task("speed.cloudflare.com ↑↓", total=None)
+        if not json_mode:
+            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                          console=display.console, transient=True) as p:
+                p.add_task("speed.cloudflare.com ↑↓", total=None)
+                st_result = speedtest.run(duration=duration)
+        else:
             st_result = speedtest.run(duration=duration)
 
         upload, download = speedtest.extract_stats(st_result)
-        display.throughput_and_rum(upload, download, rum=rum_data,
-                                   server="speed.cloudflare.com (baseline — not cross-ASN)")
+        result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
+        result["upload_mbps"]   = upload.get("bps", 0) / 1e6
+        if not json_mode:
+            display.throughput_and_rum(upload, download, rum=rum_data,
+                                       server="speed.cloudflare.com (baseline — not cross-ASN)")
 
     except RuntimeError as e:
-        display.warn(f"speedtest: {e}")
-        if rum_data:
-            display.rum_only_panel(rum_data, target_asn)
+        if not json_mode:
+            display.warn(f"speedtest: {e}")
+            if rum_data:
+                display.rum_only_panel(rum_data, target_asn)
 
+    verdict = diagnose(result)
+    result["verdict"] = verdict
+    if not json_mode:
+        display.verdict_panel(verdict)
     return result
 
 
@@ -159,34 +254,84 @@ def asn(
     cycles:        int  = _CYCLES,
     no_throughput: bool = _NO_TPUT,
     cf_token:      str | None = _CF_TOK,
+    output_json:   bool = typer.Option(False, "--json", help="Output results as JSON to stdout; suppresses terminal display"),
 ):
     """Test latency, packet loss, and throughput to servers in a specific ASN."""
     asn_norm = normalize_asn(target)
-    display.header(__version__)
+    if not output_json:
+        display.header(__version__)
     skip_throughput = _check_deps(no_throughput)
 
-    display.console.print(f"[dim]Scanning iperf3 servers in [bold]{asn_norm}[/bold]…[/dim]\n")
-    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                  console=display.console, transient=True) as progress:
-        progress.add_task("Resolving hostnames + bulk ASN lookup via Cymru…", total=None)
+    if not output_json:
+        display.console.print(f"[dim]Scanning iperf3 servers in [bold]{asn_norm}[/bold]…[/dim]\n")
+    if not output_json:
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                      console=display.console, transient=True) as progress:
+            progress.add_task("Resolving hostnames + bulk ASN lookup via Cymru…", total=None)
+            found = servers.find_servers_in_asn(asn_norm, max_count=count)
+    else:
         found = servers.find_servers_in_asn(asn_norm, max_count=count)
 
     if not found:
-        display.error(
-            f"No public iperf3 servers found in {asn_norm}.\n"
-            "  Try: https://github.com/R0GGER/public-iperf3-servers"
-        )
+        if output_json:
+            print(json.dumps({"error": f"No public iperf3 servers found in {asn_norm}"}, indent=2))
+        else:
+            display.error(
+                f"No public iperf3 servers found in {asn_norm}.\n"
+                "  Try: https://github.com/R0GGER/public-iperf3-servers"
+            )
         raise typer.Exit(1)
 
-    display.console.print(f"[green]✓[/green] Found [bold]{len(found)}[/bold] server(s) in {asn_norm}\n")
+    if not output_json:
+        display.console.print(f"[green]✓[/green] Found [bold]{len(found)}[/bold] server(s) in {asn_norm}\n")
 
-    for server in found:
-        _run_test(
+    if output_json:
+        server = found[0]
+        result = _run_test(
             host=server["HOST"], port=server["port"],
             server_meta=server, target_asn=asn_norm,
             cycles=cycles, duration=duration,
             skip_throughput=skip_throughput, cf_token=cf_token,
+            json_mode=True,
         )
+        upload_mbps   = result.get("upload_mbps")
+        download_mbps = result.get("download_mbps")
+        output = {
+            "asn": asn_norm,
+            "target_host": server["HOST"],
+            "path": [
+                {
+                    "hop":      hub.get("count"),
+                    "host":     hub.get("host"),
+                    "asn":      hub.get("ASN"),
+                    "loss_pct": hub.get("Loss%"),
+                    "avg_ms":   hub.get("Avg"),
+                    "best_ms":  hub.get("Best"),
+                    "worst_ms": hub.get("Wrst"),
+                    "p50_ms":   hub.get("p50"),
+                    "p95_ms":   hub.get("p95"),
+                    "p99_ms":   hub.get("p99"),
+                }
+                for hub in result.get("hubs", [])
+            ],
+            "throughput": (
+                {"upload_mbps": upload_mbps, "download_mbps": download_mbps}
+                if upload_mbps is not None or download_mbps is not None
+                else None
+            ),
+            "bufferbloat_ms": result.get("bufferbloat_ms"),
+            "rum":            result.get("rum"),
+            "verdict":        result.get("verdict", {}),
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        for server in found:
+            _run_test(
+                host=server["HOST"], port=server["port"],
+                server_meta=server, target_asn=asn_norm,
+                cycles=cycles, duration=duration,
+                skip_throughput=skip_throughput, cf_token=cf_token,
+            )
 
 
 # ── country subcommand ────────────────────────────────────────────────────────

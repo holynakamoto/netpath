@@ -1,10 +1,34 @@
 import json
+import math
 import re
 import shutil
 import statistics
 import subprocess
 
 from .asn import cymru_bulk_lookup
+
+
+def _percentile(sorted_data: list, p: float) -> float:
+    """Nearest-rank percentile from a pre-sorted list. p is 0–100."""
+    n = len(sorted_data)
+    if n == 0:
+        return 0.0
+    idx = min(math.ceil(p / 100.0 * n) - 1, n - 1)
+    return sorted_data[max(0, idx)]
+
+
+def _enrich_percentiles(hub: dict) -> None:
+    """Add p50, p95, p99 to a hub dict using Avg+z*StDev estimation."""
+    if hub.get("Loss%", 0.0) >= 100.0:
+        hub["p50"] = None
+        hub["p95"] = None
+        hub["p99"] = None
+        return
+    avg = hub.get("Avg", 0.0)
+    std = hub.get("StDev", 0.0)
+    hub["p50"] = round(avg, 2)
+    hub["p95"] = round(avg + 1.645 * std, 2)
+    hub["p99"] = round(avg + 2.326 * std, 2)
 
 
 def available() -> bool:
@@ -39,7 +63,10 @@ def run(host: str, cycles: int = 10) -> list[dict]:
 
     try:
         data = json.loads(result.stdout)
-        return data["report"]["hubs"]
+        hubs = data["report"]["hubs"]
+        for hub in hubs:
+            _enrich_percentiles(hub)
+        return hubs
     except (json.JSONDecodeError, KeyError) as e:
         raise RuntimeError(f"Failed to parse mtr output: {e}")
 
@@ -64,6 +91,7 @@ def _parse_traceroute_output(output: str) -> list[dict]:
             hubs.append({
                 "count": hop_num, "host": "???", "ASN": "AS???",
                 "Loss%": 100.0, "Avg": 0.0, "Best": 0.0, "Wrst": 0.0, "StDev": 0.0,
+                "p50": None, "p95": None, "p99": None,
             })
             continue
 
@@ -93,10 +121,12 @@ def _parse_traceroute_output(output: str) -> list[dict]:
             hubs.append({
                 "count": hop_num, "host": host, "ASN": "AS???",
                 "Loss%": 100.0, "Avg": 0.0, "Best": 0.0, "Wrst": 0.0, "StDev": 0.0,
+                "p50": None, "p95": None, "p99": None,
             })
             continue
 
         avg = sum(rtts) / len(rtts)
+        sorted_rtts = sorted(rtts)
         hubs.append({
             "count": hop_num,
             "host": host,
@@ -106,6 +136,9 @@ def _parse_traceroute_output(output: str) -> list[dict]:
             "Best": round(min(rtts), 2),
             "Wrst": round(max(rtts), 2),
             "StDev": round(statistics.stdev(rtts) if len(rtts) > 1 else 0.0, 2),
+            "p50": round(_percentile(sorted_rtts, 50), 2),
+            "p95": round(_percentile(sorted_rtts, 95), 2),
+            "p99": round(_percentile(sorted_rtts, 99), 2),
         })
 
     return hubs
