@@ -229,3 +229,20 @@ Four self-contained phases extend the existing trace-then-display pipeline witho
 - `bufferbloat_line` unavailable path: PASS
 - Full import chain clean, no new external dependencies: PASS
 
+## Phase 3: Verdict Engine
+
+### Files Changed
+- `src/netpath/diagnosis.py` — new module; exposes `diagnose(result: dict) -> dict`; pure function with no I/O or netpath module imports; wraps body in try/except so it never raises; implements 4 priority checks (Severe Bufferbloat → Mid-path Packet Loss → Last-mile Congestion → Throughput Cap) stopping at first match; returns Healthy as default.
+- `src/netpath/cli.py` — added `from netpath.diagnosis import diagnose`; added `json_mode: bool = False` to `_run_test()` signature; extended result dict initialization with `download_mbps: None, upload_mbps: None, verdict: {}`; stores `download_mbps` and `upload_mbps` after both iperf3 and speedtest paths; calls `diagnose(result)` and `display.verdict_panel(verdict)` (when not json_mode) before each return that follows a successful trace.
+- `src/netpath/display.py` — added `verdict_panel(verdict: dict) -> None`; renders Rich Panel coloured by severity (green/yellow/red), with verdict label, detail sentence, and bullet-point signals list.
+
+### Verification Results
+- `diagnose({})` returns Healthy/ok: PASS
+- `diagnose({'bufferbloat_ms': 45.0})` returns critical: PASS
+- Mid-path loss in 3-hop path returns warning with 'loss' in detail: PASS
+- Single-hop path skips mid-path check and returns Healthy: PASS
+- Bad input handled gracefully without raising: PASS
+- `diagnosis.py` has no I/O imports from netpath modules: PASS
+- `display.verdict_panel` present and callable: PASS
+- All modified files compile clean: PASS
+
