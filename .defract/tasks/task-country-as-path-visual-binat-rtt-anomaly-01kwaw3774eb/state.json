@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 2,
   "createdAt": "2026-06-29T23:40:37Z",
-  "updatedAt": "2026-06-29T23:43:20Z",
+  "updatedAt": "2026-06-29T23:47:35Z",
   "events": [
     {
       "base_branch": "main",
@@ -67,26 +67,81 @@
       "timed_out": false,
       "timestamp": "2026-06-29T23:43:20Z",
       "type": "agent_exited"
+    },
+    {
+      "change_summary": "Full scope: path completeness classification bug fix + tree summary display, 2 phases",
+      "revision": 2,
+      "timestamp": "2026-06-29T23:47:08Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Primary issue is a data classification bug (wrong RTT attributed to unreachable ISPs) bundled with a display enhancement. No design stage — terminal ASCII output with no new visual design decisions beyond color thresholds. No architecture stage — changes are confined to two files (cli.py and display.py) and build on existing patterns without introducing new subsystems.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "bug-fix",
+      "tier": "standard",
+      "timestamp": "2026-06-29T23:47:19Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Preserve `last_rtt_ms` in the result dict alongside the new `verified_rtt_ms`",
+      "rationale": "The `asn` subcommand's JSON output includes `last_rtt_ms`. Removing or changing it would break the existing JSON contract. Adding `verified_rtt_ms` as a new key for country-summary use avoids backward compatibility issues while fixing the display bug.",
+      "timestamp": "2026-06-29T23:47:24Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Add `fmt_country_latency` as a new function rather than modifying `fmt_latency`",
+      "rationale": "`fmt_latency` (20 ms / 80 ms thresholds) is used for per-hop tables in both subcommands. Country-level ISP comparison warrants different thresholds (120 ms / 200 ms). Modifying `fmt_latency` would change the per-hop display in unintended ways; a new function keeps the scopes separate.",
+      "timestamp": "2026-06-29T23:47:26Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2. Two phases: Phase 1 fixes the RTT anomaly bug by replacing `_extract_last_rtt` with a `_classify_path` helper that checks whether the target ASN actually appears in the traceroute hubs before reporting a latency. Phase 2 rewrites the country summary display as a tree grouped by transit entry point with color-coded latencies (120/200 ms thresholds) and a star on the fastest verified path. Backward compatibility preserved via `last_rtt_ms` retained alongside new `verified_rtt_ms`.",
+      "timestamp": "2026-06-29T23:47:35Z",
+      "type": "stage_work_complete",
+      "worktree_head": "57be2dd80c5aef18c2b8f3a3008d437461229e1f",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "bug-fix",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Primary issue is a data classification bug (wrong RTT attributed to unreachable ISPs) bundled with a display enhancement. No design stage — terminal ASCII output with no new visual design decisions beyond color thresholds. No architecture stage — changes are confined to two files (cli.py and display.py) and build on existing patterns without introducing new subsystems."
+  },
   "stages": {
-    "release": {
+    "review": {
       "status": "not_started"
+    },
+    "architecture": {
+      "status": "skipped"
+    },
+    "design": {
+      "status": "skipped"
     },
     "implementation": {
       "status": "not_started"
     },
-    "review": {
-      "status": "not_started"
-    },
     "scope": {
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "startedAt": "2026-06-29T23:43:20Z"
     },
-    "design": {
-      "status": "not_started"
-    },
-    "architecture": {
+    "release": {
       "status": "not_started"
     }
   },
