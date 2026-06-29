@@ -1,11 +1,11 @@
 {
   "id": "task-netpath-as-a-one-shot-diagnostic-path-01kwaqc10tym",
   "status": "active",
-  "stage": "scope",
+  "stage": "architecture",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 4,
   "createdAt": "2026-06-29T22:18:04Z",
-  "updatedAt": "2026-06-29T22:19:52Z",
+  "updatedAt": "2026-06-29T22:27:28Z",
   "events": [
     {
       "base_branch": "main",
@@ -54,30 +54,233 @@
       "timed_out": false,
       "timestamp": "2026-06-29T22:19:52Z",
       "type": "agent_exited"
+    },
+    {
+      "change_summary": "Full scope: latency enrichment, bufferbloat detection, verdict engine, JSON output — 14 requirements, 12 acceptance criteria, 4 phases",
+      "revision": 2,
+      "timestamp": "2026-06-29T22:24:35Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "CLI-only tool with no UI changes — skip design. Bufferbloat requires threading coordination between iperf3 and ping, new diagnosis.py module introduces a new subsystem, and the --json schema should be documented as a stable contract before implementation; these cross-cutting concerns justify an architecture stage. Five existing modules are touched plus one new module — standard tier, not full.",
+      "stages": [
+        "scope",
+        "architecture",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "backend-feature",
+      "tier": "standard",
+      "timestamp": "2026-06-29T22:24:48Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Percentile estimation uses Avg + z*StDev for mtr JSON mode (p95 = Avg + 1.645*StDev, p99 = Avg + 2.326*StDev) and exact computation from rtt_samples in traceroute mode.",
+      "rationale": "mtr --json report mode provides only aggregated stats (Avg, Best, Wrst, StDev) with no per-probe RTT data. Exact percentiles are not computable from these alone. The StDev-based estimate is a reasonable approximation for network latency distributions and avoids changing the mtr invocation or output format. Traceroute mode already collects raw rtt_samples so exact percentiles are trivially computable via statistics.quantiles.",
+      "timestamp": "2026-06-29T22:24:56Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Bufferbloat measurement uses a background threading.Thread running concurrent ICMP ping during the iperf3 transfer. Idle RTT is taken from the pre-existing _extract_last_rtt(hubs) result — no additional mtr pass required.",
+      "rationale": "A sequential before/after ping measurement would not capture real loaded latency since the load test would not be running during the before measurement. Concurrent probing with a thread is the only way to see queuing delay under active load. The idle RTT is already available from the mtr run that happens before iperf3, so no extra network round-trip is needed for the baseline.",
+      "timestamp": "2026-06-29T22:25:02Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Verdict engine placed in a new src/netpath/diagnosis.py as a pure function with no I/O or network imports. --json flag added to the asn subcommand only; country --json is deferred.",
+      "rationale": "A pure function is trivially testable without mocking and keeps diagnostic logic separate from data collection. The country subcommand produces a different result shape (multiple ASNs, summary table) that warrants its own JSON schema design once the single-ASN schema is stable and proven useful.",
+      "timestamp": "2026-06-29T22:25:05Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2. 14 requirements across four feature areas (latency enrichment, bufferbloat, verdict engine, JSON output), 12 acceptance criteria, 4 implementation phases. Workflow classified as backend-feature/standard with an architecture stage to nail down the concurrent ping threading design and JSON schema before implementation. Three key decisions logged.",
+      "timestamp": "2026-06-29T22:25:13Z",
+      "type": "stage_work_complete",
+      "worktree_head": "62a5f7bc78a8513bc38eced3021900a76d288db0",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-29T22:25:24Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-06-29T22:25:23Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "9735bc9058243dcdaab837987d463b1072883231",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "62a5f7bc78a8513bc38eced3021900a76d288db0",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-29T22:25:24Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-06-29T22:25:24Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-06-29T22:25:24Z",
+      "to": "architecture",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-29T22:25:24Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwaqsfmmdzjvhmw961s6s89n",
+      "stage": "architecture",
+      "timestamp": "2026-06-29T22:25:24Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwaqfatsavbqq5reqqdn1tpv",
+      "timed_out": false,
+      "timestamp": "2026-06-29T22:25:24Z",
+      "type": "agent_exited"
+    },
+    {
+      "change_summary": "Surfaced 2 open architecture decisions: (1) probe placement — transfer module vs command orchestrator; (2) cross-platform ping parsing strategy.",
+      "revision": 1,
+      "stage": "architecture",
+      "timestamp": "2026-06-29T22:27:01Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "stage": "architecture",
+      "summary": "Surfaced 2 open decisions for builder input: (1) whether the concurrent ping probe lives inside the transfer module or the command orchestration layer; (2) which cross-platform ping parsing strategy to use (dual-regex fallback vs delimiter splitting). Waiting for builder decisions before writing the full architecture.",
+      "timestamp": "2026-06-29T22:27:08Z",
+      "type": "stage_work_complete",
+      "worktree_head": "9735bc9058243dcdaab837987d463b1072883231",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-29T22:27:28Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwaqx8sctfc04582dxk4wtv0",
+      "stage": "architecture",
+      "timestamp": "2026-06-29T22:27:28Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwaqsfmmdzjvhmw961s6s89n",
+      "timed_out": false,
+      "timestamp": "2026-06-29T22:27:28Z",
+      "type": "agent_exited"
     }
   ],
+  "needsArchitecture": true,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "backend-feature",
+    "stages": [
+      "scope",
+      "architecture",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "CLI-only tool with no UI changes — skip design. Bufferbloat requires threading coordination between iperf3 and ping, new diagnosis.py module introduces a new subsystem, and the --json schema should be documented as a stable contract before implementation; these cross-cutting concerns justify an architecture stage. Five existing modules are touched plus one new module — standard tier, not full."
+  },
+  "stageApprovals": {
+    "scope": "2026-06-29T22:25:23Z"
+  },
+  "stageContent": {
+    "architecture": "### Open Decisions\n\n**1. Where does the load probe during the iperf3 transfer live?**\n\nThe concurrent ping that measures latency-under-load must be coordinated with the throughput test. Where this lives determines whether the bufferbloat result is automatically available to every caller (including future country-mode tests) or must be explicitly wired each time.\n\n- Encapsulate inside the transfer module\n- Orchestrate from the command layer (recommended)\n\n**2. How should the tool parse ping summary output across Linux and macOS?**\n\nLinux and macOS produce different summary line formats from ping. An incorrect or partial parse silently yields a wrong bufferbloat value — which is worse than reporting the measurement as unavailable. The parsing strategy determines how robustly the tool degrades when the format is unexpected.\n\n- Try both known patterns, return unavailable if neither matches (recommended)\n- Split on delimiters by field position\n"
+  },
+  "architectureIntel": {
+    "answers": {},
+    "decisions": [
+      {
+        "id": "D1",
+        "options": [
+          {
+            "description": "The transfer module runs the ping probe internally and returns loaded RTT alongside throughput figures. Every caller gets bufferbloat data automatically with no extra wiring.",
+            "label": "Encapsulate inside the transfer module",
+            "recommended": false
+          },
+          {
+            "description": "The command layer starts the ping thread, calls the transfer module, then joins the thread and assembles the bufferbloat delta. Matches the existing pattern where idle RTT extraction already lives in the orchestration layer.",
+            "label": "Orchestrate from the command layer",
+            "recommended": true
+          }
+        ],
+        "what": "Where does the load probe during the iperf3 transfer live?",
+        "why": "The concurrent ping that measures latency-under-load must be coordinated with the throughput test. Where this lives determines whether the bufferbloat result is automatically available to every caller (including future country-mode tests) or must be explicitly wired each time."
+      },
+      {
+        "id": "D2",
+        "options": [
+          {
+            "description": "Apply two regex patterns (one per platform) against the ping summary line. If neither matches — unexpected platform, permission error, or output change — return None and display the measurement as unavailable.",
+            "label": "Try both known patterns, return unavailable if neither matches",
+            "recommended": true
+          },
+          {
+            "description": "Extract the average RTT by splitting on '=' and '/' characters and reading the field at a fixed index. Fewer lines of code but brittle if either platform changes its output format in a future OS release.",
+            "label": "Split on delimiters by field position",
+            "recommended": false
+          }
+        ],
+        "what": "How should the tool parse ping summary output across Linux and macOS?",
+        "why": "Linux and macOS produce different summary line formats from ping. An incorrect or partial parse silently yields a wrong bufferbloat value — which is worse than reporting the measurement as unavailable. The parsing strategy determines how robustly the tool degrades when the format is unexpected."
+      }
+    ],
+    "pass": "decisions"
+  },
   "stages": {
-    "implementation": {
+    "review": {
       "status": "not_started"
     },
-    "review": {
+    "implementation": {
       "status": "not_started"
     },
     "release": {
       "status": "not_started"
     },
-    "scope": {
+    "architecture": {
       "status": "in_progress",
-      "startedAt": "2026-06-29T22:19:52Z"
+      "startedAt": "2026-06-29T22:27:28Z"
     },
     "design": {
-      "status": "not_started"
+      "status": "skipped"
     },
-    "architecture": {
-      "status": "not_started"
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-29T22:25:23Z",
+      "startedAt": "2026-06-29T22:19:52Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-netpath-as-a-one-shot-diagnostic-path-01kwaqc10tym",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-29T22:19:51Z"
+  "worktreeLastSyncedAt": "2026-06-29T22:27:28Z"
 }
