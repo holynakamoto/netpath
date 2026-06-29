@@ -3,7 +3,7 @@ defract:
   id: task-netpath-as-a-one-shot-diagnostic-path-01kwaqc10tym
   type: improvement
   status: active
-  stage: implementation
+  stage: review
   phase: 0
   total_phases: 4
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 ## Story Brief
 
@@ -245,4 +246,19 @@ Four self-contained phases extend the existing trace-then-display pipeline witho
 - `diagnosis.py` has no I/O imports from netpath modules: PASS
 - `display.verdict_panel` present and callable: PASS
 - All modified files compile clean: PASS
+
+## Phase 4: JSON Output
+
+### Files Changed
+- `src/netpath/cli.py` — added `import json`; added `output_json: bool = typer.Option(False, '--json', ...)` to `asn()` signature; gated all `display.*` calls and `Progress` context managers in `_run_test()` with `if not json_mode:`; in `asn()`, gates `display.header`, server-scan print, and Progress spinner with `if not output_json:`; when `output_json` is True, runs `_run_test()` for `found[0]` only with `json_mode=True`, builds output dict (`asn`, `target_host`, `path`, `throughput`, `bufferbloat_ms`, `rum`, `verdict`), and calls `print(json.dumps(output, indent=2))`; emits `{"error": "..."}` JSON object if no servers found in JSON mode.
+
+### Verification Results
+- `--json` flag appears in `netpath asn --help`: PASS
+- No Rich escape codes in `json.dumps()` output: PASS
+- All required JSON keys present (`asn`, `target_host`, `path`, `throughput`, `bufferbloat_ms`, `rum`, `verdict`): PASS
+- `throughput` is None when both `upload_mbps` and `download_mbps` are None (--no-throughput mode): PASS
+- `throughput` dict populated when mbps values are present: PASS
+- `import json` present at top of cli.py: PASS
+- `json_mode=True` passed to `_run_test()` in JSON output path: PASS
+- All modules import cleanly: PASS
 
