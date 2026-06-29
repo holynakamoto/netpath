@@ -1,11 +1,11 @@
 {
   "id": "task-netpath-as-a-one-shot-diagnostic-path-01kwaqc10tym",
   "status": "active",
-  "stage": "architecture",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 4,
   "createdAt": "2026-06-29T22:18:04Z",
-  "updatedAt": "2026-06-29T22:27:28Z",
+  "updatedAt": "2026-06-29T22:41:32Z",
   "events": [
     {
       "base_branch": "main",
@@ -194,6 +194,126 @@
       "timed_out": false,
       "timestamp": "2026-06-29T22:27:28Z",
       "type": "agent_exited"
+    },
+    {
+      "change_summary": "Full architecture: 4 phases covering latency enrichment, bufferbloat measurement, verdict engine, and JSON output",
+      "revision": 2,
+      "stage": "architecture",
+      "timestamp": "2026-06-29T22:36:39Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-1: Bufferbloat ping orchestration lives in cli.py _run_test(), not in iperf.py",
+      "rationale": "Keeping iperf.py as a pure subprocess wrapper with no threading concerns makes it easier to test and reuse. The idle RTT source (_extract_last_rtt result) already lives in _run_test(), so the delta computation naturally belongs there too. Callers do not need to opt in to bufferbloat — every iperf3 run automatically gets it.",
+      "timestamp": "2026-06-29T22:36:55Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-2: Ping summary parsing tries Linux pattern then macOS pattern, returns None if neither matches",
+      "rationale": "Returning unavailable on a parse miss is safer than field-position splitting, which would silently yield a wrong value if the format differs. An incorrect bufferbloat value (e.g. caused by parsing mdev as avg) is worse than reporting the measurement as unavailable.",
+      "timestamp": "2026-06-29T22:36:58Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-3: p95 column shown only when console.width >= 90; otherwise present in data dict but not rendered",
+      "rationale": "The existing 7 columns total ~78 chars with box.SIMPLE_HEAD padding. Adding p95 at ~11 chars = ~89 chars. A 90-column threshold provides clearance so the column never forces wrapping on standard 80-column terminals while appearing on wider terminals where it fits.",
+      "timestamp": "2026-06-29T22:37:03Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-4: --json mode runs against found[0] only and prints one JSON object",
+      "rationale": "R13 specifies \"a single JSON object\". Running multiple servers would require either an array schema (different contract) or concatenated JSON objects (not valid JSON). Using the first server keeps the schema clean and the output pipeable via standard tools.",
+      "timestamp": "2026-06-29T22:37:05Z",
+      "type": "decision"
+    },
+    {
+      "stage": "architecture",
+      "summary": "Full architecture complete. 4 phases match scope exactly: (1) p50/p95/p99 enrichment in mtr.py + p95 column in path_table when width >= 90, (2) background ping thread in cli.py for bufferbloat delta + bufferbloat_line display, (3) new diagnosis.py pure verdict engine + verdict_panel, (4) --json flag on asn subcommand suppressing Rich output and serializing full result. One new file (diagnosis.py), three modified modules (mtr.py, cli.py, display.py), seven new functions, no new package dependencies.",
+      "timestamp": "2026-06-29T22:37:14Z",
+      "type": "stage_work_complete",
+      "worktree_head": "9735bc9058243dcdaab837987d463b1072883231",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-06-29T22:39:26Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "architecture",
+      "timestamp": "2026-06-29T22:39:26Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "e02870b61aa75ee6536a006534cd1f444ef56c44",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "architecture",
+      "stale_worktree_head": "9735bc9058243dcdaab837987d463b1072883231",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-29T22:39:26Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "architecture",
+      "timestamp": "2026-06-29T22:39:26Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "architecture",
+      "timestamp": "2026-06-29T22:39:26Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-29T22:39:26Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwark67dde4re6j11pa85d4c",
+      "stage": "implementation",
+      "timestamp": "2026-06-29T22:39:26Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting Phase 1: Latency Statistics Enrichment — reading mtr.py and display.py before writing",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-06-29T22:39:33Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Latency Statistics Enrichment",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-06-29T22:39:37Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-06-29T22:40:43Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-06-29T22:41:32Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": true,
@@ -212,67 +332,245 @@
     "rationale": "CLI-only tool with no UI changes — skip design. Bufferbloat requires threading coordination between iperf3 and ping, new diagnosis.py module introduces a new subsystem, and the --json schema should be documented as a stable contract before implementation; these cross-cutting concerns justify an architecture stage. Five existing modules are touched plus one new module — standard tier, not full."
   },
   "stageApprovals": {
+    "architecture": "2026-06-29T22:39:26Z",
     "scope": "2026-06-29T22:25:23Z"
   },
   "stageContent": {
-    "architecture": "### Open Decisions\n\n**1. Where does the load probe during the iperf3 transfer live?**\n\nThe concurrent ping that measures latency-under-load must be coordinated with the throughput test. Where this lives determines whether the bufferbloat result is automatically available to every caller (including future country-mode tests) or must be explicitly wired each time.\n\n- Encapsulate inside the transfer module\n- Orchestrate from the command layer (recommended)\n\n**2. How should the tool parse ping summary output across Linux and macOS?**\n\nLinux and macOS produce different summary line formats from ping. An incorrect or partial parse silently yields a wrong bufferbloat value — which is worse than reporting the measurement as unavailable. The parsing strategy determines how robustly the tool degrades when the format is unexpected.\n\n- Try both known patterns, return unavailable if neither matches (recommended)\n- Split on delimiters by field position\n"
+    "architecture": "### Architecture Summary\n\nFour self-contained phases extend the existing trace-then-display pipeline without restructuring it. Phase 1 adds richer per-hop latency statistics (median, p95, p99) computed inside the existing path-tracing module using two strategies — a formula from known averages in mtr mode, and exact percentiles from raw samples in traceroute mode — then surfaces p95 as an optional column in the path table. Phase 2 adds bufferbloat detection: a background ping thread starts alongside every iperf3 run from the command orchestration layer, and the latency delta between idle (already available from the trace) and loaded RTT is displayed as a summary line beneath the throughput panel. Phase 3 introduces a new pure-computation module that classifies the collected measurements into a plain-language verdict (five priority-ordered failure modes), wires it into the command after all measurements complete, and renders a coloured verdict panel. Phase 4 adds a --json flag to the asn subcommand that routes the complete enriched result — including the verdict — through json.dumps to stdout while suppressing all Rich terminal output. No new package dependencies are required; all new logic uses Python stdlib (statistics, threading, queue, json, subprocess).\n\n### Implementation Phases\n\n### Phase 1: Latency Statistics Enrichment\n\n**Verification:**\n- [ ] python -c \"from netpath import mtr; h = {'Loss%': 100.0, 'Avg': 0.0, 'StDev': 0.0}; mtr._enrich_percentiles(h); assert h['p95'] is None\"\n- [ ] python -c \"from netpath import mtr; h = {'Loss%': 0.0, 'Avg': 20.0, 'StDev': 5.0}; mtr._enrich_percentiles(h); assert abs(h['p95'] - 28.225) < 0.01\"\n- [ ] Run netpath asn AS15169 --no-throughput on a terminal >= 90 cols and confirm a p95 column header appears in the path table\n- [ ] Run netpath asn AS15169 --no-throughput on a terminal < 90 cols (COLUMNS=79) and confirm no p95 column and no other column wraps\n\n**Estimated effort:** Small\n\n### Phase 2: Bufferbloat Measurement\n\n**Verification:**\n- [ ] python -c \"from netpath.cli import _parse_ping_avg; assert _parse_ping_avg('rtt min/avg/max/mdev = 1.2/15.4/25.6/3.2 ms') == 15.4\"\n- [ ] python -c \"from netpath.cli import _parse_ping_avg; assert _parse_ping_avg('round-trip min/avg/max/stddev = 1.0/14.8/22.0/2.1 ms') == 14.8\"\n- [ ] python -c \"from netpath.cli import _parse_ping_avg; assert _parse_ping_avg('garbage') is None\"\n- [ ] Run netpath asn AS15169 and confirm a bufferbloat summary line appears beneath the throughput panel with idle RTT, loaded RTT, delta, and a label\n- [ ] Simulate ping unavailable (PATH='' netpath asn AS15169) and confirm the tool completes without error and the bufferbloat line shows 'unavailable'\n\n**Estimated effort:** Medium\n\n### Phase 3: Verdict Engine\n\n**Verification:**\n- [ ] python -c \"from netpath.diagnosis import diagnose; v = diagnose({}); assert v['severity'] == 'ok' and v['verdict'] == 'Healthy'\"\n- [ ] python -c \"from netpath.diagnosis import diagnose; v = diagnose({'bufferbloat_ms': 45.0}); assert v['severity'] == 'critical'\"\n- [ ] python -c \"from netpath.diagnosis import diagnose; hubs=[{'count':1,'host':'a','ASN':'AS1','Loss%':0},{'count':2,'host':'b','ASN':'AS2','Loss%':5.0},{'count':3,'host':'c','ASN':'AS3','Loss%':0}]; v=diagnose({'hubs':hubs}); assert 'loss' in v['detail'].lower()\"\n- [ ] python -c \"from netpath.diagnosis import diagnose; v=diagnose({'hubs':[{'count':1,'host':'a','ASN':'AS1','Loss%':0}]}); assert v['verdict']=='Healthy'\" -- single-hop skips mid-path check\n- [ ] Run netpath asn AS15169 --no-throughput and confirm a Diagnosis panel appears at the bottom of output with severity label, detail sentence, and no traceback\n\n**Estimated effort:** Medium\n\n### Phase 4: JSON Output\n\n**Verification:**\n- [ ] netpath asn AS15169 --json | python -m json.tool -- must exit 0\n- [ ] python -c \"import json,subprocess; r=subprocess.run(['netpath','asn','AS15169','--json'],capture_output=True,text=True); d=json.loads(r.stdout); assert all(k in d for k in ['asn','target_host','path','throughput','bufferbloat_ms','rum','verdict'])\"\n- [ ] netpath asn AS15169 --json --no-throughput | python -c \"import json,sys; d=json.load(sys.stdin); assert d['throughput'] is None and d['bufferbloat_ms'] is None\"\n- [ ] netpath asn --help | grep -- '--json' -- flag must appear in help text\n- [ ] netpath asn AS15169 --json 2>/dev/null | python -c \"import sys; data=sys.stdin.read(); assert '\\x1b[' not in data\" -- no Rich escape codes in JSON stdout\n\n**Estimated effort:** Small\n"
   },
   "architectureIntel": {
-    "answers": {},
-    "decisions": [
+    "diagram": "flowchart TD\n    MTR[\"mtr / traceroute\"] --> ENR[\"_enrich_percentiles\\np50 / p95 / p99\"]\n    ENR --> TBL[\"path_table\\n+ p95 column\"]\n    ENR --> IDLE[\"_extract_last_rtt\\nidle RTT\"]\n    IPERF3[\"iperf3\"] -. concurrent .-> PING[\"_run_ping_probe\\nloaded RTT thread\"]\n    IDLE --> DELTA[\"bufferbloat_ms\"]\n    PING --> DELTA\n    DELTA --> BBL[\"bufferbloat_line\"]\n    ENR --> DX[\"diagnose\\nverdict engine\"]\n    DELTA --> DX\n    RUM[\"rum.fetch\"] --> DX\n    IPERF3 --> DX\n    DX --> VP[\"verdict_panel\"]\n    DX --> JSON[\"--json → stdout\"]",
+    "pass": "full",
+    "phases": [
       {
-        "id": "D1",
-        "options": [
+        "effort": "Small",
+        "files": [
           {
-            "description": "The transfer module runs the ping probe internally and returns loaded RTT alongside throughput figures. Every caller gets bufferbloat data automatically with no extra wiring.",
-            "label": "Encapsulate inside the transfer module",
-            "recommended": false
+            "action": "modify",
+            "description": "Add _percentile(sorted_data: list[float], p: float) -> float using nearest-rank method. Add _enrich_percentiles(hub: dict) -> None that sets hub['p50'], hub['p95'], hub['p99']: all None when Loss% == 100.0, otherwise p50=Avg, p95=round(Avg + 1.645*StDev, 2), p99=round(Avg + 2.326*StDev, 2). Call _enrich_percentiles(hub) on each hub in run() after parsing JSON. In _parse_traceroute_output(), after computing avg from rtts list call sorted_rtts = sorted(rtts) and _percentile() for p50/p95/p99 before building the hub dict; add p50=None, p95=None, p99=None to the all-stars branch and the no-RTT branch.",
+            "path": "src/netpath/mtr.py"
           },
           {
-            "description": "The command layer starts the ping thread, calls the transfer module, then joins the thread and assembles the bufferbloat delta. Matches the existing pattern where idle RTT extraction already lives in the orchestration layer.",
-            "label": "Orchestrate from the command layer",
-            "recommended": true
+            "action": "modify",
+            "description": "In path_table(), check console.width >= 90 before adding a p95 column (width=9, justify='right'). When the column is present, read hub.get('p95') per row and render with fmt_latency() or Text('—', style='dim') for None.",
+            "path": "src/netpath/display.py"
           }
         ],
-        "what": "Where does the load probe during the iperf3 transfer live?",
-        "why": "The concurrent ping that measures latency-under-load must be coordinated with the throughput test. Where this lives determines whether the bufferbloat result is automatically available to every caller (including future country-mode tests) or must be explicitly wired each time."
+        "number": 1,
+        "scope": "Add p50, p95, and p99 to every hop dict produced by both code paths in mtr.py. In mtr JSON mode, estimate from Avg and StDev using the normal-distribution formula. In traceroute mode, compute exact percentiles from the raw RTT sample list already collected during parsing. Surface p95 as a new column in the path table only when the terminal is wide enough to hold it without pushing other columns off-screen.",
+        "title": "Latency Statistics Enrichment",
+        "verification": [
+          "python -c \"from netpath import mtr; h = {'Loss%': 100.0, 'Avg': 0.0, 'StDev': 0.0}; mtr._enrich_percentiles(h); assert h['p95'] is None\"",
+          "python -c \"from netpath import mtr; h = {'Loss%': 0.0, 'Avg': 20.0, 'StDev': 5.0}; mtr._enrich_percentiles(h); assert abs(h['p95'] - 28.225) < 0.01\"",
+          "Run netpath asn AS15169 --no-throughput on a terminal >= 90 cols and confirm a p95 column header appears in the path table",
+          "Run netpath asn AS15169 --no-throughput on a terminal < 90 cols (COLUMNS=79) and confirm no p95 column and no other column wraps"
+        ]
       },
       {
-        "id": "D2",
-        "options": [
+        "effort": "Medium",
+        "files": [
           {
-            "description": "Apply two regex patterns (one per platform) against the ping summary line. If neither matches — unexpected platform, permission error, or output change — return None and display the measurement as unavailable.",
-            "label": "Try both known patterns, return unavailable if neither matches",
-            "recommended": true
+            "action": "modify",
+            "description": "Add 'import queue, threading' at the top. Add _parse_ping_avg(output: str) -> float | None: try re.search for Linux pattern r'rtt min/avg/max/mdev = [\\d.]+/([\\d.]+)/' and macOS pattern r'round-trip min/avg/max/stddev = [\\d.]+/([\\d.]+)/'; return float(group(1)) from the first match, or None. Add _run_ping_probe(host: str, duration: int, result_q: queue.Queue) -> None: run subprocess ['ping', '-c', str(min(duration,5)), '-i', '1', host]; on FileNotFoundError, PermissionError, TimeoutExpired put None; on non-zero returncode with 'permission' or 'operation not permitted' in stderr.lower() put None; otherwise put _parse_ping_avg(proc.stdout). In _run_test() initialise result with 'hubs': [], 'download_mbps': None, 'upload_mbps': None, 'bufferbloat_ms': None, 'verdict': {}. Store result['hubs'] = hubs after _extract_last_rtt. In iperf3 branch: start ping thread BEFORE iperf_mod.run_bidirectional(); on success join with timeout=duration+10, get loaded_rtt from queue, compute result['bufferbloat_ms'] = round(loaded - idle, 1) if both not None; on RuntimeError join with timeout=5 and discard, bufferbloat_ms stays None. Call display.bufferbloat_line() after throughput display when not json_mode. Do not start a ping thread in the speedtest fallback path.",
+            "path": "src/netpath/cli.py"
           },
           {
-            "description": "Extract the average RTT by splitting on '=' and '/' characters and reading the field at a fixed index. Fewer lines of code but brittle if either platform changes its output format in a future OS release.",
-            "label": "Split on delimiters by field position",
-            "recommended": false
+            "action": "modify",
+            "description": "Add bufferbloat_line(idle_ms: float | None, loaded_ms: float | None) -> None. Label: delta < 5 -> 'None' (dim), 5-30 -> 'Moderate' (yellow), > 30 -> 'Severe' (bold red). When loaded_ms is None show 'unavailable' in place of loaded value and omit delta and label. Print one summary line via console.print().",
+            "path": "src/netpath/display.py"
           }
         ],
-        "what": "How should the tool parse ping summary output across Linux and macOS?",
-        "why": "Linux and macOS produce different summary line formats from ping. An incorrect or partial parse silently yields a wrong bufferbloat value — which is worse than reporting the measurement as unavailable. The parsing strategy determines how robustly the tool degrades when the format is unexpected."
+        "number": 2,
+        "scope": "Instrument the iperf3 test with a concurrent ICMP ping probe to the same host, started as a background thread from cli.py before iperf3 begins. After iperf3 completes, join the thread and compute the bufferbloat delta. Display the result as a summary line beneath the throughput panel. Handle all failure modes — ping not found, permission denied, iperf3 mid-transfer failure — without crashing.",
+        "title": "Bufferbloat Measurement",
+        "verification": [
+          "python -c \"from netpath.cli import _parse_ping_avg; assert _parse_ping_avg('rtt min/avg/max/mdev = 1.2/15.4/25.6/3.2 ms') == 15.4\"",
+          "python -c \"from netpath.cli import _parse_ping_avg; assert _parse_ping_avg('round-trip min/avg/max/stddev = 1.0/14.8/22.0/2.1 ms') == 14.8\"",
+          "python -c \"from netpath.cli import _parse_ping_avg; assert _parse_ping_avg('garbage') is None\"",
+          "Run netpath asn AS15169 and confirm a bufferbloat summary line appears beneath the throughput panel with idle RTT, loaded RTT, delta, and a label",
+          "Simulate ping unavailable (PATH='' netpath asn AS15169) and confirm the tool completes without error and the bufferbloat line shows 'unavailable'"
+        ]
+      },
+      {
+        "effort": "Medium",
+        "files": [
+          {
+            "action": "create",
+            "description": "Expose diagnose(result: dict) -> dict. No imports from netpath modules. Extract hubs, bufferbloat, rum, download_mbps from result. Default return: {verdict: 'Healthy', severity: 'ok', detail: 'No anomalies detected on the measured path.', signals: []}. Priority checks stopping at first match: (1) bufferbloat > 30 -> critical 'Severe Bufferbloat'; (2) len(hubs) > 1: find last_resp_idx = max index where host not in ('???', None, ''); check hops at 0 < i < last_resp_idx with Loss% > 1.0 -> warning 'Mid-path Packet Loss'; (3) hubs[0] Loss% > 0 and bufferbloat > 5 -> warning 'Last-mile Congestion'; (4) rum dl_mbps present and download_mbps < rum['dl_mbps'] * 0.7 -> warning 'Throughput Cap'. Wrap body in try/except Exception and return default dict on any exception.",
+            "path": "src/netpath/diagnosis.py"
+          },
+          {
+            "action": "modify",
+            "description": "In _run_test(): store result['download_mbps'] = download.get('recv_bps', download.get('bps', 0)) / 1e6 and result['upload_mbps'] = upload.get('bps', 0) / 1e6 after both iperf3 and speedtest paths. Before each return that follows a successful trace, call 'from netpath.diagnosis import diagnose; verdict = diagnose(result); result[\"verdict\"] = verdict' and 'if not json_mode: display.verdict_panel(verdict)'. Skip for the early RuntimeError exit from _trace().",
+            "path": "src/netpath/cli.py"
+          },
+          {
+            "action": "modify",
+            "description": "Add verdict_panel(verdict: dict) -> None. severity_styles = {'ok': 'bold green', 'warning': 'bold yellow', 'critical': 'bold red'}. Build a Rich Panel: verdict label styled by severity, detail sentence, blank line then each signal as '  • {signal}' if any. Panel title='[bold]Diagnosis[/bold]', border_style matches severity colour, expand=False. console.print(panel) then console.print().",
+            "path": "src/netpath/display.py"
+          }
+        ],
+        "number": 3,
+        "scope": "Create src/netpath/diagnosis.py with the diagnose() pure function and its five-level priority classification. Wire it into _run_test() so every completed run produces a verdict stored in the result dict. Render the verdict as a coloured panel below all other output.",
+        "title": "Verdict Engine",
+        "verification": [
+          "python -c \"from netpath.diagnosis import diagnose; v = diagnose({}); assert v['severity'] == 'ok' and v['verdict'] == 'Healthy'\"",
+          "python -c \"from netpath.diagnosis import diagnose; v = diagnose({'bufferbloat_ms': 45.0}); assert v['severity'] == 'critical'\"",
+          "python -c \"from netpath.diagnosis import diagnose; hubs=[{'count':1,'host':'a','ASN':'AS1','Loss%':0},{'count':2,'host':'b','ASN':'AS2','Loss%':5.0},{'count':3,'host':'c','ASN':'AS3','Loss%':0}]; v=diagnose({'hubs':hubs}); assert 'loss' in v['detail'].lower()\"",
+          "python -c \"from netpath.diagnosis import diagnose; v=diagnose({'hubs':[{'count':1,'host':'a','ASN':'AS1','Loss%':0}]}); assert v['verdict']=='Healthy'\" -- single-hop skips mid-path check",
+          "Run netpath asn AS15169 --no-throughput and confirm a Diagnosis panel appears at the bottom of output with severity label, detail sentence, and no traceback"
+        ]
+      },
+      {
+        "effort": "Small",
+        "files": [
+          {
+            "action": "modify",
+            "description": "Add 'import json' at the top. In asn(): add output_json: bool = typer.Option(False, '--json', help='Output results as JSON to stdout; suppresses terminal display'). Add json_mode: bool = False parameter to _run_test(). Gate all display.* calls and Progress context managers in asn() with 'if not output_json:'. When output_json is True, run _run_test() for found[0] only. After _run_test() returns, build output dict: asn=asn_norm, target_host=server['HOST'], path=[{hop, host, asn, loss_pct, avg_ms, best_ms, worst_ms, p50_ms, p95_ms, p99_ms} for each hub in result['hubs']], throughput={upload_mbps, download_mbps} if either is not None else None, bufferbloat_ms=result.get('bufferbloat_ms'), rum=result.get('rum'), verdict=result.get('verdict', {}). Call print(json.dumps(output, indent=2)). In _run_test(), gate every display.console.print() and Progress block with 'if not json_mode:'.",
+            "path": "src/netpath/cli.py"
+          }
+        ],
+        "number": 4,
+        "scope": "Add a --json flag to the asn subcommand. When active, suppress all Rich terminal output, run against the first found server only, collect all measurements, and write a single JSON object to stdout. The schema includes asn, target_host, path (hop array with all latency fields), throughput (null when skipped), bufferbloat_ms, rum, and verdict.",
+        "title": "JSON Output",
+        "verification": [
+          "netpath asn AS15169 --json | python -m json.tool -- must exit 0",
+          "python -c \"import json,subprocess; r=subprocess.run(['netpath','asn','AS15169','--json'],capture_output=True,text=True); d=json.loads(r.stdout); assert all(k in d for k in ['asn','target_host','path','throughput','bufferbloat_ms','rum','verdict'])\"",
+          "netpath asn AS15169 --json --no-throughput | python -c \"import json,sys; d=json.load(sys.stdin); assert d['throughput'] is None and d['bufferbloat_ms'] is None\"",
+          "netpath asn --help | grep -- '--json' -- flag must appear in help text",
+          "netpath asn AS15169 --json 2>/dev/null | python -c \"import sys; data=sys.stdin.read(); assert '\\x1b[' not in data\" -- no Rich escape codes in JSON stdout"
+        ]
       }
     ],
-    "pass": "decisions"
+    "scorecard": [
+      {
+        "category": "files",
+        "count": 1,
+        "items": [
+          {
+            "name": "src/netpath/diagnosis.py",
+            "note": "pure verdict-computation module — no I/O imports"
+          }
+        ],
+        "label": "new files"
+      },
+      {
+        "category": "modules",
+        "count": 3,
+        "items": [
+          {
+            "name": "src/netpath/mtr.py",
+            "note": "add percentile enrichment to both code paths"
+          },
+          {
+            "name": "src/netpath/cli.py",
+            "note": "add ping orchestration, extended result dict, --json flag"
+          },
+          {
+            "name": "src/netpath/display.py",
+            "note": "add p95 column, bufferbloat line, verdict panel"
+          }
+        ],
+        "label": "modified modules"
+      },
+      {
+        "category": "functions",
+        "count": 7,
+        "items": [
+          {
+            "name": "mtr._enrich_percentiles(hub)",
+            "note": "mutates hub dict; formula-based p50/p95/p99 for mtr mode"
+          },
+          {
+            "name": "mtr._percentile(sorted_data, p)",
+            "note": "nearest-rank helper for exact percentiles from sample list"
+          },
+          {
+            "name": "cli._parse_ping_avg(output)",
+            "note": "tries Linux then macOS ping summary pattern; returns float|None"
+          },
+          {
+            "name": "cli._run_ping_probe(host, duration, result_q)",
+            "note": "runs as background thread; puts loaded RTT into queue"
+          },
+          {
+            "name": "display.bufferbloat_line(idle_ms, loaded_ms)",
+            "note": "prints idle / loaded / delta line with Severe/Moderate/None label"
+          },
+          {
+            "name": "display.verdict_panel(verdict)",
+            "note": "Rich Panel coloured by severity; shows label, detail, signals"
+          },
+          {
+            "name": "diagnosis.diagnose(result)",
+            "note": "pure function; returns verdict dict; never raises"
+          }
+        ],
+        "label": "new functions"
+      },
+      {
+        "category": "reusable",
+        "count": 2,
+        "items": [
+          {
+            "name": "cli._extract_last_rtt(hubs)",
+            "note": "already computes idle RTT from last responsive hop"
+          },
+          {
+            "name": "display.fmt_latency() / fmt_loss()",
+            "note": "colour formatters reused in new bufferbloat and verdict displays"
+          }
+        ],
+        "label": "reused without change"
+      },
+      {
+        "category": "changes",
+        "count": 5,
+        "items": [
+          {
+            "name": "mtr.run()",
+            "note": "add _enrich_percentiles loop after parsing JSON hubs"
+          },
+          {
+            "name": "mtr._parse_traceroute_output()",
+            "note": "add p50/p95/p99 from rtts list; add None fields to all-stars and no-RTT branches"
+          },
+          {
+            "name": "cli._run_test()",
+            "note": "initialise extended result keys; store hubs; add ping thread around iperf3; store mbps values; call diagnose; gate display calls on json_mode"
+          },
+          {
+            "name": "cli.asn()",
+            "note": "add --json flag; gate display output; single-server execution in JSON mode; serialize result to stdout"
+          },
+          {
+            "name": "display.path_table()",
+            "note": "add p95 column conditional on console.width >= 90"
+          }
+        ],
+        "label": "targeted edits"
+      }
+    ],
+    "summary": "Four self-contained phases extend the existing trace-then-display pipeline without restructuring it. Phase 1 adds richer per-hop latency statistics (median, p95, p99) computed inside the existing path-tracing module using two strategies — a formula from known averages in mtr mode, and exact percentiles from raw samples in traceroute mode — then surfaces p95 as an optional column in the path table. Phase 2 adds bufferbloat detection: a background ping thread starts alongside every iperf3 run from the command orchestration layer, and the latency delta between idle (already available from the trace) and loaded RTT is displayed as a summary line beneath the throughput panel. Phase 3 introduces a new pure-computation module that classifies the collected measurements into a plain-language verdict (five priority-ordered failure modes), wires it into the command after all measurements complete, and renders a coloured verdict panel. Phase 4 adds a --json flag to the asn subcommand that routes the complete enriched result — including the verdict — through json.dumps to stdout while suppressing all Rich terminal output. No new package dependencies are required; all new logic uses Python stdlib (statistics, threading, queue, json, subprocess)."
   },
   "stages": {
+    "architecture": {
+      "status": "approved",
+      "approvedAt": "2026-06-29T22:39:26Z",
+      "startedAt": "2026-06-29T22:27:28Z"
+    },
     "review": {
       "status": "not_started"
     },
     "implementation": {
-      "status": "not_started"
-    },
-    "release": {
-      "status": "not_started"
-    },
-    "architecture": {
       "status": "in_progress",
-      "startedAt": "2026-06-29T22:27:28Z"
+      "startedAt": "2026-06-29T22:39:26Z"
     },
     "design": {
       "status": "skipped"
+    },
+    "release": {
+      "status": "not_started"
     },
     "scope": {
       "status": "approved",
@@ -282,5 +580,5 @@
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-netpath-as-a-one-shot-diagnostic-path-01kwaqc10tym",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-29T22:27:28Z"
+  "worktreeLastSyncedAt": "2026-06-29T22:39:26Z"
 }

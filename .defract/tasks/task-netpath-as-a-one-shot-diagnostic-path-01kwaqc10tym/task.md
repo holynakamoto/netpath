@@ -3,7 +3,7 @@ defract:
   id: task-netpath-as-a-one-shot-diagnostic-path-01kwaqc10tym
   type: improvement
   status: active
-  stage: architecture
+  stage: implementation
   phase: 0
   total_phases: 4
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 ## Story Brief
 
@@ -149,19 +150,52 @@ No new Python packages are required. Concurrent probing uses `threading` and `su
 
 ## Architecture
 
-### Open Decisions
+### Architecture Summary
 
-**1. Where does the load probe during the iperf3 transfer live?**
+Four self-contained phases extend the existing trace-then-display pipeline without restructuring it. Phase 1 adds richer per-hop latency statistics (median, p95, p99) computed inside the existing path-tracing module using two strategies — a formula from known averages in mtr mode, and exact percentiles from raw samples in traceroute mode — then surfaces p95 as an optional column in the path table. Phase 2 adds bufferbloat detection: a background ping thread starts alongside every iperf3 run from the command orchestration layer, and the latency delta between idle (already available from the trace) and loaded RTT is displayed as a summary line beneath the throughput panel. Phase 3 introduces a new pure-computation module that classifies the collected measurements into a plain-language verdict (five priority-ordered failure modes), wires it into the command after all measurements complete, and renders a coloured verdict panel. Phase 4 adds a --json flag to the asn subcommand that routes the complete enriched result — including the verdict — through json.dumps to stdout while suppressing all Rich terminal output. No new package dependencies are required; all new logic uses Python stdlib (statistics, threading, queue, json, subprocess).
 
-The concurrent ping that measures latency-under-load must be coordinated with the throughput test. Where this lives determines whether the bufferbloat result is automatically available to every caller (including future country-mode tests) or must be explicitly wired each time.
+### Implementation Phases
 
-- Encapsulate inside the transfer module
-- Orchestrate from the command layer (recommended)
+### Phase 1: Latency Statistics Enrichment
 
-**2. How should the tool parse ping summary output across Linux and macOS?**
+**Verification:**
+- [ ] python -c "from netpath import mtr; h = {'Loss%': 100.0, 'Avg': 0.0, 'StDev': 0.0}; mtr._enrich_percentiles(h); assert h['p95'] is None"
+- [ ] python -c "from netpath import mtr; h = {'Loss%': 0.0, 'Avg': 20.0, 'StDev': 5.0}; mtr._enrich_percentiles(h); assert abs(h['p95'] - 28.225) < 0.01"
+- [ ] Run netpath asn AS15169 --no-throughput on a terminal >= 90 cols and confirm a p95 column header appears in the path table
+- [ ] Run netpath asn AS15169 --no-throughput on a terminal < 90 cols (COLUMNS=79) and confirm no p95 column and no other column wraps
 
-Linux and macOS produce different summary line formats from ping. An incorrect or partial parse silently yields a wrong bufferbloat value — which is worse than reporting the measurement as unavailable. The parsing strategy determines how robustly the tool degrades when the format is unexpected.
+**Estimated effort:** Small
 
-- Try both known patterns, return unavailable if neither matches (recommended)
-- Split on delimiters by field position
+### Phase 2: Bufferbloat Measurement
+
+**Verification:**
+- [ ] python -c "from netpath.cli import _parse_ping_avg; assert _parse_ping_avg('rtt min/avg/max/mdev = 1.2/15.4/25.6/3.2 ms') == 15.4"
+- [ ] python -c "from netpath.cli import _parse_ping_avg; assert _parse_ping_avg('round-trip min/avg/max/stddev = 1.0/14.8/22.0/2.1 ms') == 14.8"
+- [ ] python -c "from netpath.cli import _parse_ping_avg; assert _parse_ping_avg('garbage') is None"
+- [ ] Run netpath asn AS15169 and confirm a bufferbloat summary line appears beneath the throughput panel with idle RTT, loaded RTT, delta, and a label
+- [ ] Simulate ping unavailable (PATH='' netpath asn AS15169) and confirm the tool completes without error and the bufferbloat line shows 'unavailable'
+
+**Estimated effort:** Medium
+
+### Phase 3: Verdict Engine
+
+**Verification:**
+- [ ] python -c "from netpath.diagnosis import diagnose; v = diagnose({}); assert v['severity'] == 'ok' and v['verdict'] == 'Healthy'"
+- [ ] python -c "from netpath.diagnosis import diagnose; v = diagnose({'bufferbloat_ms': 45.0}); assert v['severity'] == 'critical'"
+- [ ] python -c "from netpath.diagnosis import diagnose; hubs=[{'count':1,'host':'a','ASN':'AS1','Loss%':0},{'count':2,'host':'b','ASN':'AS2','Loss%':5.0},{'count':3,'host':'c','ASN':'AS3','Loss%':0}]; v=diagnose({'hubs':hubs}); assert 'loss' in v['detail'].lower()"
+- [ ] python -c "from netpath.diagnosis import diagnose; v=diagnose({'hubs':[{'count':1,'host':'a','ASN':'AS1','Loss%':0}]}); assert v['verdict']=='Healthy'" -- single-hop skips mid-path check
+- [ ] Run netpath asn AS15169 --no-throughput and confirm a Diagnosis panel appears at the bottom of output with severity label, detail sentence, and no traceback
+
+**Estimated effort:** Medium
+
+### Phase 4: JSON Output
+
+**Verification:**
+- [ ] netpath asn AS15169 --json | python -m json.tool -- must exit 0
+- [ ] python -c "import json,subprocess; r=subprocess.run(['netpath','asn','AS15169','--json'],capture_output=True,text=True); d=json.loads(r.stdout); assert all(k in d for k in ['asn','target_host','path','throughput','bufferbloat_ms','rum','verdict'])"
+- [ ] netpath asn AS15169 --json --no-throughput | python -c "import json,sys; d=json.load(sys.stdin); assert d['throughput'] is None and d['bufferbloat_ms'] is None"
+- [ ] netpath asn --help | grep -- '--json' -- flag must appear in help text
+- [ ] netpath asn AS15169 --json 2>/dev/null | python -c "import sys; data=sys.stdin.read(); assert '\x1b[' not in data" -- no Rich escape codes in JSON stdout
+
+**Estimated effort:** Small
 
