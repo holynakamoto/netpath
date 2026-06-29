@@ -4,7 +4,10 @@ This project uses [defract](https://defract.dev) for structured AI-assisted deve
 
 ## Tasks
 
-No tasks yet.
+| Task | Stage | Status |
+|------|-------|--------|
+| netpath as a one-shot diagnostic path CLI | scope | active |
+
 
 ## Reading without defract
 
