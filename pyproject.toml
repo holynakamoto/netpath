@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "netpath"
+version = "0.1.0"
+description = "Network path analyzer: throughput, latency, and packet loss across AS paths"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "rich>=13.0",
+    "typer>=0.9",
+    "requests>=2.28",
+]
+
+[project.scripts]
+netpath = "netpath.cli:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/netpath"]
