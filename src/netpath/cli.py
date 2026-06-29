@@ -26,6 +26,22 @@ _CF_TOK  = typer.Option(None,  "--cf-token",
 
 # ── internal helpers ──────────────────────────────────────────────────────────
 
+def _extract_as_path(hubs: list[dict]) -> list[str]:
+    asns: list[str] = []
+    for h in hubs:
+        asn = h.get("ASN", "")
+        if asn and asn != "AS???" and (not asns or asns[-1] != asn):
+            asns.append(asn)
+    return asns
+
+
+def _extract_last_rtt(hubs: list[dict]) -> float | None:
+    for h in reversed(hubs):
+        if h.get("host") not in ("???", None, "") and h.get("Avg", 0) > 0:
+            return h["Avg"]
+    return None
+
+
 def _check_deps(no_throughput: bool) -> bool:
     if not mtr.available():
         display.error("mtr not found — install with: brew install mtr")
@@ -54,7 +70,10 @@ def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
 
 def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               cycles: int, duration: int, skip_throughput: bool,
-              cf_token: str | None = None, show_server_heading: bool = True):
+              cf_token: str | None = None, show_server_heading: bool = True) -> dict:
+    """Run trace + optional throughput test. Returns {as_path, last_rtt_ms, rum}."""
+    result: dict = {"as_path": [], "last_rtt_ms": None, "rum": None}
+
     if show_server_heading:
         display.server_heading(server_meta)
 
@@ -66,7 +85,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
             hubs, method = _trace(host, cycles)
     except RuntimeError as e:
         display.error(f"trace: {e}")
-        return
+        return result
 
     if method == "traceroute":
         display.console.print("  [dim](mtr unavailable — using traceroute + Cymru ASN lookup)[/dim]\n")
@@ -74,12 +93,16 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
     display.path_table(hubs, target_asn)
     display.as_path_summary(hubs)
 
+    result["as_path"]     = _extract_as_path(hubs)
+    result["last_rtt_ms"] = _extract_last_rtt(hubs)
+
     rum_data = _fetch_rum(target_asn, cf_token)
+    result["rum"] = rum_data
 
     if skip_throughput:
         if rum_data:
             display.rum_only_panel(rum_data, target_asn)
-        return
+        return result
 
     # iperf3 measures the actual path from this host to the server in target_asn.
     # Fall back to HTTP speedtest only if iperf3 is unavailable (that measures
@@ -95,12 +118,12 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
                 upload, download = iperf_mod.run_bidirectional(host, port, duration)
             display.throughput_and_rum(upload, download, rum=rum_data,
                                        server=f"{host} (iperf3)")
-            return
+            return result
         except RuntimeError as e:
             display.warn(f"iperf3 to {host}:{port} failed: {e}")
             if rum_data:
                 display.rum_only_panel(rum_data, target_asn)
-            return
+            return result
 
     # iperf3 not installed — fall back to HTTP speedtest as a baseline.
     # This measures user → Cloudflare, NOT user → target ASN.
@@ -112,9 +135,9 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         with Progress(SpinnerColumn(), TextColumn("{task.description}"),
                       console=display.console, transient=True) as p:
             p.add_task("speed.cloudflare.com ↑↓", total=None)
-            result = speedtest.run(duration=duration)
+            st_result = speedtest.run(duration=duration)
 
-        upload, download = speedtest.extract_stats(result)
+        upload, download = speedtest.extract_stats(st_result)
         display.throughput_and_rum(upload, download, rum=rum_data,
                                    server="speed.cloudflare.com (baseline — not cross-ASN)")
 
@@ -122,6 +145,8 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         display.warn(f"speedtest: {e}")
         if rum_data:
             display.rum_only_panel(rum_data, target_asn)
+
+    return result
 
 
 # ── asn subcommand ────────────────────────────────────────────────────────────
@@ -225,6 +250,8 @@ def country(
         servers._fetch_and_resolve()
     display.console.print()
 
+    summary_rows: list[dict] = []
+
     for i, asn_info in enumerate(top_asns, 1):
         asn_str  = asn_info["asn"]
         isp_name = asn_info["name"]
@@ -241,7 +268,7 @@ def country(
         if asn_servers:
             server = asn_servers[0]
             can_test_throughput = not no_throughput and iperf_mod.available()
-            _run_test(
+            r = _run_test(
                 host=server["HOST"], port=server["port"],
                 server_meta=server, target_asn=asn_str,
                 cycles=cycles, duration=duration,
@@ -253,6 +280,8 @@ def country(
             test_ip = country_mod.get_test_ip_for_asn(asn_str)
             if not test_ip:
                 display.warn(f"Could not find a test IP for {asn_str} — skipping")
+                summary_rows.append({"asn": asn_str, "name": display.clean_asn_name(isp_name),
+                                     "as_path": [], "last_rtt_ms": None, "rum": None})
                 continue
 
             display.console.print(
@@ -260,7 +289,7 @@ def country(
             )
             meta = {"HOST": test_ip, "SITE": isp_name, "COUNTRY": code,
                     "asn": asn_str, "port": 5201}
-            _run_test(
+            r = _run_test(
                 host=test_ip, port=5201,
                 server_meta=meta, target_asn=asn_str,
                 cycles=cycles, duration=duration,
@@ -268,6 +297,14 @@ def country(
                 show_server_heading=False,
                 cf_token=cf_token,
             )
+
+        summary_rows.append({
+            "asn":  asn_str,
+            "name": display.clean_asn_name(isp_name),
+            **r,
+        })
+
+    display.country_summary(code, summary_rows)
 
 
 def run():

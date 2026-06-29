@@ -1,0 +1,169 @@
+{
+  "meta": {
+    "generator": "defract-design-system-extractor",
+    "source": "Rich terminal markup styles extracted from src/netpath/display.py",
+    "extractedAt": "2026-06-29T00:00:00Z",
+    "notes": "This project is a Python CLI with no web frontend. Tokens are Rich ANSI style names, not CSS values."
+  },
+  "colors": {
+    "brand-primary": {
+      "value": "cyan",
+      "type": "richStyle",
+      "usage": "App header border, table headers, section rule, ISP rank numbers"
+    },
+    "structural": {
+      "value": "blue",
+      "type": "richStyle",
+      "usage": "Server heading border, throughput panel border, baseline panel border"
+    },
+    "rum-metrics": {
+      "value": "magenta",
+      "type": "richStyle",
+      "usage": "Cloudflare RUM panel border"
+    },
+    "status-good": {
+      "value": "green",
+      "type": "richStyle",
+      "usage": "0% packet loss, success icon, target ASN final hop"
+    },
+    "status-very-good": {
+      "value": "bold green",
+      "type": "richStyle",
+      "usage": "Latency < 20ms, upload label, found-servers confirmation, final AS path hop"
+    },
+    "status-warning": {
+      "value": "yellow",
+      "type": "richStyle",
+      "usage": "Latency 20–79ms, packet loss 1–4.9%, AS boundary hops, warning icon"
+    },
+    "status-label-prominent": {
+      "value": "bold yellow",
+      "type": "richStyle",
+      "usage": "ISP/ASN identifiers in country ranking list"
+    },
+    "status-bad": {
+      "value": "bold red",
+      "type": "richStyle",
+      "usage": "Latency >= 80ms, packet loss >= 5%"
+    },
+    "status-error": {
+      "value": "red",
+      "type": "richStyle",
+      "usage": "Error symbol (✗)"
+    },
+    "muted": {
+      "value": "dim",
+      "type": "richStyle",
+      "usage": "Metadata, unreachable hops, non-critical labels, path arrows"
+    },
+    "emphasis": {
+      "value": "bold",
+      "type": "richStyle",
+      "usage": "Host names, panel titles, important values"
+    }
+  },
+  "statusThresholds": {
+    "latency": {
+      "unreachable": {
+        "maxMs": 0,
+        "style": "dim",
+        "display": "—"
+      },
+      "good": {
+        "maxMs": 20,
+        "style": "bold green"
+      },
+      "warning": {
+        "maxMs": 80,
+        "style": "yellow"
+      },
+      "bad": {
+        "minMs": 80,
+        "style": "bold red"
+      }
+    },
+    "packetLoss": {
+      "good": {
+        "maxPct": 0,
+        "style": "green"
+      },
+      "warning": {
+        "maxPct": 5,
+        "style": "yellow"
+      },
+      "bad": {
+        "minPct": 5,
+        "style": "bold red"
+      }
+    }
+  },
+  "icons": {
+    "success": {
+      "value": "✓",
+      "style": "green"
+    },
+    "error": {
+      "value": "✗",
+      "style": "red"
+    },
+    "warning": {
+      "value": "⚠",
+      "style": "yellow"
+    },
+    "direction": {
+      "value": "→",
+      "style": "dim"
+    },
+    "upload": {
+      "value": "↑",
+      "style": "bold green"
+    },
+    "download": {
+      "value": "↓",
+      "style": "bold cyan"
+    }
+  },
+  "components": {
+    "headerPanel": {
+      "borderStyle": "cyan",
+      "padding": [0, 2],
+      "expand": false
+    },
+    "serverHeadingPanel": {
+      "borderStyle": "blue",
+      "padding": [0, 1],
+      "expand": false
+    },
+    "throughputPanel": {
+      "borderStyle": "blue",
+      "expand": false
+    },
+    "rumPanel": {
+      "borderStyle": "magenta",
+      "expand": false
+    },
+    "pathTable": {
+      "box": "SIMPLE_HEAD",
+      "headerStyle": "bold cyan",
+      "padding": [0, 1],
+      "expand": false,
+      "columns": {
+        "hop": { "style": "dim", "width": 3, "justify": "right" },
+        "host": { "minWidth": 18 },
+        "asn": { "minWidth": 9 },
+        "loss": { "justify": "right", "width": 7 },
+        "avg": { "justify": "right", "width": 9 },
+        "best": { "justify": "right", "width": 9 },
+        "worst": { "justify": "right", "width": 9 }
+      }
+    },
+    "sectionRule": {
+      "style": "cyan",
+      "align": "left"
+    },
+    "progressSpinner": {
+      "columns": ["SpinnerColumn", "TextColumn"],
+      "transient": true
+    }
+  }
+}

@@ -1,0 +1,32 @@
+defract:
+  version: '1.0'
+  theme: dark
+  repo:
+    name: netpath
+    languages:
+    - python
+    frameworks: null
+    test_runner: null
+    run_command: null
+    ci_cd: null
+  defaults:
+    mode: human-in-the-loop
+    branch_strategy: worktree
+    base_branch: main
+    auto_push_enabled: true
+    offline_override: false
+    completion_mode: merge
+    worktree_assets: []
+  agents: null
+  concurrency: null
+  context_monitor:
+    sensitivity: attentive
+    max_nudge_frequency: 120
+    auto_update_artifacts: false
+  design_system: null
+  permissions:
+    tier1_read_inspections: true
+    tier2_scoped_filesystem: true
+    tier3_workflow_writes: true
+  team: null
+  user: null

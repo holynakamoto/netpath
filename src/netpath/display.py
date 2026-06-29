@@ -14,11 +14,13 @@ console = Console()
 # ── name helpers ─────────────────────────────────────────────────────────────
 
 def clean_asn_name(name: str) -> str:
-    """Strip Cymru short-name prefix: 'PARTNER-AS - Partner Communications Ltd.' → 'Partner Communications Ltd.'"""
+    """Strip Cymru short-name prefix: 'PARTNER-AS - Partner Comms' → 'Partner Comms'"""
     if ' - ' not in name:
         return name
     prefix, _, rest = name.partition(' - ')
-    if re.match(r'^[A-Z0-9][A-Z0-9_\-]*$', prefix.strip()):
+    prefix = prefix.strip()
+    # Short code: no spaces, ≤25 chars (handles PARTNER-AS, NV-ASN, Internet_Binat, Tehila-AS…)
+    if ' ' not in prefix and 1 <= len(prefix) <= 25:
         return rest.strip().replace('_', ' ').strip()
     return name
 
@@ -112,6 +114,16 @@ def path_table(hubs: list[dict], target_asn: str):
         )
         return
 
+    # Trim trailing unreachable hops — after the last responsive hop they're just noise
+    last_real = max(
+        (i for i, h in enumerate(hubs) if h.get("host") not in ("???", None, "")),
+        default=-1,
+    )
+    trailing = 0
+    if last_real >= 0 and last_real < len(hubs) - 1:
+        trailing = len(hubs) - last_real - 1
+        hubs = hubs[:last_real + 1]
+
     table = Table(
         box=box.SIMPLE_HEAD,
         show_header=True,
@@ -165,6 +177,11 @@ def path_table(hubs: list[dict], target_asn: str):
         prev_asn = asn
 
     console.print(table)
+    if trailing:
+        console.print(
+            f"  [dim]  + {trailing} hop{'s' if trailing != 1 else ''} beyond "
+            f"— ICMP TTL-exceeded filtered[/dim]"
+        )
 
 
 def as_path_summary(hubs: list[dict]):
@@ -243,21 +260,23 @@ def throughput_and_rum(upload: dict, download: dict, rum: dict | None = None,
 
 
 def rum_only_panel(rum: dict, asn: str):
-    """Show RUM panel standalone when iperf3 was skipped."""
+    """Show compact RUM panel (3 lines) when throughput test was skipped."""
     dr = rum.get("date_range", "7d")
+    dl = _fmt_opt(rum.get("dl_mbps"), "Mbps")
+    ul = _fmt_opt(rum.get("ul_mbps"), "Mbps")
+    idle = _fmt_opt(rum.get("latency_idle"), "ms")
+    loaded = _fmt_opt(rum.get("latency_loaded"), "ms")
+
     lines = [
-        f"  [bold cyan]↓ Download:[/bold cyan]  {_fmt_opt(rum.get('dl_mbps'), 'Mbps')}",
-        f"  [bold green]↑ Upload:[/bold green]    {_fmt_opt(rum.get('ul_mbps'), 'Mbps')}",
-        f"  [dim]Latency idle:    {_fmt_opt(rum.get('latency_idle'), 'ms')}[/dim]",
-        f"  [dim]Latency loaded:  {_fmt_opt(rum.get('latency_loaded'), 'ms')}[/dim]",
-        f"  [dim]Jitter:          {_fmt_opt(rum.get('jitter'), 'ms')}[/dim]",
+        f"  [bold cyan]↓[/bold cyan] {dl}   [bold green]↑[/bold green] {ul}",
+        f"  [dim]idle {idle}   loaded {loaded}[/dim]",
     ]
     if rum.get("packet_loss") is not None:
-        lines.append(f"  [dim]Packet loss:     {rum['packet_loss']:.2f}%[/dim]")
+        lines.append(f"  [dim]loss {rum['packet_loss']:.2f}%[/dim]")
 
     console.print(
         Panel("\n".join(lines),
-              title=f"[bold]RUM · Cloudflare Radar · {asn} ({dr})[/bold]",
+              title=f"[bold]Cloudflare Radar · {asn} ({dr})[/bold]",
               border_style="magenta", expand=False)
     )
     console.print()
@@ -279,6 +298,63 @@ def baseline_panel(upload: dict, download: dict):
               title="[bold]Your baseline · speed.cloudflare.com[/bold]",
               border_style="blue", expand=False)
     )
+    console.print()
+
+
+def country_summary(code: str, results: list[dict]):
+    """Compact one-line-per-ISP comparison table shown after all per-ISP tests."""
+    if not results:
+        return
+
+    has_rum = any(r.get("rum") for r in results)
+
+    console.print()
+    console.rule(f" {code} summary ", style="bold cyan")
+    console.print()
+
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style="bold cyan",
+        padding=(0, 1),
+        expand=False,
+    )
+    table.add_column("ASN", min_width=9)
+    table.add_column("ISP", min_width=22)
+    table.add_column("Transit", min_width=9)
+    table.add_column("RTT", justify="right", min_width=8)
+    if has_rum:
+        table.add_column("↓ RUM", justify="right", min_width=9)
+        table.add_column("↑ RUM", justify="right", min_width=9)
+        table.add_column("Idle", justify="right", min_width=7)
+
+    for r in results:
+        asn  = r["asn"]
+        name = r["name"]
+        if len(name) > 28:
+            name = name[:27] + "…"
+
+        path  = r.get("as_path", [])
+        # Middle hops: strip source (first) and destination (last if it's the target ASN)
+        inner = path[1:-1] if (len(path) >= 2 and path[-1] == asn) else path[1:]
+        transit = Text(" → ".join(inner)) if inner else Text("—", style="dim")
+
+        rtt     = r.get("last_rtt_ms")
+        latency = fmt_latency(rtt) if rtt else Text("—", style="dim")
+
+        if has_rum:
+            rum     = r.get("rum") or {}
+            dl_val  = rum.get("dl_mbps")
+            ul_val  = rum.get("ul_mbps")
+            idle_val = rum.get("latency_idle")
+            dl   = Text(f"{dl_val:.0f} Mbps", style="cyan")  if dl_val  else Text("—", style="dim")
+            ul   = Text(f"{ul_val:.0f} Mbps", style="green") if ul_val  else Text("—", style="dim")
+            idle = Text(f"{idle_val:.0f} ms")                if idle_val else Text("—", style="dim")
+            table.add_row(asn, name, transit, latency, dl, ul, idle)
+        else:
+            table.add_row(asn, name, transit, latency)
+
+    console.print(table)
     console.print()
 
 

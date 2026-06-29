@@ -1,0 +1,8 @@
+checkpoints/
+.mcp-port
+memory.db
+memory/.migration-backup/
+sessions/
+.sync.lock
+sync-log.json
+chats/
