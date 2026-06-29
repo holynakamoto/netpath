@@ -6,6 +6,7 @@ This project uses [defract](https://defract.dev) for structured AI-assisted deve
 
 | Task | Stage | Status |
 |------|-------|--------|
+| Country AS-path visual + Binat RTT anomaly | scope | active |
 | netpath as a One-Shot Diagnostic Path CLI | release | completed |
 
 
