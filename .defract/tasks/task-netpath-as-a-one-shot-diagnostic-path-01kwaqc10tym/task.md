@@ -213,3 +213,19 @@ Four self-contained phases extend the existing trace-then-display pipeline witho
 - p95 column absent at width=79 and no other column wraps
 - Traceroute mode adds correct p50/p95/p99 keys to all three hub types
 - Full import chain clean
+
+## Phase 2: Bufferbloat Measurement
+
+### Files Changed
+- `src/netpath/cli.py` — added `import queue, re, subprocess, threading`; added `_parse_ping_avg(output)` (dual-regex: Linux rtt pattern then macOS round-trip pattern, returns float or None); added `_run_ping_probe(host, duration, result_q)` (daemon thread target; catches FileNotFoundError, PermissionError, TimeoutExpired; always puts a value into result_q); extended `_run_test()` result dict with `hubs` and `bufferbloat_ms` keys; stores `result['hubs'] = hubs` after trace; starts ping thread before `iperf_mod.run_bidirectional()`, joins with `timeout=duration+10`, reads loaded_rtt from queue, computes `bufferbloat_ms = round(loaded - idle, 1)` when both RTTs available; calls `display.bufferbloat_line()` after throughput panel; on RuntimeError joins with timeout=5 and discards ping result.
+- `src/netpath/display.py` — added `bufferbloat_line(idle_ms, loaded_ms)`: shows idle/loaded/delta with qualitative label (None dim / Moderate yellow / Severe bold-red); when loaded_ms is None shows "unavailable" and omits delta and label.
+
+### Verification Results
+- `_parse_ping_avg` Linux pattern (rtt min/avg/max/mdev): PASS
+- `_parse_ping_avg` macOS pattern (round-trip min/avg/max/stddev): PASS
+- `_parse_ping_avg` garbage input → None: PASS
+- `_run_ping_probe` returns valid float for localhost: PASS
+- `bufferbloat_line` Severe/Moderate/None label rendering: PASS
+- `bufferbloat_line` unavailable path: PASS
+- Full import chain clean, no new external dependencies: PASS
+
