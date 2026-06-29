@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 # netpath as a One-Shot Diagnostic Path CLI
@@ -199,3 +198,18 @@ Four self-contained phases extend the existing trace-then-display pipeline witho
 
 **Estimated effort:** Small
 
+## Implementation Notes
+
+## Phase 1: Latency Statistics Enrichment
+
+### Files Changed
+- `src/netpath/mtr.py` — added `_percentile(sorted_data, p)` (nearest-rank), `_enrich_percentiles(hub)` (formula-based for mtr mode); wired into `run()` after JSON parse; added exact percentile computation in `_parse_traceroute_output()` for all three branches (all-stars → None, no-RTT → None, normal → exact from sorted rtts list). Added `import math`.
+- `src/netpath/display.py` — added `show_p95 = console.width >= 90` gate in `path_table()`; conditionally adds p95 column (width=9) and appends the p95 cell to each row's list.
+
+### Verification Results
+- `_enrich_percentiles` with Loss%=100 returns None for all percentile fields
+- `_enrich_percentiles` with Avg=20 StDev=5 produces p95=28.23 (within 0.01 of 28.225)
+- p95 column present in path table at console width=100
+- p95 column absent at width=79 and no other column wraps
+- Traceroute mode adds correct p50/p95/p99 keys to all three hub types
+- Full import chain clean
