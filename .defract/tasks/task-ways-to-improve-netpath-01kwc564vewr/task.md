@@ -3,7 +3,7 @@ defract:
   id: task-ways-to-improve-netpath-01kwc564vewr
   type: improvement
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 2
   priority: normal
@@ -220,4 +220,35 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Added `dev` optional-dependencies group to `pyproject.toml` (`pytest>=8`, `ruff>=0.4`), enabling a single `pip install -e ".[dev]"` install step for contributors
+- Created a test suite (`tests/test_diagnosis.py`, `tests/test_mtr.py`) covering all verdict paths in `diagnose()` and all traceroute parser scenarios in `_parse_traceroute_output`/`_all_stars()` — 14 tests total
+- Added GitHub Actions CI workflow (`.github/workflows/ci.yml`) running the test matrix across Python 3.9, 3.10, 3.11, 3.12, and 3.13 on `ubuntu-latest`
+- Extracted `_measure()` from `_run_test()` in `cli.py` to cleanly separate all data collection (trace, RUM, throughput, diagnosis) from display rendering, with no `json_mode` branching in the measurement path
+- Wired exit codes into both `asn` and `country` subcommands: 0 for all-ok, 1 for worst severity warning, 2 for worst severity critical — making netpath usable in shell scripts and monitoring pipelines
+
+### Key decisions
+- Tests target only pure functions (`diagnosis.diagnose()` and `mtr._parse_traceroute_output`/`_all_stars`) to avoid subprocess/network mocking overhead
+- Exit code reflects worst verdict across all probes in a run so monitoring scripts get a single actionable result without parsing JSON output
+- `_measure()` returns internal `_`-prefixed keys (e.g. `_iperf_upload`, `_iperf_loaded_rtt`, `_trace_error`) alongside public keys so `_run_test()` can reconstruct display without re-running any measurement
+
+### Changes by phase
+- **Phase 1: Test suite and CI workflow** — Added `dev` extras to `pyproject.toml`; created `tests/__init__.py`, `tests/test_diagnosis.py` (6 tests), `tests/test_mtr.py` (8 tests); added `.github/workflows/ci.yml` with Python 3.9–3.13 matrix. All 14 tests pass from the start.
+- **Phase 2: Exit codes and measurement/display separation** — Extracted `_measure()` from `_run_test()` with `_SEVERITY_CODE`/`_worst_exit_code()` helpers; wired `typer.Exit(code)` into both `asn` and `country` subcommands. Skipped ASNs in `country` mode excluded from exit code calculation via absent `verdict` key. 14/14 tests pass, ruff clean.
+
+## Verification
+
+### Production Build
+PASS — `uv pip install -e ".[dev]"` exits 0; `netpath==0.1.0` installed from worktree.
+
+### Push
+PASS — branch `feature/task-ways-to-improve-netpath-01kwc564vewr` pushed to `origin` and tracking set.
+
+### Review Reference
+Approved 2026-06-30T15:42:25Z — 11/11 acceptance criteria passed, all 3 automated checks passed (install, pytest 14/14, ruff clean).
 
