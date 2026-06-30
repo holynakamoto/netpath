@@ -1,11 +1,11 @@
 {
   "id": "task-incomplete-paths-still-showing-in-za-01kwddfsahcm",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 1,
   "createdAt": "2026-06-30T23:23:04Z",
-  "updatedAt": "2026-06-30T23:28:33Z",
+  "updatedAt": "2026-06-30T23:40:21Z",
   "events": [
     {
       "base_branch": "main",
@@ -97,6 +97,161 @@
       "type": "stage_work_complete",
       "worktree_head": "c8540b0798453dd91ce18b14dec11b67901817b1",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-06-30T23:37:20Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-06-30T23:37:19Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "9032e35672c86404ae34a340b622dc03019206eb",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "c8540b0798453dd91ce18b14dec11b67901817b1",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T23:37:20Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-06-30T23:37:20Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-06-30T23:37:20Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T23:37:20Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwde9x220kaqzs9tydwvzgtt",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T23:37:20Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwddhmvs3tj4s5m624fmkv08",
+      "timed_out": false,
+      "timestamp": "2026-06-30T23:37:20Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting Phase 1: add RIPE Atlas probe lookup to get_test_ip_for_asn() in country.py",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T23:37:28Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Use RIPE Atlas probe IPs as traceroute targets",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-06-30T23:37:47Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-06-30T23:38:26Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-06-30T23:39:26Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "All 40 tests pass (7 country, 26 diagnosis, 7 mtr). ruff check passes on country.py and test_country.py.",
+      "failed": 0,
+      "passed": 40,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-06-30T23:39:37Z",
+      "type": "test_results"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-06-30T23:39:43Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 1 complete: Use RIPE Atlas probe IPs as traceroute targets",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T23:39:56Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/country.py",
+        "tests/test_country.py"
+      ],
+      "phase": 0,
+      "summary": "Added RIPE_ATLAS_PROBES constant, _get_atlas_probe_ip() helper, and prepended Atlas lookup to get_test_ip_for_asn() with prefix-based selection as fallback. Four new unit tests cover hit, miss, error, and null-address_v4 paths. All 40 tests pass, ruff clean.",
+      "timestamp": "2026-06-30T23:40:07Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `pytest tests/test_country.py -v` and confirm all 7 tests pass, including the four new Atlas tests."
+        },
+        {
+          "description": "Run `ruff check src/netpath/country.py tests/test_country.py` and confirm no errors are reported."
+        },
+        {
+          "description": "Run `netpath country ZA --top 5` and observe whether previously-stalling ASNs (often AS3741, AS36937, AS328232) now show a complete trace reaching the destination ASN rather than stalling in transit."
+        },
+        {
+          "description": "Check the output for any 'incomplete path' entries and verify the count is lower than before the change — ideally zero for ZA eyeball ISPs with registered Atlas probes."
+        },
+        {
+          "description": "Run `netpath country ZA --top 5` a second time and confirm no exceptions are raised and the tool exits cleanly (exit code 0 for healthy paths, non-zero for degraded — not an unhandled error)."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Use RIPE Atlas probe IPs as traceroute targets",
+      "timestamp": "2026-06-30T23:40:16Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Use RIPE Atlas probe IPs as traceroute targets",
+      "server_phase": 0,
+      "timestamp": "2026-06-30T23:40:21Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Use RIPE Atlas probe IPs as traceroute targets",
+      "timestamp": "2026-06-30T23:40:21Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "9032e35672c86404ae34a340b622dc03019206eb",
+      "worktree_status_digest": "37f5580e071dea87b08d0ab6fe09c3706fdc74f823e6d9796dabb9291038b408"
     }
   ],
   "needsArchitecture": false,
@@ -113,28 +268,36 @@
     "classifiedBy": "scope-agent",
     "rationale": "Bug fix in country-mode IP selection — no UI changes (skip design), well-contained to country.py and its test file (skip architecture). The Atlas probe lookup adds one helper function and updates one existing function."
   },
+  "stageApprovals": {
+    "scope": "2026-06-30T23:37:19Z"
+  },
+  "stageContent": {
+    "implementation": "## Phase 1: Use RIPE Atlas probe IPs as traceroute targets\n\n### Changes\n\n**`src/netpath/country.py`**\n- Added `RIPE_ATLAS_PROBES = \"https://atlas.ripe.net/api/v2/probes/\"` constant alongside the existing RIPE constants.\n- Added `_get_atlas_probe_ip(asn: str) -> str | None` — queries the Atlas probes API with `status=1`, `sort=id`, `page_size=1`; returns the first probe's `address_v4` (skipping null); silently returns `None` on `requests.RequestException` or non-200 (via `raise_for_status()`).\n- Updated `get_test_ip_for_asn()` to call `_get_atlas_probe_ip()` first and return early if it yields an IP; falls through to the existing RIPE-prefix logic otherwise. The prefix logic is unchanged.\n\n**`tests/test_country.py`**\n- Added `test_get_test_ip_uses_atlas_probe_when_available` — Atlas hit path returns probe's `address_v4`.\n- Added `test_get_test_ip_falls_through_to_prefix_when_atlas_empty` — empty `results` list triggers prefix fallback.\n- Added `test_get_test_ip_falls_through_to_prefix_on_atlas_error` — `RequestException` triggers prefix fallback without raising.\n- Added `test_get_test_ip_skips_null_address_v4` — probe with `address_v4: null` is skipped; prefix fallback is used.\n- Existing tests unchanged.\n\n### Verification\n- `pytest`: 40/40 passed (7 new country tests + 33 pre-existing).\n- `ruff check src/netpath/country.py tests/test_country.py`: no errors.\n"
+  },
   "stages": {
-    "implementation": {
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T23:37:19Z",
+      "startedAt": "2026-06-30T23:24:05Z"
+    },
+    "architecture": {
+      "status": "skipped"
+    },
+    "release": {
       "status": "not_started"
     },
     "review": {
       "status": "not_started"
     },
-    "release": {
-      "status": "not_started"
-    },
     "design": {
       "status": "skipped"
     },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-06-30T23:24:05Z"
-    },
-    "architecture": {
-      "status": "skipped"
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T23:37:20Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-incomplete-paths-still-showing-in-za-01kwddfsahcm",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-30T23:24:05Z"
+  "worktreeLastSyncedAt": "2026-06-30T23:37:20Z"
 }

@@ -3,7 +3,7 @@ defract:
   id: task-incomplete-paths-still-showing-in-za-01kwddfsahcm
   type: improvement
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
   total_phases: 1
   priority: normal
@@ -142,3 +142,26 @@ def _get_atlas_probe_ip(asn: str) -> str | None:
 `asn.lstrip("ASas")` strips the `AS` prefix the same way the existing RIPE calls do. The `sort=id` ensures a deterministic result across calls. `page_size=1` avoids fetching unnecessary data.
 
 Mocking in tests: `unittest.mock.patch("netpath.country.requests.get")` — same pattern as any requests mock.
+
+## Implementation Notes
+
+## Phase 1: Use RIPE Atlas probe IPs as traceroute targets
+
+### Changes
+
+**`src/netpath/country.py`**
+- Added `RIPE_ATLAS_PROBES = "https://atlas.ripe.net/api/v2/probes/"` constant alongside the existing RIPE constants.
+- Added `_get_atlas_probe_ip(asn: str) -> str | None` — queries the Atlas probes API with `status=1`, `sort=id`, `page_size=1`; returns the first probe's `address_v4` (skipping null); silently returns `None` on `requests.RequestException` or non-200 (via `raise_for_status()`).
+- Updated `get_test_ip_for_asn()` to call `_get_atlas_probe_ip()` first and return early if it yields an IP; falls through to the existing RIPE-prefix logic otherwise. The prefix logic is unchanged.
+
+**`tests/test_country.py`**
+- Added `test_get_test_ip_uses_atlas_probe_when_available` — Atlas hit path returns probe's `address_v4`.
+- Added `test_get_test_ip_falls_through_to_prefix_when_atlas_empty` — empty `results` list triggers prefix fallback.
+- Added `test_get_test_ip_falls_through_to_prefix_on_atlas_error` — `RequestException` triggers prefix fallback without raising.
+- Added `test_get_test_ip_skips_null_address_v4` — probe with `address_v4: null` is skipped; prefix fallback is used.
+- Existing tests unchanged.
+
+### Verification
+- `pytest`: 40/40 passed (7 new country tests + 33 pre-existing).
+- `ruff check src/netpath/country.py tests/test_country.py`: no errors.
+
