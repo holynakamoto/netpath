@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 3,
   "createdAt": "2026-06-30T18:57:50Z",
-  "updatedAt": "2026-06-30T18:58:41Z",
+  "updatedAt": "2026-06-30T19:12:57Z",
   "events": [
     {
       "base_branch": "main",
@@ -34,12 +34,121 @@
       "type": "stage_work_complete",
       "worktree_head": "b4d96836cf33342307922b94d2814b61db72b334",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "change_summary": "Expand scope to full swiss army knife vision: all CCIE-grade metrics plus path accuracy fixes",
+      "revision": 2,
+      "timestamp": "2026-06-30T19:04:55Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Revised intent check: expanded to full swiss army knife vision covering all CCIE-grade metrics (ECMP tracing, jitter, PMTU, TCP/TLS latency, IPv6, loss confidence, route stability, IXP classification) plus the two accuracy bug fixes and path completion improvements.",
+      "timestamp": "2026-06-30T19:05:00Z",
+      "type": "stage_work_complete",
+      "worktree_head": "b4d96836cf33342307922b94d2814b61db72b334",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T19:05:16Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwcyqqt76yh1n32x1p4ygwr8",
+      "stage": "scope",
+      "timestamp": "2026-06-30T19:05:16Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Full scope: 16 requirements across 3 phases covering bug fixes, smarter probing, and 9 new CCIE-grade path metrics",
+      "revision": 2,
+      "timestamp": "2026-06-30T19:12:12Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "backend-feature: CLI tool — all display changes are terminal output additions following established Rich patterns, no design-stage thinking required. Architecture included: task touches 5+ existing modules (cli.py, diagnosis.py, display.py, mtr.py, country.py) and introduces 2 new modules (pmtu.py, ixp.py), warranting a dedicated architecture pass before implementation. Tier full: 16 requirements across 10+ files, new subsystems, cross-cutting changes.",
+      "stages": [
+        "scope",
+        "architecture",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "backend-feature",
+      "tier": "full",
+      "timestamp": "2026-06-30T19:12:23Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [
+        "Flag suspect hops in mtr.py during parse and let diagnosis.py trust the flag",
+        "Add a separate rate_limit_detector module",
+        "Suppress the verdict only when path_complete=True (i.e., destination was reached)"
+      ],
+      "decision": "ICMP rate-limit false positive fixed via forward-scan in diagnosis.py, not by adding a per-hop flag in mtr.py",
+      "rationale": "diagnosis.py is a pure function with no I/O — the fix belongs there. Adding a rate_limited flag to the mtr hub dict would couple transport to diagnosis concerns. The forward-scan (check whether all subsequent responsive hops have Loss% ≤ 1.0 after finding a candidate mid-path loss hop) is a one-pass O(n) addition that keeps diagnosis.py self-contained.",
+      "timestamp": "2026-06-30T19:12:27Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "scapy for PMTU probing (would give raw ICMP but requires root and adds a heavy dep)",
+        "httpx for PeeringDB fetch (requests already present)",
+        "cryptography library for TLS introspection (standard ssl sufficient for handshake timing)"
+      ],
+      "decision": "No new PyPI runtime dependencies in any phase",
+      "rationale": "PMTU probing uses subprocess ping (already used in cli.py), TCP/TLS latency uses standard socket+ssl modules, IXP classification uses requests (already a runtime dep). Keeping the dependency surface flat reduces install friction and maintains the tool's uvx-installable zero-config nature.",
+      "timestamp": "2026-06-30T19:12:37Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Cache to ~/.netpath/ixp_prefixes.json with TTL",
+        "Fetch on every classify_hop() call (too slow for country sweeps)",
+        "Bundle a static IXP prefix list in the package (would become stale)"
+      ],
+      "decision": "IXP prefix data cached in process memory, not on disk",
+      "rationale": "netpath is a CLI tool that exits after each run. Disk caching would require a cache invalidation strategy and a writable path. In-process caching is sufficient: country mode sweeps call classify_hop() many times within a single run, so one fetch per process amortizes the cost without adding persistence complexity.",
+      "timestamp": "2026-06-30T19:12:41Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2: 16 requirements across 3 phases (bug fixes → smarter probing + calibrated metrics → advanced path analysis), 14 acceptance criteria, 3 decisions logged. Workflow: backend-feature, full tier, architecture stage included before implementation.",
+      "timestamp": "2026-06-30T19:12:57Z",
+      "type": "stage_work_complete",
+      "worktree_head": "b8f37faca1ca686f7bd26af0ad550944d396187d",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": true,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "full",
+    "template": "backend-feature",
+    "stages": [
+      "scope",
+      "architecture",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "backend-feature: CLI tool — all display changes are terminal output additions following established Rich patterns, no design-stage thinking required. Architecture included: task touches 5+ existing modules (cli.py, diagnosis.py, display.py, mtr.py, country.py) and introduces 2 new modules (pmtu.py, ixp.py), warranting a dedicated architecture pass before implementation. Tier full: 16 requirements across 10+ files, new subsystems, cross-cutting changes."
+  },
   "stages": {
+    "design": {
+      "status": "skipped"
+    },
     "scope": {
       "status": "awaiting_approval",
-      "startedAt": "2026-06-30T18:57:51Z"
+      "startedAt": "2026-06-30T19:05:16Z"
+    },
+    "implementation": {
+      "status": "not_started"
     },
     "review": {
       "status": "not_started"
@@ -49,14 +158,9 @@
     },
     "release": {
       "status": "not_started"
-    },
-    "design": {
-      "status": "not_started"
-    },
-    "implementation": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-fixing-incomplete-paths-richer-path-01kwcya418n5",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-06-30T19:05:16Z"
 }
