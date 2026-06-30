@@ -3,7 +3,7 @@ defract:
   id: task-globe-as-path-latency-viz-pip-uv-install-01kwb0sw8gr0
   type: improvement
   status: active
-  stage: release
+  stage: implementation
   phase: 0
   total_phases: 2
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 ## Story Brief
 
