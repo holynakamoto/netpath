@@ -1,5 +1,4 @@
 import json
-import os
 import queue
 import re
 import subprocess
@@ -29,6 +28,12 @@ _NO_TPUT = typer.Option(False, "--no-throughput",   help="Skip throughput test")
 _CF_TOK  = typer.Option(None,  "--cf-token",
                          envvar="NETPATH_CF_TOKEN",
                          help="Cloudflare API token with radar:read (or set NETPATH_CF_TOKEN)")
+
+_SEVERITY_CODE = {"ok": 0, "warning": 1, "critical": 2}
+
+
+def _worst_exit_code(verdicts: list[dict]) -> int:
+    return max((_SEVERITY_CODE.get(v.get("severity", "ok"), 0) for v in verdicts), default=0)
 
 
 # ── internal helpers ──────────────────────────────────────────────────────────
@@ -149,152 +154,175 @@ def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
         return None
 
 
-def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
-              cycles: int, duration: int, skip_throughput: bool,
-              cf_token: str | None = None, show_server_heading: bool = True,
-              json_mode: bool = False) -> dict:
-    """Run trace + optional throughput test. Returns enriched result dict."""
-    result: dict = {"as_path": [], "last_rtt_ms": None, "rum": None,
-                    "hubs": [], "bufferbloat_ms": None,
-                    "download_mbps": None, "upload_mbps": None, "verdict": {},
-                    "path_complete": False, "verified_rtt_ms": None,
-                    "entry_transit_asn": None}
+def _measure(host: str, port: int, target_asn: str,
+             cycles: int, duration: int, skip_throughput: bool,
+             cf_token: str | None = None) -> dict:
+    """Collect all measurement data. Returns enriched result dict.
+    No display calls, no json_mode parameter.
+    Internal _-prefixed keys carry state needed by _run_test() for display.
+    """
+    result: dict = {
+        "as_path": [], "last_rtt_ms": None, "rum": None,
+        "hubs": [], "bufferbloat_ms": None,
+        "download_mbps": None, "upload_mbps": None, "verdict": {},
+        "path_complete": False, "verified_rtt_ms": None,
+        "entry_transit_asn": None,
+        "_trace_method": None, "_trace_error": None,
+        "_iperf_upload": None, "_iperf_download": None,
+        "_iperf_idle_rtt": None, "_iperf_loaded_rtt": None, "_iperf_error": None,
+        "_speedtest_upload": None, "_speedtest_download": None, "_speedtest_error": None,
+    }
 
-    if show_server_heading and not json_mode:
-        display.server_heading(server_meta)
-
-    if not json_mode:
-        display.console.print(f"  [dim]Tracing path ({cycles} probes)…[/dim]")
     try:
-        if not json_mode:
-            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                          console=display.console, transient=True) as p:
-                p.add_task(f"probing → {host}", total=None)
-                hubs, method = _trace(host, cycles)
-        else:
-            hubs, method = _trace(host, cycles)
+        hubs, method = _trace(host, cycles)
+        result["_trace_method"] = method
     except RuntimeError as e:
-        if not json_mode:
-            display.error(f"trace: {e}")
+        result["_trace_error"] = str(e)
         return result
 
-    if method == "traceroute" and not json_mode:
-        display.console.print("  [dim](mtr unavailable — using traceroute + Cymru ASN lookup)[/dim]\n")
-
-    if not json_mode:
-        display.path_table(hubs, target_asn)
-        display.as_path_summary(hubs)
-
     result["as_path"] = _extract_as_path(hubs)
-    result["hubs"]    = hubs
+    result["hubs"] = hubs
 
-    # last_rtt_ms: last responsive hop regardless of ASN (backward compat for asn subcommand)
     for _h in reversed(hubs):
         if _h.get("host") not in ("???", None, "") and _h.get("Avg", 0) > 0:
             result["last_rtt_ms"] = _h["Avg"]
             break
 
     classification = _classify_path(hubs, target_asn)
-    result["path_complete"]      = classification["complete"]
-    result["verified_rtt_ms"]    = classification["rtt_ms"]
-    result["entry_transit_asn"]  = classification["entry_transit_asn"]
+    result["path_complete"] = classification["complete"]
+    result["verified_rtt_ms"] = classification["rtt_ms"]
+    result["entry_transit_asn"] = classification["entry_transit_asn"]
 
     rum_data = _fetch_rum(target_asn, cf_token)
     result["rum"] = rum_data
 
     if skip_throughput:
-        if rum_data and not json_mode:
-            display.rum_only_panel(rum_data, target_asn)
-        verdict = diagnose(result)
-        result["verdict"] = verdict
-        if not json_mode:
-            display.verdict_panel(verdict)
+        result["verdict"] = diagnose(result)
         return result
 
-    # iperf3 measures the actual path from this host to the server in target_asn.
-    # Fall back to HTTP speedtest only if iperf3 is unavailable (that measures
-    # user → Cloudflare, not user → target ASN).
     if iperf_mod.available():
-        if not json_mode:
-            display.console.print(
-                f"  [dim]Measuring throughput via iperf3 to {host}:{port} ({duration}s each direction)…[/dim]"
-            )
         idle_rtt = result["last_rtt_ms"]
+        result["_iperf_idle_rtt"] = idle_rtt
         ping_q: queue.Queue = queue.Queue()
         ping_thread = threading.Thread(
             target=_run_ping_probe, args=(host, duration, ping_q), daemon=True
         )
         ping_thread.start()
         try:
-            if not json_mode:
-                with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                              console=display.console, transient=True) as p:
-                    p.add_task(f"iperf3 → {host} ↑↓", total=None)
-                    upload, download = iperf_mod.run_bidirectional(host, port, duration)
-            else:
-                upload, download = iperf_mod.run_bidirectional(host, port, duration)
+            upload, download = iperf_mod.run_bidirectional(host, port, duration)
             ping_thread.join(timeout=duration + 10)
             try:
                 loaded_rtt = ping_q.get_nowait()
             except queue.Empty:
                 loaded_rtt = None
+            result["_iperf_loaded_rtt"] = loaded_rtt
             if idle_rtt is not None and loaded_rtt is not None:
                 result["bufferbloat_ms"] = round(loaded_rtt - idle_rtt, 1)
             result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
-            result["upload_mbps"]   = upload.get("bps", 0) / 1e6
-            verdict = diagnose(result)
-            result["verdict"] = verdict
-            if not json_mode:
-                display.throughput_and_rum(upload, download, rum=rum_data,
-                                           server=f"{host} (iperf3)")
-                display.bufferbloat_line(idle_rtt, loaded_rtt)
-                display.verdict_panel(verdict)
-            return result
+            result["upload_mbps"] = upload.get("bps", 0) / 1e6
+            result["_iperf_upload"] = upload
+            result["_iperf_download"] = download
         except RuntimeError as e:
             ping_thread.join(timeout=5)
-            if not json_mode:
-                display.warn(f"iperf3 to {host}:{port} failed: {e}")
-                if rum_data:
-                    display.rum_only_panel(rum_data, target_asn)
-            verdict = diagnose(result)
-            result["verdict"] = verdict
-            if not json_mode:
-                display.verdict_panel(verdict)
-            return result
+            result["_iperf_error"] = str(e)
+        result["verdict"] = diagnose(result)
+        return result
 
     # iperf3 not installed — fall back to HTTP speedtest as a baseline.
     # This measures user → Cloudflare, NOT user → target ASN.
-    if not json_mode:
-        display.console.print(
-            f"  [dim]iperf3 not installed — showing Cloudflare baseline "
-            f"(install iperf3 for cross-ASN measurement)…[/dim]"
-        )
     try:
-        if not json_mode:
-            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                          console=display.console, transient=True) as p:
-                p.add_task("speed.cloudflare.com ↑↓", total=None)
-                st_result = speedtest.run(duration=duration)
-        else:
-            st_result = speedtest.run(duration=duration)
-
+        st_result = speedtest.run(duration=duration)
         upload, download = speedtest.extract_stats(st_result)
         result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
-        result["upload_mbps"]   = upload.get("bps", 0) / 1e6
-        if not json_mode:
-            display.throughput_and_rum(upload, download, rum=rum_data,
-                                       server="speed.cloudflare.com (baseline — not cross-ASN)")
-
+        result["upload_mbps"] = upload.get("bps", 0) / 1e6
+        result["_speedtest_upload"] = upload
+        result["_speedtest_download"] = download
     except RuntimeError as e:
-        if not json_mode:
-            display.warn(f"speedtest: {e}")
-            if rum_data:
-                display.rum_only_panel(rum_data, target_asn)
+        result["_speedtest_error"] = str(e)
 
-    verdict = diagnose(result)
-    result["verdict"] = verdict
+    result["verdict"] = diagnose(result)
+    return result
+
+
+def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
+              cycles: int, duration: int, skip_throughput: bool,
+              cf_token: str | None = None, show_server_heading: bool = True,
+              json_mode: bool = False) -> dict:
+    """Run trace + optional throughput test. Returns enriched result dict."""
+    if show_server_heading and not json_mode:
+        display.server_heading(server_meta)
+
     if not json_mode:
-        display.verdict_panel(verdict)
+        display.console.print(f"  [dim]Tracing path ({cycles} probes)…[/dim]")
+        if not skip_throughput:
+            if iperf_mod.available():
+                display.console.print(
+                    f"  [dim]Measuring throughput via iperf3 to {host}:{port} ({duration}s each direction)…[/dim]"
+                )
+            else:
+                display.console.print(
+                    "  [dim]iperf3 not installed — showing Cloudflare baseline "
+                    "(install iperf3 for cross-ASN measurement)…[/dim]"
+                )
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                      console=display.console, transient=True) as p:
+            p.add_task(f"probing → {host}", total=None)
+            result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token)
+    else:
+        result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token)
+
+    if result.get("_trace_error"):
+        if not json_mode:
+            display.error(f"trace: {result['_trace_error']}")
+        return result
+
+    if result.get("_trace_method") == "traceroute" and not json_mode:
+        display.console.print("  [dim](mtr unavailable — using traceroute + Cymru ASN lookup)[/dim]\n")
+
+    if not json_mode:
+        display.path_table(result["hubs"], target_asn)
+        display.as_path_summary(result["hubs"])
+
+    rum_data = result.get("rum")
+
+    if skip_throughput:
+        if rum_data and not json_mode:
+            display.rum_only_panel(rum_data, target_asn)
+        if not json_mode:
+            display.verdict_panel(result["verdict"])
+        return result
+
+    if iperf_mod.available():
+        if result.get("_iperf_download") is not None:
+            if not json_mode:
+                display.throughput_and_rum(
+                    result["_iperf_upload"], result["_iperf_download"],
+                    rum=rum_data, server=f"{host} (iperf3)"
+                )
+                display.bufferbloat_line(result.get("_iperf_idle_rtt"), result.get("_iperf_loaded_rtt"))
+                display.verdict_panel(result["verdict"])
+        else:
+            if not json_mode:
+                display.warn(f"iperf3 to {host}:{port} failed: {result.get('_iperf_error', 'unknown error')}")
+                if rum_data:
+                    display.rum_only_panel(rum_data, target_asn)
+                display.verdict_panel(result["verdict"])
+        return result
+
+    # iperf3 not installed path
+    if result.get("_speedtest_download") is not None:
+        if not json_mode:
+            display.throughput_and_rum(
+                result["_speedtest_upload"], result["_speedtest_download"],
+                rum=rum_data, server="speed.cloudflare.com (baseline — not cross-ASN)"
+            )
+    elif result.get("_speedtest_error") and not json_mode:
+        display.warn(f"speedtest: {result['_speedtest_error']}")
+        if rum_data:
+            display.rum_only_panel(rum_data, target_asn)
+
+    if not json_mode:
+        display.verdict_panel(result["verdict"])
     return result
 
 
@@ -382,8 +410,12 @@ def asn(
             "verdict":        result.get("verdict", {}),
         }
         print(json.dumps(output, indent=2))
+        code = _worst_exit_code([result.get("verdict", {})])
+        if code:
+            raise typer.Exit(code)
     else:
         last_hubs: list[dict] = []
+        verdicts: list[dict] = []
         for server in found:
             r = _run_test(
                 host=server["HOST"], port=server["port"],
@@ -392,8 +424,13 @@ def asn(
                 skip_throughput=skip_throughput, cf_token=cf_token,
             )
             last_hubs = r["hubs"]
+            if r.get("verdict"):
+                verdicts.append(r["verdict"])
         if globe and last_hubs:
             globe_mod.render({asn_norm: last_hubs})
+        code = _worst_exit_code(verdicts)
+        if code:
+            raise typer.Exit(code)
 
 
 # ── country subcommand ────────────────────────────────────────────────────────
@@ -520,6 +557,11 @@ def country(
     display.country_summary(code, summary_rows)
     if globe and hubs_for_globe:
         globe_mod.render(hubs_for_globe)
+
+    verdicts = [row["verdict"] for row in summary_rows if row.get("verdict")]
+    exit_code = _worst_exit_code(verdicts)
+    if exit_code:
+        raise typer.Exit(exit_code)
 
 
 def run():
