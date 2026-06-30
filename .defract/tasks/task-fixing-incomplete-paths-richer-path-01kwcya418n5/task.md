@@ -261,3 +261,22 @@ Three phases of work tighten netpath's accuracy and add diagnostic depth. Phase 
 
 **Test results:** 22/22 passed, ruff clean.
 
+## Phase 3: Advanced path analysis
+
+**Status:** Complete
+
+**Files created:**
+- `src/netpath/pmtu.py` — `probe(host)` runs system ping at 1472-byte and 64-byte ICMP payload sizes. If large fails and small succeeds, returns `{"blackhole": True, "mtu_floor_bytes": 64}`. Returns `{"blackhole": False, "mtu_floor_bytes": None}` gracefully on any subprocess or OS error.
+- `src/netpath/latency.py` — `measure_tcp_connect(host, port=443, timeout=5.0)` times SYN→SYN-ACK via `socket.create_connection()`; `measure_tls_handshake(host, port=443, timeout=5.0)` wraps with `ssl.create_default_context().wrap_socket()`. Both return float ms or None; both catch `ConnectionRefusedError`, `ssl.SSLError`, `OSError`.
+- `src/netpath/ixp.py` — `classify_hop(ip)` returns `"ixp"` or `"transit"`. `_load_ixp_prefixes()` fetches PeeringDB IXP prefix list on first call and caches in module-level list; returns silently on fetch failure.
+
+**Files modified:**
+- `src/netpath/mtr.py` — `run()` gains `passes: int = 1`; when `passes > 1`, runs mtr sequentially and returns `list[list[dict]]`. New `_compare_as_paths(all_passes)` computes `ecmp_paths` (distinct AS sequences) and `path_changes` (consecutive-pass sequence differences).
+- `src/netpath/diagnosis.py` — Added `TCP_LATENCY_WARNING_MS = 200.0`, `TLS_LATENCY_WARNING_MS = 500.0` constants. Checks (6)–(9): PMTU Black-hole critical, Route Flapping warning, TCP Latency warning, TLS Latency warning.
+- `src/netpath/display.py` — Refactored `path_table()` into `_build_hub_table()` (returns a Table) + `path_table()` (prints it). `_build_hub_table()` adds a "Type" column per hop: "dest" (green) for target-ASN hops, "IXP" (blue) or "transit" (dim) via `ixp.classify_hop()`. New `dual_stack_columns(hubs_v4, hubs_v6, target_asn)` wraps two `_build_hub_table()` results in Panels and displays side-by-side via Rich Columns.
+- `src/netpath/cli.py` — Added `import socket` and `from netpath import latency as latency_mod, pmtu as pmtu_mod`. `_measure()` gains `ecmp_passes: int = 1` and `compare_v6: bool = False`. Multi-pass ECMP branch calls `mtr.run(passes=N)` and `mtr._compare_as_paths()`; stores `ecmp_paths` and `path_changes`. Dual-stack branch resolves IPv6 via `socket.getaddrinfo(AF_INET6)`, runs v4/v6 traces in parallel threads, stores `hubs_v4` and `hubs_v6`. `_measure()` always calls `pmtu_mod.probe()` and `latency_mod.measure_tcp_connect/measure_tls_handshake()`. `asn` subcommand gains `--ecmp-passes` and `--compare-v6` flags. JSON output adds `tcp_connect_ms`, `tls_handshake_ms`, `pmtu`, `ecmp_paths`, `path_changes`.
+- `tests/test_diagnosis.py` — Added 8 new Phase 3 tests: `test_pmtu_blackhole_triggers_critical`, `test_pmtu_no_blackhole_is_healthy`, `test_route_flapping_warning`, `test_route_flapping_zero_changes_is_healthy`, `test_tcp_latency_warning`, `test_tcp_latency_below_threshold_is_healthy`, `test_tls_latency_warning`, `test_tls_latency_below_threshold_is_healthy`.
+- `tests/test_mtr.py` — Added 6 new Phase 3 tests: `test_compare_as_paths_ecmp_two_distinct_paths`, `test_compare_as_paths_identical_passes`, `test_compare_as_paths_empty`, `test_pmtu_blackhole_large_fails_small_succeeds`, `test_pmtu_all_probes_fail_no_blackhole`, `test_pmtu_subprocess_raises_no_exception`.
+
+**Test results:** 36/36 passed, ruff clean.
+

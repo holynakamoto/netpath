@@ -5,7 +5,7 @@
   "phase": 2,
   "totalPhases": 3,
   "createdAt": "2026-06-30T18:57:50Z",
-  "updatedAt": "2026-06-30T21:09:32Z",
+  "updatedAt": "2026-06-30T21:12:05Z",
   "events": [
     {
       "base_branch": "main",
@@ -646,6 +646,114 @@
       "phase": 3,
       "timestamp": "2026-06-30T21:09:32Z",
       "type": "progress_report"
+    },
+    {
+      "details": "36 passed (14 diagnosis including 8 new Phase 3 tests, 11 mtr including 6 new Phase 3 tests, 3 country). ruff clean. New modules: pmtu.py, latency.py, ixp.py. Modified: mtr.py (passes param + _compare_as_paths), diagnosis.py (PMTU/TCP/TLS/route-flapping signals), display.py (IXP Type column + dual_stack_columns), cli.py (ecmp-passes, compare-v6 flags, pmtu/latency integration).",
+      "failed": 0,
+      "passed": 36,
+      "phase": 2,
+      "skipped": 0,
+      "timestamp": "2026-06-30T21:09:43Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Add classify_hop(ip, target_asn=None) with optional target_asn — breaks stated API",
+        "Have ixp.py import from cli.py to get target_asn — circular import"
+      ],
+      "decision": "Implementation: classify_hop() returns 'ixp' or 'transit' only; path_table determines 'dest' label by comparing hub ASN to target_asn independently",
+      "phase": 3,
+      "rationale": "classify_hop(ip: str) only receives an IP address — it has no context to determine which ASN is the 'destination'. Destination detection requires knowing target_asn, which path_table already receives. Folding destination into ixp.py would require a second parameter, breaking the specified API. The column shows all three values (IXP/transit/dest) via path_table's existing target_asn logic.",
+      "timestamp": "2026-06-30T21:09:49Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Gate pmtu/latency behind skip_throughput=False — would suppress them in country mode where skip_throughput is always True"
+      ],
+      "decision": "Implementation: pmtu/latency probes always run (even when skip_throughput=True) since they are path metrics, not throughput metrics",
+      "phase": 3,
+      "rationale": "PMTU and TCP/TLS latency are application-layer path properties independent of throughput testing. Running them unconditionally ensures --no-throughput still gives full diagnostic coverage for these signals without conflating path quality with throughput test availability.",
+      "timestamp": "2026-06-30T21:09:58Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 3 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 3,
+      "timestamp": "2026-06-30T21:10:03Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 3 complete: Advanced path analysis",
+      "revision": 3,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T21:10:51Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/pmtu.py",
+        "src/netpath/latency.py",
+        "src/netpath/ixp.py",
+        "src/netpath/mtr.py",
+        "src/netpath/diagnosis.py",
+        "src/netpath/display.py",
+        "src/netpath/cli.py",
+        "tests/test_diagnosis.py",
+        "tests/test_mtr.py"
+      ],
+      "phase": 2,
+      "summary": "Three new modules (pmtu.py, latency.py, ixp.py), mtr multi-pass ECMP tracing, four new diagnosis signals (PMTU Black-hole critical, Route Flapping, TCP Latency, TLS Latency warnings), IXP Type column in path_table, dual-stack side-by-side columns for --compare-v6, --ecmp-passes and --compare-v6 CLI flags, new fields in JSON output. 36/36 tests pass, ruff clean.",
+      "timestamp": "2026-06-30T21:11:27Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `uv run python -m pytest tests/ -v` and confirm all 36 tests pass with no failures."
+        },
+        {
+          "description": "Run `uv run python -m ruff check .` and confirm it exits with `All checks passed!`."
+        },
+        {
+          "description": "Run `uv run python -m pytest tests/test_mtr.py::test_compare_as_paths_ecmp_two_distinct_paths tests/test_mtr.py::test_pmtu_blackhole_large_fails_small_succeeds -v` and confirm both pass."
+        },
+        {
+          "description": "Run `uv run python -m pytest tests/test_diagnosis.py::test_pmtu_blackhole_triggers_critical tests/test_diagnosis.py::test_route_flapping_warning tests/test_diagnosis.py::test_tcp_latency_warning tests/test_diagnosis.py::test_tls_latency_warning -v` and confirm all four pass."
+        },
+        {
+          "description": "Run `netpath asn AS15169 --json --no-throughput` and confirm the JSON output includes `tcp_connect_ms`, `tls_handshake_ms`, `pmtu`, `ecmp_paths`, and `path_changes` fields. Example: `netpath asn AS15169 --json --no-throughput | python3 -c \"import json,sys; d=json.load(sys.stdin); print([k for k in ['tcp_connect_ms','tls_handshake_ms','pmtu','ecmp_paths','path_changes'] if k in d])\"`"
+        },
+        {
+          "description": "Run `netpath asn AS15169 --no-throughput` and confirm the path table shows a `Type` column with `dest`, `transit`, or `IXP` labels per responsive hop. (Requires mtr and network access.)"
+        },
+        {
+          "description": "Run `netpath asn AS15169 --compare-v6 --no-throughput` and confirm the output shows either two path tables side-by-side (IPv4 and IPv6 columns) or a yellow warning that IPv6 resolution failed followed by the IPv4 table only. (Requires mtr and network access.)"
+        },
+        {
+          "description": "Run `netpath asn AS15169 --ecmp-passes 2 --no-throughput` and confirm it completes without error. If mtr is available and the path is ECMP, check that `ecmp_paths` in `--json` output reflects multiple paths detected."
+        }
+      ],
+      "phase": 2,
+      "phase_title": "Advanced path analysis",
+      "timestamp": "2026-06-30T21:11:42Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 3,
+      "phase_title": "Advanced path analysis",
+      "server_phase": 2,
+      "timestamp": "2026-06-30T21:12:05Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 2,
+      "phase_title": "Advanced path analysis",
+      "timestamp": "2026-06-30T21:12:05Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "2e984c14fa03fa9c5626a294fe3c4a04d788d0cc",
+      "worktree_status_digest": "4aa2bb26c95908ab7595d035e30f379200f0d86da1f920fcebe2667db5a14147"
     }
   ],
   "needsArchitecture": true,
@@ -669,7 +777,7 @@
   },
   "stageContent": {
     "architecture": "### Architecture Summary\n\nThree phases of work tighten netpath's accuracy and add diagnostic depth. Phase 1 stops false alarms from transit hops that rate-limit ICMP probes, and makes incomplete-path rows in country sweeps show where the trace actually stalled — the transit ASN, hop number, and last measured RTT — instead of a flat warning. Phase 2 makes country sweeps reach more destinations by probing over TCP-443 first (where transit networks often pass traffic that blocks UDP probes), choosing test IPs from the most-specific announced prefix, and calibrating loss alarms to the actual number of packets measured rather than a fixed 1% threshold for every run. Phase 3 adds six advanced diagnostics built as standalone modules: PMTU black-hole detection (finding paths where large packets are silently dropped), TCP and TLS application latency alongside ICMP RTT, ECMP path tracing (running multiple passes to detect load-balanced diverging paths), route flapping detection across probe cycles, IXP hop classification to speed up triage, and IPv6 dual-stack comparison via a new --compare-v6 flag. Two new runtime dependencies are avoided entirely — all new code uses only the Python standard library and the system ping binary already used for bufferbloat.\n\n### Implementation Phases\n\n### Phase 1: Fix the two accuracy bugs\n\n**Verification:**\n- [ ] Unit test: hubs with 50% loss at hop 6 and 0% at hops 7-10 produce verdict='Healthy' with a rate_limited_hops signal (tests/test_diagnosis.py)\n- [ ] Visual: netpath country US shows an incomplete-path row with stall ASN, hop number, and RTT instead of bare '⚠ incomplete'\n- [ ] ruff check . passes with no new violations\n\n**Estimated effort:** Small\n\n### Phase 2: Smarter probing and calibrated metrics\n\n**Verification:**\n- [ ] Unit test: get_test_ip_for_asn() with mocked prefixes [/24, /20, /16] returns a host from the /24 (tests/test_country.py)\n- [ ] Unit test: mocked traceroute path calls mtr._run_traceroute_cmd(tcp=True) before tcp=False when prefer_tcp=True (tests/test_country.py)\n- [ ] Unit test: diagnose({'jitter_ms': 15.0, 'hubs': [...]}) returns a warning with 'High Jitter' signal (tests/test_diagnosis.py)\n- [ ] Unit test: diagnose({'probe_count': 10, 'hubs': [{...3% loss...}]}) returns Healthy — 3% does not exceed the 5% threshold for fewer than 20 probes (tests/test_diagnosis.py)\n- [ ] netpath asn AS15169 --json output includes a jitter_ms field (numeric or null)\n- [ ] ruff check . passes with no new violations\n\n**Estimated effort:** Medium\n\n### Phase 3: Advanced path analysis\n\n**Verification:**\n- [ ] Unit test: pmtu.probe() with mocked subprocess returning exit-code 2 for large ping and 0 for small returns {blackhole: True}; with all probes failing returns {blackhole: False, mtu_floor_bytes: None} without raising\n- [ ] Unit test: mtr._compare_as_paths([[hubset_A], [hubset_B]]) where hubset_B differs at hop 3 returns ecmp_paths=2 (tests/test_mtr.py)\n- [ ] Unit test: diagnose({'path_changes': 1}) triggers Route Flapping warning (tests/test_diagnosis.py)\n- [ ] Unit test: diagnose({'tcp_connect_ms': 250}) triggers TCP Latency warning; diagnose({'tls_handshake_ms': 600}) triggers TLS Latency warning (tests/test_diagnosis.py)\n- [ ] Visual: netpath asn AS15169 path table shows a Type column with IXP/transit/dest label per responsive hop\n- [ ] Visual: netpath asn AS15169 --compare-v6 renders two path tables side-by-side (or IPv4-only with a yellow warning when IPv6 resolution fails)\n- [ ] ruff check . passes with no new violations\n\n**Estimated effort:** Large\n",
-    "implementation": "## Phase 1: Fix the two accuracy bugs\n\n**Status:** Complete\n\n**Files changed:**\n- `src/netpath/diagnosis.py` — Added forward-scan in the mid-path loss block: after finding a hop with Loss% > 1.0, checks all subsequent responsive hubs; if all have Loss% ≤ 1.0, returns Healthy verdict with `rate_limited_hops` signal instead of Mid-path Packet Loss.\n- `src/netpath/cli.py` — `_classify_path()` now returns `stall_hop` (count of last responsive hub in incomplete paths) and `rtt_ms` from the incomplete scan. `_measure()` stores `stall_hop` in result dict and uses classification's `rtt_ms` for incomplete paths. Skipped-ASN summary row gains `stall_hop: None`.\n- `src/netpath/display.py` — `country_summary()` incomplete section now renders \"⚠ stalled at {entry_transit_asn}, hop {n}, {rtt} ms\" using the new fields instead of flat \"⚠ incomplete\". Pre-existing unused `Rule` import removed.\n- `src/netpath/speedtest.py` — Pre-existing unused `shutil` import removed (ruff clean-up).\n- `tests/test_diagnosis.py` — Added `test_rate_limited_hop_produces_healthy_not_mid_path_loss`: 10-hop trace with 50% loss at hop 6 and 0% at hops 7–10 asserts Healthy verdict with `rate_limited_hops` signal. Updated `test_mid_path_packet_loss` to use a downstream-lossy hub (8% at hop 3) so it tests genuine congestion rather than the now-suppressed rate-limit pattern.\n\n**Test results:** 15/15 passed, ruff clean.\n\n## Phase 2: Smarter probing and calibrated metrics\n\n**Status:** Complete\n\n**Files changed:**\n- `src/netpath/country.py` — `get_test_ip_for_asn()` now pre-sorts valid IPv4 prefixes by `prefixlen` descending before iterating, so the most-specific announced prefix is selected first.\n- `src/netpath/mtr.py` — `run_traceroute()` gains `prefer_tcp: bool = False` parameter. When `True`, tries TCP-443 first; falls back to UDP if TCP returns all-stars or raises. Default (False) preserves existing UDP-first behaviour.\n- `src/netpath/cli.py` — `_trace()`, `_measure()`, and `_run_test()` each gain `prefer_tcp: bool = False`; the country-mode no-server path passes `prefer_tcp=True`. `_measure()` initialises `jitter_ms: None` and `probe_count: cycles` in the result dict, then computes `jitter_ms` as the mean `StDev` across responsive hubs. JSON output adds a `jitter_ms` field. Forward-scan comparison in `diagnosis.py` updated to use the calibrated `loss_threshold` so the rate-limit suppression stays consistent with the trigger threshold.\n- `src/netpath/diagnosis.py` — Added `JITTER_WARNING_MS = 10.0`, `LOSS_THRESHOLD_FEW = 5.0`, `LOSS_THRESHOLD_DEFAULT = 1.0`, `LOSS_THRESHOLD_MANY = 0.5` constants. `diagnose()` now selects a calibrated loss threshold from `probe_count` and applies it to both the trigger and the forward-scan. Added High Jitter warning (check 5) when `jitter_ms > JITTER_WARNING_MS`.\n- `tests/test_diagnosis.py` — Added `test_high_jitter_warning`, `test_jitter_below_threshold_is_healthy`, `test_calibrated_loss_few_probes_no_alarm`, `test_calibrated_loss_many_probes_strict_threshold`.\n- `tests/test_country.py` (new) — `test_get_test_ip_prefers_most_specific_prefix`, `test_run_traceroute_prefer_tcp_calls_tcp_first`, `test_run_traceroute_prefer_tcp_falls_back_to_udp_on_allstars`.\n\n**Test results:** 22/22 passed, ruff clean.\n"
+    "implementation": "## Phase 1: Fix the two accuracy bugs\n\n**Status:** Complete\n\n**Files changed:**\n- `src/netpath/diagnosis.py` — Added forward-scan in the mid-path loss block: after finding a hop with Loss% > 1.0, checks all subsequent responsive hubs; if all have Loss% ≤ 1.0, returns Healthy verdict with `rate_limited_hops` signal instead of Mid-path Packet Loss.\n- `src/netpath/cli.py` — `_classify_path()` now returns `stall_hop` (count of last responsive hub in incomplete paths) and `rtt_ms` from the incomplete scan. `_measure()` stores `stall_hop` in result dict and uses classification's `rtt_ms` for incomplete paths. Skipped-ASN summary row gains `stall_hop: None`.\n- `src/netpath/display.py` — `country_summary()` incomplete section now renders \"⚠ stalled at {entry_transit_asn}, hop {n}, {rtt} ms\" using the new fields instead of flat \"⚠ incomplete\". Pre-existing unused `Rule` import removed.\n- `src/netpath/speedtest.py` — Pre-existing unused `shutil` import removed (ruff clean-up).\n- `tests/test_diagnosis.py` — Added `test_rate_limited_hop_produces_healthy_not_mid_path_loss`: 10-hop trace with 50% loss at hop 6 and 0% at hops 7–10 asserts Healthy verdict with `rate_limited_hops` signal. Updated `test_mid_path_packet_loss` to use a downstream-lossy hub (8% at hop 3) so it tests genuine congestion rather than the now-suppressed rate-limit pattern.\n\n**Test results:** 15/15 passed, ruff clean.\n\n## Phase 2: Smarter probing and calibrated metrics\n\n**Status:** Complete\n\n**Files changed:**\n- `src/netpath/country.py` — `get_test_ip_for_asn()` now pre-sorts valid IPv4 prefixes by `prefixlen` descending before iterating, so the most-specific announced prefix is selected first.\n- `src/netpath/mtr.py` — `run_traceroute()` gains `prefer_tcp: bool = False` parameter. When `True`, tries TCP-443 first; falls back to UDP if TCP returns all-stars or raises. Default (False) preserves existing UDP-first behaviour.\n- `src/netpath/cli.py` — `_trace()`, `_measure()`, and `_run_test()` each gain `prefer_tcp: bool = False`; the country-mode no-server path passes `prefer_tcp=True`. `_measure()` initialises `jitter_ms: None` and `probe_count: cycles` in the result dict, then computes `jitter_ms` as the mean `StDev` across responsive hubs. JSON output adds a `jitter_ms` field. Forward-scan comparison in `diagnosis.py` updated to use the calibrated `loss_threshold` so the rate-limit suppression stays consistent with the trigger threshold.\n- `src/netpath/diagnosis.py` — Added `JITTER_WARNING_MS = 10.0`, `LOSS_THRESHOLD_FEW = 5.0`, `LOSS_THRESHOLD_DEFAULT = 1.0`, `LOSS_THRESHOLD_MANY = 0.5` constants. `diagnose()` now selects a calibrated loss threshold from `probe_count` and applies it to both the trigger and the forward-scan. Added High Jitter warning (check 5) when `jitter_ms > JITTER_WARNING_MS`.\n- `tests/test_diagnosis.py` — Added `test_high_jitter_warning`, `test_jitter_below_threshold_is_healthy`, `test_calibrated_loss_few_probes_no_alarm`, `test_calibrated_loss_many_probes_strict_threshold`.\n- `tests/test_country.py` (new) — `test_get_test_ip_prefers_most_specific_prefix`, `test_run_traceroute_prefer_tcp_calls_tcp_first`, `test_run_traceroute_prefer_tcp_falls_back_to_udp_on_allstars`.\n\n**Test results:** 22/22 passed, ruff clean.\n\n## Phase 3: Advanced path analysis\n\n**Status:** Complete\n\n**Files created:**\n- `src/netpath/pmtu.py` — `probe(host)` runs system ping at 1472-byte and 64-byte ICMP payload sizes. If large fails and small succeeds, returns `{\"blackhole\": True, \"mtu_floor_bytes\": 64}`. Returns `{\"blackhole\": False, \"mtu_floor_bytes\": None}` gracefully on any subprocess or OS error.\n- `src/netpath/latency.py` — `measure_tcp_connect(host, port=443, timeout=5.0)` times SYN→SYN-ACK via `socket.create_connection()`; `measure_tls_handshake(host, port=443, timeout=5.0)` wraps with `ssl.create_default_context().wrap_socket()`. Both return float ms or None; both catch `ConnectionRefusedError`, `ssl.SSLError`, `OSError`.\n- `src/netpath/ixp.py` — `classify_hop(ip)` returns `\"ixp\"` or `\"transit\"`. `_load_ixp_prefixes()` fetches PeeringDB IXP prefix list on first call and caches in module-level list; returns silently on fetch failure.\n\n**Files modified:**\n- `src/netpath/mtr.py` — `run()` gains `passes: int = 1`; when `passes > 1`, runs mtr sequentially and returns `list[list[dict]]`. New `_compare_as_paths(all_passes)` computes `ecmp_paths` (distinct AS sequences) and `path_changes` (consecutive-pass sequence differences).\n- `src/netpath/diagnosis.py` — Added `TCP_LATENCY_WARNING_MS = 200.0`, `TLS_LATENCY_WARNING_MS = 500.0` constants. Checks (6)–(9): PMTU Black-hole critical, Route Flapping warning, TCP Latency warning, TLS Latency warning.\n- `src/netpath/display.py` — Refactored `path_table()` into `_build_hub_table()` (returns a Table) + `path_table()` (prints it). `_build_hub_table()` adds a \"Type\" column per hop: \"dest\" (green) for target-ASN hops, \"IXP\" (blue) or \"transit\" (dim) via `ixp.classify_hop()`. New `dual_stack_columns(hubs_v4, hubs_v6, target_asn)` wraps two `_build_hub_table()` results in Panels and displays side-by-side via Rich Columns.\n- `src/netpath/cli.py` — Added `import socket` and `from netpath import latency as latency_mod, pmtu as pmtu_mod`. `_measure()` gains `ecmp_passes: int = 1` and `compare_v6: bool = False`. Multi-pass ECMP branch calls `mtr.run(passes=N)` and `mtr._compare_as_paths()`; stores `ecmp_paths` and `path_changes`. Dual-stack branch resolves IPv6 via `socket.getaddrinfo(AF_INET6)`, runs v4/v6 traces in parallel threads, stores `hubs_v4` and `hubs_v6`. `_measure()` always calls `pmtu_mod.probe()` and `latency_mod.measure_tcp_connect/measure_tls_handshake()`. `asn` subcommand gains `--ecmp-passes` and `--compare-v6` flags. JSON output adds `tcp_connect_ms`, `tls_handshake_ms`, `pmtu`, `ecmp_paths`, `path_changes`.\n- `tests/test_diagnosis.py` — Added 8 new Phase 3 tests: `test_pmtu_blackhole_triggers_critical`, `test_pmtu_no_blackhole_is_healthy`, `test_route_flapping_warning`, `test_route_flapping_zero_changes_is_healthy`, `test_tcp_latency_warning`, `test_tcp_latency_below_threshold_is_healthy`, `test_tls_latency_warning`, `test_tls_latency_below_threshold_is_healthy`.\n- `tests/test_mtr.py` — Added 6 new Phase 3 tests: `test_compare_as_paths_ecmp_two_distinct_paths`, `test_compare_as_paths_identical_passes`, `test_compare_as_paths_empty`, `test_pmtu_blackhole_large_fails_small_succeeds`, `test_pmtu_all_probes_fail_no_blackhole`, `test_pmtu_subprocess_raises_no_exception`.\n\n**Test results:** 36/36 passed, ruff clean.\n"
   },
   "architectureIntel": {
     "diagram": "flowchart LR\n    CLI[cli.py] --> DIAG[diagnosis.py]\n    CLI --> DISPLAY[display.py]\n    CLI --> MTR[mtr.py]\n    CLI --> PMTU[\"pmtu.py (new)\"]\n    CLI --> LATENCY[\"latency.py (new)\"]\n    CLI --> COUNTRY[country.py]\n    DISPLAY --> IXP[\"ixp.py (new)\"]",
@@ -945,8 +1053,15 @@
     "summary": "Three phases of work tighten netpath's accuracy and add diagnostic depth. Phase 1 stops false alarms from transit hops that rate-limit ICMP probes, and makes incomplete-path rows in country sweeps show where the trace actually stalled — the transit ASN, hop number, and last measured RTT — instead of a flat warning. Phase 2 makes country sweeps reach more destinations by probing over TCP-443 first (where transit networks often pass traffic that blocks UDP probes), choosing test IPs from the most-specific announced prefix, and calibrating loss alarms to the actual number of packets measured rather than a fixed 1% threshold for every run. Phase 3 adds six advanced diagnostics built as standalone modules: PMTU black-hole detection (finding paths where large packets are silently dropped), TCP and TLS application latency alongside ICMP RTT, ECMP path tracing (running multiple passes to detect load-balanced diverging paths), route flapping detection across probe cycles, IXP hop classification to speed up triage, and IPv6 dual-stack comparison via a new --compare-v6 flag. Two new runtime dependencies are avoided entirely — all new code uses only the Python standard library and the system ping binary already used for bufferbloat."
   },
   "stages": {
-    "design": {
-      "status": "skipped"
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T19:27:42Z",
+      "startedAt": "2026-06-30T19:05:16Z"
+    },
+    "architecture": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T20:35:13Z",
+      "startedAt": "2026-06-30T20:28:21Z"
     },
     "release": {
       "status": "not_started"
@@ -954,19 +1069,12 @@
     "review": {
       "status": "not_started"
     },
-    "architecture": {
-      "status": "approved",
-      "approvedAt": "2026-06-30T20:35:13Z",
-      "startedAt": "2026-06-30T20:28:21Z"
+    "design": {
+      "status": "skipped"
     },
     "implementation": {
       "status": "in_progress",
       "startedAt": "2026-06-30T20:56:41Z"
-    },
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-06-30T19:27:42Z",
-      "startedAt": "2026-06-30T19:05:16Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-fixing-incomplete-paths-richer-path-01kwcya418n5",
