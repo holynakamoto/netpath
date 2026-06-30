@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 2,
   "createdAt": "2026-06-30T01:02:55Z",
-  "updatedAt": "2026-06-30T01:20:03Z",
+  "updatedAt": "2026-06-30T01:20:44Z",
   "events": [
     {
       "base_branch": "main",
@@ -186,6 +186,89 @@
       "phase": 1,
       "timestamp": "2026-06-30T01:20:03Z",
       "type": "progress_report"
+    },
+    {
+      "details": "Build verification: python -m build produced netpath-0.1.0-py3-none-any.whl and netpath-0.1.0.tar.gz with no warnings. pip install dist/*.whl succeeded. netpath --help shows correct version. pip show netpath / METADATA includes author (Nick Moore), Homepage URL (https://github.com/holynakamoto/netpath), Bug Tracker URL, all 9 classifiers, LICENSE-File reference, and README description content. No project-level test suite exists in this repo.",
+      "failed": 0,
+      "passed": 4,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-06-30T01:20:09Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Implementation: used Development Status :: 4 - Beta classifier for 0.1.0 release",
+      "phase": 1,
+      "rationale": "The package is pre-1.0 and usable but not feature-complete, which matches Beta status. Alpha would imply early prototype; RC would overstate readiness. Beta is the PyPI convention for a functional 0.x release.",
+      "timestamp": "2026-06-30T01:20:12Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-06-30T01:20:15Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 1 complete: PyPI Packaging",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T01:20:26Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "README.md",
+        "LICENSE",
+        "pyproject.toml"
+      ],
+      "phase": 0,
+      "summary": "Created README.md (install instructions, usage, prerequisites, CF token docs), LICENSE (MIT 2026), and extended pyproject.toml with authors, readme pointer, project URLs, and classifiers. Build verified: wheel and sdist produce clean output; pip install + netpath --help succeed; METADATA contains all required PyPI quality fields.",
+      "timestamp": "2026-06-30T01:20:31Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "In a clean venv, run `python -m build` from the repo root and confirm it prints 'Successfully built netpath-0.1.0.tar.gz and netpath-0.1.0-py3-none-any.whl' with no warnings."
+        },
+        {
+          "description": "Run `pip install dist/netpath-0.1.0-py3-none-any.whl` in the clean venv, then run `netpath --help` and confirm it exits 0 and shows the `asn` and `country` subcommands."
+        },
+        {
+          "description": "Run `pip show netpath` and confirm the output includes `Author-email: Nick Moore <nickm@dave.io>` and `Project-URL: Homepage, https://github.com/holynakamoto/netpath`."
+        },
+        {
+          "description": "Open `README.md` in a GitHub preview or markdown renderer and confirm no broken formatting — all code blocks use triple-backtick fences and render correctly."
+        },
+        {
+          "description": "Open `LICENSE` and confirm it contains MIT license text with year `2026` and author `Nick Moore`."
+        },
+        {
+          "description": "Inspect `pyproject.toml` and confirm `readme = \"README.md\"`, an `authors` entry, a `[project.urls]` table with `Homepage` and `Bug Tracker`, and classifiers listing Python 3.9 through 3.13 are all present."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "PyPI Packaging",
+      "timestamp": "2026-06-30T01:20:40Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "PyPI Packaging",
+      "server_phase": 0,
+      "timestamp": "2026-06-30T01:20:44Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "PyPI Packaging",
+      "timestamp": "2026-06-30T01:20:44Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "7918baed28512dc66dfae220094754a54968a263",
+      "worktree_status_digest": "23fc53cdd157a2bbf4e7bc2b779745b59bd07e0318a1104f399d9a4b73380e09"
     }
   ],
   "needsArchitecture": false,
@@ -205,6 +288,9 @@
   "stageApprovals": {
     "scope": "2026-06-30T01:17:36Z"
   },
+  "stageContent": {
+    "implementation": "## Phase 1: PyPI Packaging\n\n### Files Changed\n- `README.md` (new) — project description, pip/uvx/uv install instructions, mtr and iperf3 prerequisites, usage examples for both subcommands, NETPATH_CF_TOKEN note, Cloudflare dashboard link\n- `LICENSE` (new) — MIT license text, year 2026, author Nick Moore\n- `pyproject.toml` (modified) — added `readme = \"README.md\"`, `authors` list, `[project.urls]` table (Homepage + Bug Tracker), and 9 classifiers (Development Status Beta, MIT License, OS Independent, Python 3.9–3.13, Networking Monitoring)\n\n### Verification Results\n- `python -m build` produced `netpath-0.1.0-py3-none-any.whl` and `netpath-0.1.0.tar.gz` with no warnings\n- `pip install dist/*.whl && netpath --help` exited 0 showing correct version and subcommands\n- `pip show netpath` METADATA includes Author-email (Nick Moore), Project-URL Homepage, Project-URL Bug Tracker, License-File: LICENSE, all classifiers, and README description\n- `dist/` directory created as build verification artifact — not part of the commit\n\n### Deviations from Plan\nNone. hatchling automatically picked up the `LICENSE` file and emitted a `License-File: LICENSE` entry in METADATA without any extra configuration.\n"
+  },
   "stages": {
     "release": {
       "status": "not_started"
@@ -212,20 +298,20 @@
     "review": {
       "status": "not_started"
     },
-    "design": {
+    "architecture": {
       "status": "skipped"
     },
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-06-30T01:17:36Z",
-      "startedAt": "2026-06-30T01:09:28Z"
-    },
-    "architecture": {
+    "design": {
       "status": "skipped"
     },
     "implementation": {
       "status": "in_progress",
       "startedAt": "2026-06-30T01:17:37Z"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T01:17:36Z",
+      "startedAt": "2026-06-30T01:09:28Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-globe-as-path-latency-viz-pip-uv-install-01kwb0sw8gr0",

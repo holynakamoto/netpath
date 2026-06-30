@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 # Globe AS-path latency viz + pip/uv install
@@ -147,3 +146,22 @@ Latency delta for arc color: `delta = hubs[i]["Avg"] - hubs[i-1]["Avg"]`, where 
 For the `country` subcommand, `_run_test()` is called inside a loop. The `--globe` logic must collect all per-ASN hub lists into a `dict[str, list[dict]]` keyed by ASN string, and pass the combined dict to `globe.render()` once after the loop — not per-iteration — to avoid making multiple browser tabs.
 
 No new runtime dependencies are introduced: `requests` (already a dependency) handles ip-api.com; `webbrowser` and `tempfile` are Python stdlib. The `globe.py` module does not need to be listed in `pyproject.toml` dependencies.
+
+## Implementation Notes
+
+## Phase 1: PyPI Packaging
+
+### Files Changed
+- `README.md` (new) — project description, pip/uvx/uv install instructions, mtr and iperf3 prerequisites, usage examples for both subcommands, NETPATH_CF_TOKEN note, Cloudflare dashboard link
+- `LICENSE` (new) — MIT license text, year 2026, author Nick Moore
+- `pyproject.toml` (modified) — added `readme = "README.md"`, `authors` list, `[project.urls]` table (Homepage + Bug Tracker), and 9 classifiers (Development Status Beta, MIT License, OS Independent, Python 3.9–3.13, Networking Monitoring)
+
+### Verification Results
+- `python -m build` produced `netpath-0.1.0-py3-none-any.whl` and `netpath-0.1.0.tar.gz` with no warnings
+- `pip install dist/*.whl && netpath --help` exited 0 showing correct version and subcommands
+- `pip show netpath` METADATA includes Author-email (Nick Moore), Project-URL Homepage, Project-URL Bug Tracker, License-File: LICENSE, all classifiers, and README description
+- `dist/` directory created as build verification artifact — not part of the commit
+
+### Deviations from Plan
+None. hatchling automatically picked up the `LICENSE` file and emitted a `License-File: LICENSE` entry in METADATA without any extra configuration.
+
