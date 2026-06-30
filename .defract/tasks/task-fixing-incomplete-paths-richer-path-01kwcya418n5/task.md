@@ -3,7 +3,7 @@ defract:
   id: task-fixing-incomplete-paths-richer-path-01kwcya418n5
   type: bug
   status: active
-  stage: architecture
+  stage: implementation
   phase: 0
   total_phases: 3
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 ## Story Brief
 
@@ -192,33 +193,43 @@ Phase 3 introduces `src/netpath/pmtu.py` and `src/netpath/ixp.py`. PeeringDB's p
 
 ## Architecture
 
-### Open Decisions
+### Architecture Summary
 
-**1. How should PMTU black-hole probing be sent?**
+Three phases of work tighten netpath's accuracy and add diagnostic depth. Phase 1 stops false alarms from transit hops that rate-limit ICMP probes, and makes incomplete-path rows in country sweeps show where the trace actually stalled — the transit ASN, hop number, and last measured RTT — instead of a flat warning. Phase 2 makes country sweeps reach more destinations by probing over TCP-443 first (where transit networks often pass traffic that blocks UDP probes), choosing test IPs from the most-specific announced prefix, and calibrating loss alarms to the actual number of packets measured rather than a fixed 1% threshold for every run. Phase 3 adds six advanced diagnostics built as standalone modules: PMTU black-hole detection (finding paths where large packets are silently dropped), TCP and TLS application latency alongside ICMP RTT, ECMP path tracing (running multiple passes to detect load-balanced diverging paths), route flapping detection across probe cycles, IXP hop classification to speed up triage, and IPv6 dual-stack comparison via a new --compare-v6 flag. Two new runtime dependencies are avoided entirely — all new code uses only the Python standard library and the system ping binary already used for bufferbloat.
 
-The approach determines whether the feature works without administrator rights on all supported platforms. Raw socket calls are more precise but require root/elevated privileges on Linux, which most users will not have.
+### Implementation Phases
 
-- System ping command (recommended)
-- Raw Python socket
+### Phase 1: Fix the two accuracy bugs
 
-**2. Should multi-pass path tracing (for ECMP and route flapping detection) be user-controlled or always on?**
+**Verification:**
+- [ ] Unit test: hubs with 50% loss at hop 6 and 0% at hops 7-10 produce verdict='Healthy' with a rate_limited_hops signal (tests/test_diagnosis.py)
+- [ ] Visual: netpath country US shows an incomplete-path row with stall ASN, hop number, and RTT instead of bare '⚠ incomplete'
+- [ ] ruff check . passes with no new violations
 
-Multi-pass tracing multiplies total run time by the number of passes. Making it always-on means every `asn` probe takes 3x longer by default, which changes the feel of routine checks.
+**Estimated effort:** Small
 
-- User opt-in via a flag (recommended)
-- Always run three passes
+### Phase 2: Smarter probing and calibrated metrics
 
-**3. How should the system know how many packets were sent when calibrating loss alarms?**
+**Verification:**
+- [ ] Unit test: get_test_ip_for_asn() with mocked prefixes [/24, /20, /16] returns a host from the /24 (tests/test_country.py)
+- [ ] Unit test: mocked traceroute path calls mtr._run_traceroute_cmd(tcp=True) before tcp=False when prefer_tcp=True (tests/test_country.py)
+- [ ] Unit test: diagnose({'jitter_ms': 15.0, 'hubs': [...]}) returns a warning with 'High Jitter' signal (tests/test_diagnosis.py)
+- [ ] Unit test: diagnose({'probe_count': 10, 'hubs': [{...3% loss...}]}) returns Healthy — 3% does not exceed the 5% threshold for fewer than 20 probes (tests/test_diagnosis.py)
+- [ ] netpath asn AS15169 --json output includes a jitter_ms field (numeric or null)
+- [ ] ruff check . passes with no new violations
 
-The loss calibration logic adjusts alarm thresholds based on total probe count. mtr does not expose raw send counts in its output — there is a design choice about where this number comes from.
+**Estimated effort:** Medium
 
-- Thread mtr cycle count through the measurement pipeline (recommended)
-- Assume a fixed default of 10 probes
+### Phase 3: Advanced path analysis
 
-**4. Should TCP and TLS latency measurement live in its own module or inline in the main command file?**
+**Verification:**
+- [ ] Unit test: pmtu.probe() with mocked subprocess returning exit-code 2 for large ping and 0 for small returns {blackhole: True}; with all probes failing returns {blackhole: False, mtu_floor_bytes: None} without raising
+- [ ] Unit test: mtr._compare_as_paths([[hubset_A], [hubset_B]]) where hubset_B differs at hop 3 returns ecmp_paths=2 (tests/test_mtr.py)
+- [ ] Unit test: diagnose({'path_changes': 1}) triggers Route Flapping warning (tests/test_diagnosis.py)
+- [ ] Unit test: diagnose({'tcp_connect_ms': 250}) triggers TCP Latency warning; diagnose({'tls_handshake_ms': 600}) triggers TLS Latency warning (tests/test_diagnosis.py)
+- [ ] Visual: netpath asn AS15169 path table shows a Type column with IXP/transit/dest label per responsive hop
+- [ ] Visual: netpath asn AS15169 --compare-v6 renders two path tables side-by-side (or IPv4-only with a yellow warning when IPv6 resolution fails)
+- [ ] ruff check . passes with no new violations
 
-The spec explicitly leaves this open. A separate module follows the project's pattern of single-purpose files (as with the new PMTU and IXP modules in Phase 3), but the measurement itself is roughly 30 lines and could reasonably live inline.
-
-- New dedicated latency module (recommended)
-- Inline helpers in the main command file
+**Estimated effort:** Large
 

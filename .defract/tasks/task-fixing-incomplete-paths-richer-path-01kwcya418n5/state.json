@@ -1,11 +1,11 @@
 {
   "id": "task-fixing-incomplete-paths-richer-path-01kwcya418n5",
   "status": "active",
-  "stage": "architecture",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 3,
   "createdAt": "2026-06-30T18:57:50Z",
-  "updatedAt": "2026-06-30T20:28:21Z",
+  "updatedAt": "2026-06-30T20:40:29Z",
   "events": [
     {
       "base_branch": "main",
@@ -206,6 +206,177 @@
       "stage": "architecture",
       "timestamp": "2026-06-30T20:28:21Z",
       "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Full architecture with phase numbers added: 3 phases, 4 new files, 6 modified modules, complete scorecard and verification steps",
+      "revision": 2,
+      "stage": "architecture",
+      "timestamp": "2026-06-30T20:34:14Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-1: mtr.run() returns list[dict] when passes=1 and list[list[dict]] when passes>1, rather than a separate run_multi() function",
+      "rationale": "The requirement specifies mtr.run() must accept a passes parameter, and callers already gate on the passes value to decide how to interpret results. A single function matches the spec and avoids a parallel API surface.",
+      "timestamp": "2026-06-30T20:34:24Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-2: prefer_tcp parameter added to mtr.run_traceroute() rather than exposing _run_traceroute_cmd directly from cli.py",
+      "rationale": "All subprocess management is encapsulated in mtr.py per project convention. Calling a private _run_traceroute_cmd from cli.py would break the module boundary. Adding prefer_tcp=False keeps the change backward-compatible and locates the TCP-first logic alongside the existing UDP fallback.",
+      "timestamp": "2026-06-30T20:34:28Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-3: probe_count in result dict is set to cycles (the mtr cycles parameter) in _measure(), requiring no new CLI parameter",
+      "rationale": "The mtr cycles parameter already represents the number of probe packets sent per hop. Threading it through _measure() as probe_count satisfies the calibrated loss requirement without surfacing a new --probe-count flag or changing the CLI contract.",
+      "timestamp": "2026-06-30T20:34:35Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-4: TCP/TLS latency lives in a new src/netpath/latency.py module, not inline in cli.py",
+      "rationale": "The project follows single-purpose file conventions (iperf.py, speedtest.py, rum.py each own one measurement concern). A dedicated latency.py is independently testable with no subprocess mocking required, and matches the pattern used for the other two new Phase 3 modules.",
+      "timestamp": "2026-06-30T20:34:39Z",
+      "type": "decision"
+    },
+    {
+      "stage": "architecture",
+      "summary": "Full architecture complete: 3 phases, 4 new files (pmtu.py, latency.py, ixp.py, test_country.py), 6 modified source files, 4 architecture decisions logged. Phase 1 is Small, Phase 2 Medium, Phase 3 Large. All 16 requirements and 14 acceptance criteria are covered with concrete per-phase verification steps.",
+      "timestamp": "2026-06-30T20:34:54Z",
+      "type": "stage_work_complete",
+      "worktree_head": "55712749fed83f08cc52960d2a116abbe2bf3930",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T20:35:14Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "architecture",
+      "timestamp": "2026-06-30T20:35:13Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "19ffebb77b46f02f3e4fdcd1b6120f138bfe4b9e",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "architecture",
+      "stale_worktree_head": "55712749fed83f08cc52960d2a116abbe2bf3930",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T20:35:14Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "architecture",
+      "timestamp": "2026-06-30T20:35:14Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "architecture",
+      "timestamp": "2026-06-30T20:35:14Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T20:35:14Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwd3wfqac1he9drcsvh68abv",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T20:35:14Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "from": "architecture",
+      "timestamp": "2026-06-30T20:35:14Z",
+      "to": "implementation",
+      "type": "stage_handoff"
+    },
+    {
+      "note": "Starting Phase 1: Fix the two accuracy bugs",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T20:35:36Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Fix the two accuracy bugs",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-06-30T20:35:48Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-06-30T20:37:21Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-06-30T20:38:45Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-06-30T20:39:59Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "15 passed (6 diagnosis, 8 mtr, 1 new rate_limited_hop test). Pre-existing test_mid_path_packet_loss updated to reflect genuine congestion semantics (downstream hop also lossy). ruff clean.",
+      "failed": 0,
+      "passed": 15,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-06-30T20:40:14Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Compute stall_hop in a separate call in _measure() after _classify_path returns",
+        "Add a dedicated _find_stall_hop() helper"
+      ],
+      "decision": "Implementation: _classify_path() computes stall_hop and last rtt_ms during the incomplete-path scan pass (not a separate pass) and overrides last_rtt_ms in _measure() only when classification finds a better value",
+      "phase": 1,
+      "rationale": "Avoids a second iteration over hubs. The incomplete branch already iterates hubs once to find entry_transit_asn; tracking stall_hop and rtt_ms in the same loop is O(n) and keeps the data co-located with other path classification logic.",
+      "timestamp": "2026-06-30T20:40:19Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Add a second test for the new behavior instead of updating the old one",
+        "Mark the old test as xfail"
+      ],
+      "decision": "Implementation: existing test_mid_path_packet_loss updated to use a downstream-lossy hub (8% at hop 3) to represent genuine congestion after the rate-limit fix changed the semantics of the old 3-hop all-clean-downstream case",
+      "phase": 1,
+      "rationale": "The original test had hop 2 lossy and hop 3 clean — exactly the rate-limited pattern the new forward-scan suppresses. The test was asserting pre-fix behavior that is now correctly reclassified as Healthy. Updated to a case where downstream loss confirms congestion.",
+      "timestamp": "2026-06-30T20:40:24Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-06-30T20:40:29Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": true,
@@ -224,105 +395,311 @@
     "rationale": "backend-feature: CLI tool — all display changes are terminal output additions following established Rich patterns, no design-stage thinking required. Architecture included: task touches 5+ existing modules (cli.py, diagnosis.py, display.py, mtr.py, country.py) and introduces 2 new modules (pmtu.py, ixp.py), warranting a dedicated architecture pass before implementation. Tier full: 16 requirements across 10+ files, new subsystems, cross-cutting changes."
   },
   "stageApprovals": {
-    "scope": "2026-06-30T19:27:42Z"
+    "scope": "2026-06-30T19:27:42Z",
+    "architecture": "2026-06-30T20:35:13Z"
   },
   "stageContent": {
-    "architecture": "### Open Decisions\n\n**1. How should PMTU black-hole probing be sent?**\n\nThe approach determines whether the feature works without administrator rights on all supported platforms. Raw socket calls are more precise but require root/elevated privileges on Linux, which most users will not have.\n\n- System ping command (recommended)\n- Raw Python socket\n\n**2. Should multi-pass path tracing (for ECMP and route flapping detection) be user-controlled or always on?**\n\nMulti-pass tracing multiplies total run time by the number of passes. Making it always-on means every `asn` probe takes 3x longer by default, which changes the feel of routine checks.\n\n- User opt-in via a flag (recommended)\n- Always run three passes\n\n**3. How should the system know how many packets were sent when calibrating loss alarms?**\n\nThe loss calibration logic adjusts alarm thresholds based on total probe count. mtr does not expose raw send counts in its output — there is a design choice about where this number comes from.\n\n- Thread mtr cycle count through the measurement pipeline (recommended)\n- Assume a fixed default of 10 probes\n\n**4. Should TCP and TLS latency measurement live in its own module or inline in the main command file?**\n\nThe spec explicitly leaves this open. A separate module follows the project's pattern of single-purpose files (as with the new PMTU and IXP modules in Phase 3), but the measurement itself is roughly 30 lines and could reasonably live inline.\n\n- New dedicated latency module (recommended)\n- Inline helpers in the main command file\n"
+    "architecture": "### Architecture Summary\n\nThree phases of work tighten netpath's accuracy and add diagnostic depth. Phase 1 stops false alarms from transit hops that rate-limit ICMP probes, and makes incomplete-path rows in country sweeps show where the trace actually stalled — the transit ASN, hop number, and last measured RTT — instead of a flat warning. Phase 2 makes country sweeps reach more destinations by probing over TCP-443 first (where transit networks often pass traffic that blocks UDP probes), choosing test IPs from the most-specific announced prefix, and calibrating loss alarms to the actual number of packets measured rather than a fixed 1% threshold for every run. Phase 3 adds six advanced diagnostics built as standalone modules: PMTU black-hole detection (finding paths where large packets are silently dropped), TCP and TLS application latency alongside ICMP RTT, ECMP path tracing (running multiple passes to detect load-balanced diverging paths), route flapping detection across probe cycles, IXP hop classification to speed up triage, and IPv6 dual-stack comparison via a new --compare-v6 flag. Two new runtime dependencies are avoided entirely — all new code uses only the Python standard library and the system ping binary already used for bufferbloat.\n\n### Implementation Phases\n\n### Phase 1: Fix the two accuracy bugs\n\n**Verification:**\n- [ ] Unit test: hubs with 50% loss at hop 6 and 0% at hops 7-10 produce verdict='Healthy' with a rate_limited_hops signal (tests/test_diagnosis.py)\n- [ ] Visual: netpath country US shows an incomplete-path row with stall ASN, hop number, and RTT instead of bare '⚠ incomplete'\n- [ ] ruff check . passes with no new violations\n\n**Estimated effort:** Small\n\n### Phase 2: Smarter probing and calibrated metrics\n\n**Verification:**\n- [ ] Unit test: get_test_ip_for_asn() with mocked prefixes [/24, /20, /16] returns a host from the /24 (tests/test_country.py)\n- [ ] Unit test: mocked traceroute path calls mtr._run_traceroute_cmd(tcp=True) before tcp=False when prefer_tcp=True (tests/test_country.py)\n- [ ] Unit test: diagnose({'jitter_ms': 15.0, 'hubs': [...]}) returns a warning with 'High Jitter' signal (tests/test_diagnosis.py)\n- [ ] Unit test: diagnose({'probe_count': 10, 'hubs': [{...3% loss...}]}) returns Healthy — 3% does not exceed the 5% threshold for fewer than 20 probes (tests/test_diagnosis.py)\n- [ ] netpath asn AS15169 --json output includes a jitter_ms field (numeric or null)\n- [ ] ruff check . passes with no new violations\n\n**Estimated effort:** Medium\n\n### Phase 3: Advanced path analysis\n\n**Verification:**\n- [ ] Unit test: pmtu.probe() with mocked subprocess returning exit-code 2 for large ping and 0 for small returns {blackhole: True}; with all probes failing returns {blackhole: False, mtu_floor_bytes: None} without raising\n- [ ] Unit test: mtr._compare_as_paths([[hubset_A], [hubset_B]]) where hubset_B differs at hop 3 returns ecmp_paths=2 (tests/test_mtr.py)\n- [ ] Unit test: diagnose({'path_changes': 1}) triggers Route Flapping warning (tests/test_diagnosis.py)\n- [ ] Unit test: diagnose({'tcp_connect_ms': 250}) triggers TCP Latency warning; diagnose({'tls_handshake_ms': 600}) triggers TLS Latency warning (tests/test_diagnosis.py)\n- [ ] Visual: netpath asn AS15169 path table shows a Type column with IXP/transit/dest label per responsive hop\n- [ ] Visual: netpath asn AS15169 --compare-v6 renders two path tables side-by-side (or IPv4-only with a yellow warning when IPv6 resolution fails)\n- [ ] ruff check . passes with no new violations\n\n**Estimated effort:** Large\n"
   },
   "architectureIntel": {
-    "answers": {},
-    "decisions": [
+    "diagram": "flowchart LR\n    CLI[cli.py] --> DIAG[diagnosis.py]\n    CLI --> DISPLAY[display.py]\n    CLI --> MTR[mtr.py]\n    CLI --> PMTU[\"pmtu.py (new)\"]\n    CLI --> LATENCY[\"latency.py (new)\"]\n    CLI --> COUNTRY[country.py]\n    DISPLAY --> IXP[\"ixp.py (new)\"]",
+    "pass": "full",
+    "phases": [
       {
-        "id": "D1",
-        "options": [
+        "effort": "Small",
+        "files": [
           {
-            "description": "Use the platform `ping` binary with a payload-size flag — works without root on macOS and most Linux distributions where ping has the setuid bit.",
-            "label": "System ping command",
-            "recommended": true
+            "action": "modify",
+            "description": "After detecting Loss% > 1.0 at hop i, forward-scan remaining responsive hubs; if all have Loss% <= 1.0, suppress Mid-path Packet Loss and add rate_limited_hops signal to a Healthy verdict instead",
+            "path": "src/netpath/diagnosis.py"
           },
           {
-            "description": "Construct and send ICMP packets directly in Python — more precise RTT timing but requires root or CAP_NET_RAW, consistent with the existing mtr fallback pattern.",
-            "label": "Raw Python socket"
+            "action": "modify",
+            "description": "_classify_path() adds stall_hop key (count of last responsive hub before path drops); _measure() stores stall_hop in result dict",
+            "path": "src/netpath/cli.py"
+          },
+          {
+            "action": "modify",
+            "description": "country_summary() incomplete section reads stall_hop and last_rtt_ms from result and renders 'stalled at AS{asn}, hop {n}, {rtt} ms' with yellow warning glyph",
+            "path": "src/netpath/display.py"
+          },
+          {
+            "action": "modify",
+            "description": "Add test: hub list with 50% loss at hop 6 and 0% at hops 7-10 must return verdict='Healthy' and signal containing 'rate_limited_hops'",
+            "path": "tests/test_diagnosis.py"
           }
         ],
-        "what": "How should PMTU black-hole probing be sent?",
-        "why": "The approach determines whether the feature works without administrator rights on all supported platforms. Raw socket calls are more precise but require root/elevated privileges on Linux, which most users will not have."
+        "number": 1,
+        "scope": "Fix the ICMP rate-limit false positive in diagnosis.py so mid-path loss at a transit hop is suppressed when all downstream hops are clean. Enrich _classify_path() to return the stall hop number, then thread it through _measure() and display.country_summary() so incomplete-path rows show stall ASN, hop number, and last RTT instead of a flat warning.",
+        "title": "Fix the two accuracy bugs",
+        "verification": [
+          "Unit test: hubs with 50% loss at hop 6 and 0% at hops 7-10 produce verdict='Healthy' with a rate_limited_hops signal (tests/test_diagnosis.py)",
+          "Visual: netpath country US shows an incomplete-path row with stall ASN, hop number, and RTT instead of bare '⚠ incomplete'",
+          "ruff check . passes with no new violations"
+        ]
       },
       {
-        "id": "D2",
-        "options": [
+        "effort": "Medium",
+        "files": [
           {
-            "description": "Add a `--passes N` flag (default 1) so users explicitly request deeper tracing — preserves the current fast single-pass experience for routine use.",
-            "label": "User opt-in via a flag",
-            "recommended": true
+            "action": "modify",
+            "description": "get_test_ip_for_asn() sorts prefixes by prefixlen descending before iterating, so the most-specific prefix is tried first",
+            "path": "src/netpath/country.py"
           },
           {
-            "description": "ECMP and route flapping detection are always active — simpler UX with no flag to remember, but every run takes 3x longer.",
-            "label": "Always run three passes"
+            "action": "modify",
+            "description": "run_traceroute() accepts prefer_tcp: bool = False; when True, tries TCP-443 first and falls back to UDP if TCP returns all-stars or raises",
+            "path": "src/netpath/mtr.py"
+          },
+          {
+            "action": "modify",
+            "description": "Country traceroute path passes prefer_tcp=True to mtr.run_traceroute(); _measure() computes jitter_ms as mean of StDev across responsive hubs (None if no hubs) and sets probe_count=cycles in result dict; JSON output block adds jitter_ms field",
+            "path": "src/netpath/cli.py"
+          },
+          {
+            "action": "modify",
+            "description": "Add JITTER_WARNING_MS=10.0 constant and High Jitter warning when jitter_ms exceeds threshold. Add LOSS_THRESHOLD_FEW=5.0, LOSS_THRESHOLD_DEFAULT=1.0, LOSS_THRESHOLD_MANY=0.5 constants; select threshold based on probe_count (<20 uses FEW, 20-99 uses DEFAULT, >=100 uses MANY)",
+            "path": "src/netpath/diagnosis.py"
+          },
+          {
+            "action": "modify",
+            "description": "Add tests: jitter_ms=15.0 triggers High Jitter warning; probe_count=10 with 3% loss produces Healthy (threshold at >5% for <20 samples)",
+            "path": "tests/test_diagnosis.py"
+          },
+          {
+            "action": "create",
+            "description": "Unit tests: get_test_ip_for_asn() returns host from highest-prefixlen prefix when multiple prefixes available; country-mode traceroute path calls _run_traceroute_cmd with tcp=True before tcp=False",
+            "path": "tests/test_country.py"
           }
         ],
-        "what": "Should multi-pass path tracing (for ECMP and route flapping detection) be user-controlled or always on?",
-        "why": "Multi-pass tracing multiplies total run time by the number of passes. Making it always-on means every `asn` probe takes 3x longer by default, which changes the feel of routine checks."
+        "number": 2,
+        "scope": "Switch get_test_ip_for_asn() to select from the most-specific (highest prefixlen) announced prefix. Add TCP-443 as the primary traceroute probe for country-mode ASNs without an iperf3 server, with UDP as fallback. Compute jitter_ms from per-hop StDev in _measure(), expose it in JSON output and verdict signals, and add probe_count to the result dict so diagnosis.py can apply calibrated loss thresholds based on sample size.",
+        "title": "Smarter probing and calibrated metrics",
+        "verification": [
+          "Unit test: get_test_ip_for_asn() with mocked prefixes [/24, /20, /16] returns a host from the /24 (tests/test_country.py)",
+          "Unit test: mocked traceroute path calls mtr._run_traceroute_cmd(tcp=True) before tcp=False when prefer_tcp=True (tests/test_country.py)",
+          "Unit test: diagnose({'jitter_ms': 15.0, 'hubs': [...]}) returns a warning with 'High Jitter' signal (tests/test_diagnosis.py)",
+          "Unit test: diagnose({'probe_count': 10, 'hubs': [{...3% loss...}]}) returns Healthy — 3% does not exceed the 5% threshold for fewer than 20 probes (tests/test_diagnosis.py)",
+          "netpath asn AS15169 --json output includes a jitter_ms field (numeric or null)",
+          "ruff check . passes with no new violations"
+        ]
       },
       {
-        "id": "D3",
-        "options": [
+        "effort": "Large",
+        "files": [
           {
-            "description": "Pass mtr's cycle count (the `-c` value, default 10) explicitly from the probe call through to the diagnosis logic — accurate calibration at the cost of one more value flowing through the call chain.",
-            "label": "Thread mtr cycle count through the measurement pipeline",
-            "recommended": true
+            "action": "create",
+            "description": "probe(host) runs system ping twice — at 1472-byte payload and at 64-byte; if large probe fails and small succeeds, blackhole=True with mtu_floor_bytes=64; returns {blackhole: False, mtu_floor_bytes: None} gracefully on any subprocess or OS error",
+            "path": "src/netpath/pmtu.py"
           },
           {
-            "description": "Hard-code the mtr default (10 cycles) as the probe count — simpler implementation with no call-chain changes, but calibration will be wrong for any non-default mtr invocation.",
-            "label": "Assume a fixed default of 10 probes"
-          }
-        ],
-        "what": "How should the system know how many packets were sent when calibrating loss alarms?",
-        "why": "The loss calibration logic adjusts alarm thresholds based on total probe count. mtr does not expose raw send counts in its output — there is a design choice about where this number comes from."
-      },
-      {
-        "id": "D4",
-        "options": [
-          {
-            "description": "Consistent with the project's single-purpose module pattern (matching pmtu.py and ixp.py) — clean separation and independently testable.",
-            "label": "New dedicated latency module",
-            "recommended": true
+            "action": "create",
+            "description": "measure_tcp_connect(host, port=443, timeout=5.0) times SYN→SYN-ACK using socket.create_connection(); measure_tls_handshake(host, port=443, timeout=5.0) wraps with ssl.SSLContext().wrap_socket(); both return float ms or None; both catch ConnectionRefusedError, ssl.SSLError, OSError",
+            "path": "src/netpath/latency.py"
           },
           {
-            "description": "Fewer files to navigate — acceptable given the small code footprint, but breaks the pattern set by the other Phase 3 modules.",
-            "label": "Inline helpers in the main command file"
+            "action": "create",
+            "description": "classify_hop(ip) returns 'ixp'|'transit'|'destination'; _load_ixp_prefixes() fetches PeeringDB IX prefix list on first call and caches in module-level dict; returns 'transit' silently on any fetch failure",
+            "path": "src/netpath/ixp.py"
+          },
+          {
+            "action": "modify",
+            "description": "run(host, cycles=10, passes=1): when passes==1 returns list[dict] (unchanged); when passes>1 runs mtr passes times sequentially and returns list[list[dict]]. Add _compare_as_paths(all_passes) returning {ecmp_paths: int, path_changes: int} by comparing ASN sequences at matching count positions across passes",
+            "path": "src/netpath/mtr.py"
+          },
+          {
+            "action": "modify",
+            "description": "_measure() calls pmtu.probe(host) and latency.measure_tcp_connect/measure_tls_handshake; stores pmtu, tcp_connect_ms, tls_handshake_ms in result dict; JSON output adds these fields. asn subcommand gains --ecmp-passes (int, default 1) and --compare-v6 (bool) flags; when passes>1 calls mtr.run(passes=N) and stores ecmp_paths/path_changes; --compare-v6 resolves IPv6 via socket.getaddrinfo AF_INET6 and displays both hub lists side-by-side",
+            "path": "src/netpath/cli.py"
+          },
+          {
+            "action": "modify",
+            "description": "Add signals: PMTU Black-hole critical when pmtu.get('blackhole') is True; TCP Latency warning when tcp_connect_ms>TCP_LATENCY_WARNING_MS (200); TLS Latency warning when tls_handshake_ms>TLS_LATENCY_WARNING_MS (500); Route Flapping warning when path_changes>0. All thresholds as named constants",
+            "path": "src/netpath/diagnosis.py"
+          },
+          {
+            "action": "modify",
+            "description": "path_table() calls ixp.classify_hop(hub['host']) for each responsive hub and renders a Type column ('IXP'/'transit'/'dest') using Rich Text styling. Add dual_stack_columns(hubs_v4, hubs_v6, target_asn) that renders two path_table panels side-by-side via Rich Columns, matching the existing pattern in throughput_and_rum()",
+            "path": "src/netpath/display.py"
+          },
+          {
+            "action": "modify",
+            "description": "Add tests: pmtu={'blackhole': True} triggers PMTU Black-hole critical; path_changes=1 triggers Route Flapping warning; tcp_connect_ms=250 triggers TCP Latency warning; tls_handshake_ms=600 triggers TLS Latency warning",
+            "path": "tests/test_diagnosis.py"
+          },
+          {
+            "action": "modify",
+            "description": "Add test: _compare_as_paths with two mocked passes where pass 2 has a different ASN at hop 3 returns ecmp_paths=2 and path_changes=1",
+            "path": "tests/test_mtr.py"
           }
         ],
-        "what": "Should TCP and TLS latency measurement live in its own module or inline in the main command file?",
-        "why": "The spec explicitly leaves this open. A separate module follows the project's pattern of single-purpose files (as with the new PMTU and IXP modules in Phase 3), but the measurement itself is roughly 30 lines and could reasonably live inline."
+        "number": 3,
+        "scope": "Introduce three new standalone modules (pmtu.py, latency.py, ixp.py) and extend the existing pipeline with ECMP multi-pass tracing (--ecmp-passes flag), route flapping detection, TCP and TLS application latency, PMTU black-hole detection, IXP hop labels in the path table, and IPv6 dual-stack comparison (--compare-v6 flag). diagnosis.py gains four new signal types; display.py gains IXP labels in path_table and a side-by-side dual-stack panel.",
+        "title": "Advanced path analysis",
+        "verification": [
+          "Unit test: pmtu.probe() with mocked subprocess returning exit-code 2 for large ping and 0 for small returns {blackhole: True}; with all probes failing returns {blackhole: False, mtu_floor_bytes: None} without raising",
+          "Unit test: mtr._compare_as_paths([[hubset_A], [hubset_B]]) where hubset_B differs at hop 3 returns ecmp_paths=2 (tests/test_mtr.py)",
+          "Unit test: diagnose({'path_changes': 1}) triggers Route Flapping warning (tests/test_diagnosis.py)",
+          "Unit test: diagnose({'tcp_connect_ms': 250}) triggers TCP Latency warning; diagnose({'tls_handshake_ms': 600}) triggers TLS Latency warning (tests/test_diagnosis.py)",
+          "Visual: netpath asn AS15169 path table shows a Type column with IXP/transit/dest label per responsive hop",
+          "Visual: netpath asn AS15169 --compare-v6 renders two path tables side-by-side (or IPv4-only with a yellow warning when IPv6 resolution fails)",
+          "ruff check . passes with no new violations"
+        ]
       }
     ],
-    "pass": "decisions"
+    "scorecard": [
+      {
+        "category": "files",
+        "count": 4,
+        "items": [
+          {
+            "name": "src/netpath/pmtu.py",
+            "note": "PMTU black-hole detection module"
+          },
+          {
+            "name": "src/netpath/latency.py",
+            "note": "TCP connect and TLS handshake timing"
+          },
+          {
+            "name": "src/netpath/ixp.py",
+            "note": "IXP hop classification with process-level cache"
+          },
+          {
+            "name": "tests/test_country.py",
+            "note": "unit tests for prefix selection and TCP-443 fallback"
+          }
+        ],
+        "label": "new files"
+      },
+      {
+        "category": "modules",
+        "count": 3,
+        "items": [
+          {
+            "name": "pmtu",
+            "note": "probe(host) using system ping at two packet sizes"
+          },
+          {
+            "name": "latency",
+            "note": "measure_tcp_connect() and measure_tls_handshake() via stdlib socket/ssl"
+          },
+          {
+            "name": "ixp",
+            "note": "classify_hop() with lazy PeeringDB fetch and in-process prefix cache"
+          }
+        ],
+        "label": "new modules"
+      },
+      {
+        "category": "functions",
+        "count": 6,
+        "items": [
+          {
+            "name": "pmtu.probe(host)",
+            "note": "returns {blackhole, mtu_floor_bytes}; graceful on ICMP block"
+          },
+          {
+            "name": "latency.measure_tcp_connect(host, port, timeout)",
+            "note": "returns float ms or None"
+          },
+          {
+            "name": "latency.measure_tls_handshake(host, port, timeout)",
+            "note": "returns float ms or None"
+          },
+          {
+            "name": "ixp.classify_hop(ip)",
+            "note": "returns 'ixp' | 'transit' | 'destination'"
+          },
+          {
+            "name": "ixp._load_ixp_prefixes()",
+            "note": "lazy PeeringDB fetch, populates module-level cache"
+          },
+          {
+            "name": "mtr._compare_as_paths(all_passes)",
+            "note": "returns {ecmp_paths, path_changes} from list[list[dict]]"
+          }
+        ],
+        "label": "new functions"
+      },
+      {
+        "category": "reusable",
+        "count": 3,
+        "items": [
+          {
+            "name": "latency module",
+            "note": "generic TCP/TLS timing; no netpath-specific assumptions"
+          },
+          {
+            "name": "pmtu module",
+            "note": "standalone probe; callable independently of trace pipeline"
+          },
+          {
+            "name": "ixp module",
+            "note": "process-level cache safe to call in tight loops (country sweeps)"
+          }
+        ],
+        "label": "reusable components"
+      },
+      {
+        "category": "changes",
+        "count": 6,
+        "items": [
+          {
+            "name": "src/netpath/diagnosis.py",
+            "note": "rate-limit fix; jitter, calibrated loss, PMTU, TCP/TLS, route-flapping signals"
+          },
+          {
+            "name": "src/netpath/cli.py",
+            "note": "_classify_path stall_hop; _measure jitter/probe_count/tcp/tls/pmtu/ecmp; --ecmp-passes, --compare-v6 flags"
+          },
+          {
+            "name": "src/netpath/display.py",
+            "note": "country_summary stall context; path_table IXP labels; dual-stack Columns"
+          },
+          {
+            "name": "src/netpath/mtr.py",
+            "note": "run_traceroute prefer_tcp param; run() passes param; _compare_as_paths helper"
+          },
+          {
+            "name": "src/netpath/country.py",
+            "note": "get_test_ip_for_asn sorts by prefixlen descending"
+          },
+          {
+            "name": "tests/test_diagnosis.py",
+            "note": "rate-limit, jitter, loss calibration, PMTU, route-flapping tests"
+          }
+        ],
+        "label": "modified files"
+      }
+    ],
+    "summary": "Three phases of work tighten netpath's accuracy and add diagnostic depth. Phase 1 stops false alarms from transit hops that rate-limit ICMP probes, and makes incomplete-path rows in country sweeps show where the trace actually stalled — the transit ASN, hop number, and last measured RTT — instead of a flat warning. Phase 2 makes country sweeps reach more destinations by probing over TCP-443 first (where transit networks often pass traffic that blocks UDP probes), choosing test IPs from the most-specific announced prefix, and calibrating loss alarms to the actual number of packets measured rather than a fixed 1% threshold for every run. Phase 3 adds six advanced diagnostics built as standalone modules: PMTU black-hole detection (finding paths where large packets are silently dropped), TCP and TLS application latency alongside ICMP RTT, ECMP path tracing (running multiple passes to detect load-balanced diverging paths), route flapping detection across probe cycles, IXP hop classification to speed up triage, and IPv6 dual-stack comparison via a new --compare-v6 flag. Two new runtime dependencies are avoided entirely — all new code uses only the Python standard library and the system ping binary already used for bufferbloat."
   },
   "stages": {
     "review": {
-      "status": "not_started"
-    },
-    "design": {
-      "status": "skipped"
-    },
-    "release": {
-      "status": "not_started"
-    },
-    "architecture": {
-      "status": "in_progress",
-      "startedAt": "2026-06-30T20:28:21Z"
-    },
-    "implementation": {
       "status": "not_started"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-06-30T19:27:42Z",
       "startedAt": "2026-06-30T19:05:16Z"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T20:35:14Z"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "architecture": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T20:35:13Z",
+      "startedAt": "2026-06-30T20:28:21Z"
+    },
+    "release": {
+      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-fixing-incomplete-paths-richer-path-01kwcya418n5",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-30T20:28:21Z"
+  "worktreeLastSyncedAt": "2026-06-30T20:35:14Z"
 }
