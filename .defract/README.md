@@ -7,6 +7,7 @@ This project uses [defract](https://defract.dev) for structured AI-assisted deve
 | Task | Stage | Status |
 |------|-------|--------|
 | Country AS-path visual + Binat RTT anomaly | release | active |
+| No PyPI release + manual commit/push after tasks | scope | active |
 | Globe AS-path latency viz + pip/uv install | release | completed |
 | netpath as a One-Shot Diagnostic Path CLI | release | completed |
 | Ways to Improve Netpath | release | completed |

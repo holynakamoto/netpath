@@ -10,74 +10,88 @@ defract:
 
 ## Overview
 
-`netpath` is a Python CLI tool that probes throughput, latency, and packet loss across Autonomous System (AS) paths. It runs mtr/traceroute to a target ASN, performs bidirectional iperf3 throughput tests against servers inside that ASN, and optionally overlays Cloudflare Radar RUM quality data for comparison.
+`netpath` is a Python CLI tool that probes network path quality — latency, packet loss, and bidirectional throughput — to a target Autonomous System (ASN) or to the top ISPs for a given country. It combines mtr/traceroute path analysis with iperf3 throughput measurement and optional Cloudflare Radar RUM overlay.
 
 ## Stack
 
-- **Runtime**: Python 3.9+
+- **Runtime**: Python 3.9–3.13 (matrix CI)
 - **CLI framework**: Typer 0.9+
 - **Terminal output**: Rich 13+
-- **HTTP client**: requests 2.28+
-- **Build backend**: Hatchling
-- **Package manager**: pip / uv (`.venv` present; `uvx netpath` supported)
-- **CI/CD**: None configured
+- **HTTP**: requests 2.28+
+- **Build system**: Hatchling (PEP 517)
+- **Package manager**: uv (uv.lock present)
+- **Testing**: pytest 8+
+- **Linting**: ruff 0.4+
+- **CI/CD**: GitHub Actions (`.github/workflows/ci.yml`) — matrix across Python 3.9–3.13 on ubuntu-latest
 
 ## Conventions
 
-- `src/` layout — package root is `src/netpath/`; evidence: `[tool.hatch.build.targets.wheel] packages = ["src/netpath"]`
-- Entry point via `netpath.cli:run`; evidence: `[project.scripts] netpath = "netpath.cli:run"`
-- Typer app with subcommands (`asn`, `country`) defined via `@app.command()` decorators in `cli.py`
-- All terminal output routes through a Rich `Console` singleton in `display.py`
-- `diagnosis.py` is a pure function with no I/O — kept separate from display logic
-- Optional Cloudflare RUM overlay via `NETPATH_CF_TOKEN` env var or `--cf-token` flag
-- Graceful fallback chain for probing: mtr → traceroute; for throughput: iperf3 → Cloudflare HTTP speedtest
-- `globe.py` renders an interactive 3D in-browser visualization via ip-api.com geolocation + a self-contained HTML tempfile
-- ASN lookups use Team Cymru public whois over raw TCP port 43 — no API key required
+- **src layout** — package lives at `src/netpath/`; entry point is `netpath.cli:run` — evidence: `pyproject.toml` `[tool.hatch.build.targets.wheel]` and `[project.scripts]`
+- **Typer subcommands** — single `app = typer.Typer(...)` in `cli.py` with two subcommands (`asn`, `country`) — evidence: `cli.py:16`
+- **Measurement/display separation** — `_measure()` is pure data collection with no display calls; display is gated on `json_mode` — evidence: `cli.py:157–244`
+- **Graceful fallback chain** — iperf3 falls back to Cloudflare HTTP speedtest; mtr falls back to traceroute — evidence: `cli.py:138–142`, `cli.py:232–241`
+- **Exit codes encode severity** — 0 = ok, 1 = warning, 2 = critical — evidence: `cli.py:32`
+- **Optional CF token** — Cloudflare RUM overlay via `NETPATH_CF_TOKEN` env var or `--cf-token` flag; silently skipped if absent
+- **Tests live in `tests/`** — `test_mtr.py`, `test_diagnosis.py`
 
 ## File Structure
 
 ```
-src/netpath/
-  __init__.py      # version constant
-  __main__.py      # allows `python -m netpath`
-  cli.py           # Typer app, `asn` and `country` subcommands
-  display.py       # Rich console, all rendering helpers
-  diagnosis.py     # pure verdict/classification logic (no I/O)
-  mtr.py           # mtr / traceroute runner + Cymru ASN lookup
-  servers.py       # iperf3 public server list fetcher + resolver
-  asn.py           # ASN normalization utilities
-  country.py       # RIPE allocation data fetcher, top-ASN ranking
-  rum.py           # Cloudflare Radar RUM API client
-  iperf.py         # iperf3 subprocess wrapper
-  speedtest.py     # Cloudflare HTTP speedtest fallback
-  globe.py         # interactive 3D globe visualization
+netpath/
+├── pyproject.toml          # project metadata, deps, build config
+├── uv.lock                 # uv lockfile
+├── README.md
+├── src/
+│   └── netpath/
+│       ├── __init__.py     # version constant
+│       ├── __main__.py     # python -m netpath entry
+│       ├── cli.py          # Typer app, subcommands: asn, country
+│       ├── asn.py          # ASN normalization utilities
+│       ├── country.py      # RIPE/Cymru top-ASN lookup by country code
+│       ├── diagnosis.py    # verdict/severity logic (pure, no I/O)
+│       ├── display.py      # Rich terminal rendering helpers
+│       ├── globe.py        # interactive 3D globe visualization (--globe)
+│       ├── iperf.py        # iperf3 subprocess wrapper
+│       ├── mtr.py          # mtr/traceroute subprocess wrapper + Cymru lookup
+│       ├── rum.py          # Cloudflare Radar RUM API client
+│       ├── servers.py      # public iperf3 server list + ASN filtering
+│       └── speedtest.py    # Cloudflare HTTP speedtest fallback
+└── tests/
+    ├── test_mtr.py
+    └── test_diagnosis.py
 ```
 
 ## Key Dependencies
 
 ### Runtime
 - `rich>=13.0` — terminal tables, panels, spinners, progress bars
-- `typer>=0.9` — CLI subcommand framework
-- `requests>=2.28` — HTTP calls to ip-api.com, RIPE, Cloudflare Radar
+- `typer>=0.9` — CLI framework with argument/option parsing
+- `requests>=2.28` — HTTP calls to RIPE, Cymru, Cloudflare Radar APIs
 
-### System (not Python packages)
-- `mtr` — primary path prober (falls back to `traceroute` if absent)
-- `iperf3` — bidirectional throughput measurement (falls back to Cloudflare HTTP speedtest if absent)
+### Dev
+- `pytest>=8` — test runner
+- `ruff>=0.4` — linting
+
+### System prerequisites (not PyPI)
+- `mtr` — primary path prober (falls back to `traceroute`)
+- `iperf3` — bidirectional throughput (falls back to Cloudflare HTTP speedtest)
 
 ## Build Commands
 
 | Command | Description |
 |---------|-------------|
-| `pip install -e .` | Install in editable mode |
-| `uvx netpath` | Run directly via uv without installing |
-| `uv tool install netpath` | Install as a uv tool |
-| `netpath asn AS15169` | Probe a specific ASN |
-| `netpath country US --top 5` | Probe top 5 ASNs for a country |
-| `netpath --help` | List all commands and options |
+| `pip install -e ".[dev]"` | Install in editable mode with dev extras |
+| `uv run netpath` | Run via uv |
+| `uvx netpath` | Run without installing |
+| `pytest` | Run tests |
+| `ruff check .` | Lint |
+| `python -m build` | Build distribution wheel |
 
 ## Project-Specific Notes
 
-- No CI/CD workflows exist; published to PyPI directly.
-- No local env/config files are required — the only optional secret is `NETPATH_CF_TOKEN` (Cloudflare API token with `radar:read` permission, free to create).
-- `mtr` requires elevated privileges on some systems; the CLI falls back to `traceroute` + Cymru ASN lookup transparently.
-- The `country` subcommand fetches RIPE allocation data to rank ASNs by IPv4 address space, then tests one server per top-N ASN.
+- `NETPATH_CF_TOKEN` env var enables Cloudflare Radar RUM overlay; without it, RUM data is silently skipped. Token requires `radar:read` permission (free to create at dash.cloudflare.com).
+- The `--globe` flag opens a self-contained HTML tempfile with an interactive 3D path visualization.
+- `netpath asn --json` outputs structured JSON to stdout and suppresses all terminal display — safe for scripting and CI.
+- `mtr` requires elevated privileges on some systems; CLI falls back to `traceroute` + Cymru ASN lookup transparently.
+- Published to PyPI as `netpath`; installable via `pip install netpath` or `uvx netpath`.
+- No local env/config files exist — the `.gitignore` covers only build artifacts (`.venv/`, `dist/`, `__pycache__/`).
