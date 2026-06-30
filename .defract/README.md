@@ -7,10 +7,10 @@ This project uses [defract](https://defract.dev) for structured AI-assisted deve
 | Task | Stage | Status |
 |------|-------|--------|
 | Country AS-path visual + Binat RTT anomaly | release | active |
-| Publish netpath 0.2.0 + install on macOS | scope | active |
 | Automated PyPI Publishing with VCS Versioning | release | completed |
 | Globe AS-path latency viz + pip/uv install | release | completed |
 | netpath as a One-Shot Diagnostic Path CLI | release | completed |
+| Publish netpath 0.2.0 + install on macOS | release | completed |
 | Ways to Improve Netpath | release | completed |
 
 
