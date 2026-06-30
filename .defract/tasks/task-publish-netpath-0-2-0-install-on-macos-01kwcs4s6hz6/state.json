@@ -1,11 +1,11 @@
 {
   "id": "task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6",
   "status": "active",
-  "stage": "implementation",
-  "phase": 0,
+  "stage": "release",
+  "phase": 1,
   "totalPhases": 1,
   "createdAt": "2026-06-30T17:27:32Z",
-  "updatedAt": "2026-06-30T18:34:25Z",
+  "updatedAt": "2026-06-30T18:37:54Z",
   "events": [
     {
       "base_branch": "main",
@@ -150,6 +150,191 @@
       "phase": 1,
       "timestamp": "2026-06-30T18:34:25Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks: YAML validation",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-06-30T18:34:40Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-06-30T18:35:02Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "14 pytest tests passed. Ruff reports 9 pre-existing lint issues in display.py, speedtest.py, and zoom_analyze.py — none in files touched by this phase. Both workflow YAML files validate cleanly.",
+      "failed": 0,
+      "passed": 14,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-06-30T18:35:23Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Implementation: bumped to actions/checkout@v7, actions/setup-python@v6, actions/upload-artifact@v7, actions/download-artifact@v8 — the latest stable major versions as of 2026-06-30.",
+      "phase": 1,
+      "rationale": "Checked each action's GitHub releases page. All v6/v7/v8 releases are primarily ESM + Node 24 upgrades. Changelog review confirmed no breaking changes to our usage patterns: checkout with fetch-depth, setup-python with python-version matrix, upload-artifact with name+path, download-artifact with name+path. upload-artifact@v7 + download-artifact@v8 are forward-compatible: the v8 direct-download check (Content-Type based) transparently handles artifacts uploaded with the standard zip path used by v7.",
+      "timestamp": "2026-06-30T18:35:29Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-06-30T18:35:36Z",
+      "type": "progress_report"
+    },
+    {
+      "artifacts_created": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/publish.yml"
+      ],
+      "phase": 0,
+      "summary": "Bumped all four GitHub Actions to their current latest major versions: checkout v4→v7, setup-python v5→v6, upload-artifact v4→v7, download-artifact v4→v8. Changelog review confirmed no breaking changes to existing usage. Both YAML files validate cleanly; 14 tests pass.",
+      "timestamp": "2026-06-30T18:35:38Z",
+      "type": "phase_completed"
+    },
+    {
+      "change_summary": "Phase 1 complete: Bump action versions in both workflows",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T18:35:58Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "items": [
+        {
+          "description": "Push the feature branch to GitHub and open the Actions tab — confirm the CI run triggered by the push completes without any \"Node.js 20 is deprecated\" warning in its output."
+        },
+        {
+          "description": "In the CI run log, verify that `actions/checkout@v7` and `actions/setup-python@v6` appear in the step headers for each matrix job (5 Python versions)."
+        },
+        {
+          "description": "Open `.github/workflows/ci.yml` and confirm both action references read `actions/checkout@v7` and `actions/setup-python@v6` with no `@v4`/`@v5` remnants."
+        },
+        {
+          "description": "Open `.github/workflows/publish.yml` and confirm the four updated references: `actions/checkout@v7`, `actions/setup-python@v6`, `actions/upload-artifact@v7`, `actions/download-artifact@v8` — and that `pypa/gh-action-pypi-publish@release/v1` is unchanged."
+        },
+        {
+          "description": "Optionally push a test tag (e.g. `v0.2.1-test`) to a fork and confirm the publish workflow build job uploads the `dist` artifact and the publish job downloads it by name without error."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Bump action versions in both workflows",
+      "timestamp": "2026-06-30T18:36:08Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Bump action versions in both workflows",
+      "server_phase": 0,
+      "timestamp": "2026-06-30T18:36:14Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Bump action versions in both workflows",
+      "timestamp": "2026-06-30T18:36:14Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "25e500abc68073b940a27629c764f720c6b0a428",
+      "worktree_status_digest": "4271b09045f3eec1fd65d7ada22142bc39f1262b03a03751ad5eb8d94be3de63"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Bump action versions in both workflows",
+      "timestamp": "2026-06-30T18:36:37Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 0,
+      "timestamp": "2026-06-30T18:36:37Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "stage": "implementation",
+      "summary": "All phases approved — implementation ready for review.",
+      "timestamp": "2026-06-30T18:36:37Z",
+      "type": "stage_work_complete",
+      "worktree_head": "a6aa5f7d45aec1caae40955f84db88fa9bf664bc",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T18:36:38Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T18:36:37Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "47bba39798081880155ad7c66f8c6bda989702cc",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "implementation",
+      "stale_worktree_head": "a6aa5f7d45aec1caae40955f84db88fa9bf664bc",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T18:36:38Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T18:36:38Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "implementation",
+      "timestamp": "2026-06-30T18:36:38Z",
+      "to": "release",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T18:36:38Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwcx39yzwgzqz7ezcr19sr1m",
+      "stage": "release",
+      "timestamp": "2026-06-30T18:36:38Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Running production build and pushing branch for release",
+      "phase": 1,
+      "stage": "release",
+      "timestamp": "2026-06-30T18:37:06Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Release validated — build passes, code pushed",
+      "revision": 1,
+      "stage": "release",
+      "timestamp": "2026-06-30T18:37:46Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Release complete — task done",
+      "rationale": "Production build passes (uv build), implementation approved on 2026-06-30T18:36:37Z, code committed (a6aa5f7) and pushed to remote. Review stage was skipped per config-change workflow classification.",
+      "timestamp": "2026-06-30T18:37:54Z",
+      "type": "decision"
     }
   ],
   "needsArchitecture": false,
@@ -166,32 +351,39 @@
     "rationale": "Config-change: the only code change is bumping action version tags in two YAML files — no logic, no UI, no new system boundaries. No design stage (no UI), no architecture stage (single subsystem, no design decisions beyond looking up latest tags), no review stage (trivial mechanical change verified by CI run output)."
   },
   "stageApprovals": {
-    "scope": "2026-06-30T18:32:28Z"
+    "scope": "2026-06-30T18:32:28Z",
+    "implementation": "2026-06-30T18:36:37Z"
+  },
+  "stageContent": {
+    "release": "## Release Notes\n\n### What was built\n- Bumped `actions/checkout` from v4 to v7 in both CI and publish workflows\n- Bumped `actions/setup-python` from v5 to v6 in both CI and publish workflows\n- Bumped `actions/upload-artifact` from v4 to v7 in the publish workflow\n- Bumped `actions/download-artifact` from v4 to v8 in the publish workflow\n- All version bumps reviewed for breaking changes; none affect existing usage patterns\n\n### Key decisions\n- Chose latest stable major versions (checkout@v7, setup-python@v6, upload-artifact@v7, download-artifact@v8) rather than intermediate versions to maximise the time before the next required upgrade\n- `pypa/gh-action-pypi-publish@release/v1` left unchanged — it is Docker-based and does not run Node, so it is not a source of Node deprecation warnings\n- Confirmed upload-artifact@v7 + download-artifact@v8 cross-version compatibility: name-based artifact handoff between the build and publish jobs continues to work identically\n\n### Changes by phase\n- **Phase 1: Bump action versions in both workflows** — Updated `.github/workflows/ci.yml` (checkout v4→v7, setup-python v5→v6) and `.github/workflows/publish.yml` (same two plus upload-artifact v4→v7, download-artifact v4→v8). Both YAML files validate cleanly; 14 pytest tests pass; 9 pre-existing ruff issues in unrelated files are unchanged.\n\n## Verification\n\n- Production build: PASS (`uv build` produced `netpath-0.2.1.dev7+g47bba3979` wheel and sdist)\n- Code pushed to remote branch: `feature/task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6`\n- YAML syntax: both workflow files validated cleanly during implementation phase\n- Tests: 14 passed, 0 failed during implementation phase\n- Review stage: skipped (config-change workflow — CI run output is the verification signal)\n",
+    "implementation": "## Phase 1: Bump action versions in both workflows\n\n### What was built\n\nUpdated `.github/workflows/ci.yml` and `.github/workflows/publish.yml` to use the latest stable major versions of all referenced GitHub Actions, resolving Node 20 deprecation warnings.\n\n**Version changes:**\n- `actions/checkout@v4` → `@v7` (both workflows)\n- `actions/setup-python@v5` → `@v6` (both workflows)\n- `actions/upload-artifact@v4` → `@v7` (publish.yml)\n- `actions/download-artifact@v4` → `@v8` (publish.yml)\n\n### Changelog review summary\n\n- **checkout@v7**: ESM upgrade + security fix (blocks fork PR checkout for pull_request_target). Transparent for our usage.\n- **setup-python@v6**: Upgrades internal runtime to Node 24 — exactly the fix needed. Requires runner v2.327.1+ (ubuntu-latest is always current).\n- **upload-artifact@v7**: ESM upgrade + new optional direct-upload feature. Existing name+path usage unchanged.\n- **download-artifact@v8**: ESM upgrade + direct-download support + hash-mismatch now errors by default (security hardening). Name-based download still works identically.\n\n### Verification results\n\n- `ci.yml` YAML: valid\n- `publish.yml` YAML: valid\n- 14 pytest tests: all passed\n- Ruff: 9 pre-existing lint issues in unrelated files (display.py, speedtest.py, zoom_analyze.py) — not introduced by this phase\n"
   },
   "stages": {
-    "design": {
-      "status": "skipped"
-    },
     "review": {
       "status": "skipped"
     },
-    "release": {
-      "status": "not_started"
+    "architecture": {
+      "status": "skipped"
+    },
+    "design": {
+      "status": "skipped"
     },
     "implementation": {
-      "status": "in_progress",
+      "status": "approved",
+      "approvedAt": "2026-06-30T18:36:37Z",
       "startedAt": "2026-06-30T18:32:29Z"
+    },
+    "release": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T18:36:38Z"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-06-30T18:32:28Z",
       "startedAt": "2026-06-30T18:26:25Z"
-    },
-    "architecture": {
-      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-30T18:32:29Z"
+  "worktreeLastSyncedAt": "2026-06-30T18:36:38Z"
 }

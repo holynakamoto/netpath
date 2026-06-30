@@ -3,7 +3,7 @@ defract:
   id: task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6
   type: improvement
   status: active
-  stage: implementation
+  stage: release
   phase: 0
   total_phases: 1
   priority: normal
@@ -13,7 +13,6 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
-
 
 ## Story Brief
 
@@ -94,3 +93,59 @@ Current action versions in the workflows (as found in the worktree):
 The `pypa/gh-action-pypi-publish` action uses a Docker container and does not run Node at all — it is not a source of Node deprecation warnings and does not need a version bump for this task (the `release/v1` floating tag already tracks the latest v1 release).
 
 Version is managed via `hatch-vcs` (git tags drive the build version); no `pyproject.toml` version field exists to update.
+
+## Implementation Notes
+
+## Phase 1: Bump action versions in both workflows
+
+### What was built
+
+Updated `.github/workflows/ci.yml` and `.github/workflows/publish.yml` to use the latest stable major versions of all referenced GitHub Actions, resolving Node 20 deprecation warnings.
+
+**Version changes:**
+- `actions/checkout@v4` → `@v7` (both workflows)
+- `actions/setup-python@v5` → `@v6` (both workflows)
+- `actions/upload-artifact@v4` → `@v7` (publish.yml)
+- `actions/download-artifact@v4` → `@v8` (publish.yml)
+
+### Changelog review summary
+
+- **checkout@v7**: ESM upgrade + security fix (blocks fork PR checkout for pull_request_target). Transparent for our usage.
+- **setup-python@v6**: Upgrades internal runtime to Node 24 — exactly the fix needed. Requires runner v2.327.1+ (ubuntu-latest is always current).
+- **upload-artifact@v7**: ESM upgrade + new optional direct-upload feature. Existing name+path usage unchanged.
+- **download-artifact@v8**: ESM upgrade + direct-download support + hash-mismatch now errors by default (security hardening). Name-based download still works identically.
+
+### Verification results
+
+- `ci.yml` YAML: valid
+- `publish.yml` YAML: valid
+- 14 pytest tests: all passed
+- Ruff: 9 pre-existing lint issues in unrelated files (display.py, speedtest.py, zoom_analyze.py) — not introduced by this phase
+
+## Release
+
+## Release Notes
+
+### What was built
+- Bumped `actions/checkout` from v4 to v7 in both CI and publish workflows
+- Bumped `actions/setup-python` from v5 to v6 in both CI and publish workflows
+- Bumped `actions/upload-artifact` from v4 to v7 in the publish workflow
+- Bumped `actions/download-artifact` from v4 to v8 in the publish workflow
+- All version bumps reviewed for breaking changes; none affect existing usage patterns
+
+### Key decisions
+- Chose latest stable major versions (checkout@v7, setup-python@v6, upload-artifact@v7, download-artifact@v8) rather than intermediate versions to maximise the time before the next required upgrade
+- `pypa/gh-action-pypi-publish@release/v1` left unchanged — it is Docker-based and does not run Node, so it is not a source of Node deprecation warnings
+- Confirmed upload-artifact@v7 + download-artifact@v8 cross-version compatibility: name-based artifact handoff between the build and publish jobs continues to work identically
+
+### Changes by phase
+- **Phase 1: Bump action versions in both workflows** — Updated `.github/workflows/ci.yml` (checkout v4→v7, setup-python v5→v6) and `.github/workflows/publish.yml` (same two plus upload-artifact v4→v7, download-artifact v4→v8). Both YAML files validate cleanly; 14 pytest tests pass; 9 pre-existing ruff issues in unrelated files are unchanged.
+
+## Verification
+
+- Production build: PASS (`uv build` produced `netpath-0.2.1.dev7+g47bba3979` wheel and sdist)
+- Code pushed to remote branch: `feature/task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6`
+- YAML syntax: both workflow files validated cleanly during implementation phase
+- Tests: 14 passed, 0 failed during implementation phase
+- Review stage: skipped (config-change workflow — CI run output is the verification signal)
+
