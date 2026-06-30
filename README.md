@@ -1,0 +1,110 @@
+# netpath
+
+Network path analyzer: probe throughput, latency, and packet loss across Autonomous System (AS) paths. Runs mtr/traceroute to a target ASN, measures bidirectional iperf3 throughput to servers inside that ASN, and optionally overlays Cloudflare Radar RUM data for comparison.
+
+## Installation
+
+```bash
+pip install netpath
+```
+
+```bash
+uvx netpath
+```
+
+```bash
+uv tool install netpath
+```
+
+## System Prerequisites
+
+netpath relies on two external tools for path probing and throughput measurement. Install them before running:
+
+- **mtr** — primary path prober (falls back to traceroute if unavailable)
+- **iperf3** — bidirectional throughput measurement (falls back to Cloudflare HTTP speedtest if unavailable)
+
+```bash
+# macOS
+brew install mtr iperf3
+
+# Debian / Ubuntu
+sudo apt install mtr-tiny iperf3
+
+# Fedora / RHEL
+sudo dnf install mtr iperf3
+```
+
+## Usage
+
+### Probe a specific ASN
+
+```bash
+netpath asn AS15169
+```
+
+Options:
+
+```
+-n, --count INTEGER       Max servers to test (default: 3)
+-d, --duration INTEGER    iperf3 seconds per direction (default: 5)
+-c, --cycles INTEGER      mtr probe cycles (default: 10)
+--no-throughput           Skip throughput test, trace path only
+--cf-token TEXT           Cloudflare API token (or set NETPATH_CF_TOKEN)
+--json                    Output results as JSON
+```
+
+### Probe top ASNs for a country
+
+```bash
+netpath country US
+```
+
+Options:
+
+```
+-t, --top INTEGER         Number of top ASNs to test (default: 10)
+-n, --count INTEGER       Max servers per ASN (default: 3)
+-d, --duration INTEGER    iperf3 seconds per direction (default: 5)
+-c, --cycles INTEGER      mtr probe cycles (default: 10)
+--no-throughput           Skip throughput test
+--cf-token TEXT           Cloudflare API token (or set NETPATH_CF_TOKEN)
+```
+
+### Examples
+
+```bash
+# Probe Google's ASN
+netpath asn AS15169
+
+# Probe top 5 UK ISPs
+netpath country GB --top 5
+
+# Path-only probe (no throughput test)
+netpath asn AS7018 --no-throughput
+
+# JSON output for scripting
+netpath asn AS15169 --json | jq .verdict
+```
+
+## Cloudflare Radar RUM Overlay
+
+netpath can overlay Cloudflare Radar Real User Monitoring (RUM) quality metrics for each ASN, showing real-world HTTP performance data alongside your own measurements.
+
+To enable it, pass a Cloudflare API token with `radar:read` permission:
+
+```bash
+export NETPATH_CF_TOKEN=your_token_here
+netpath asn AS15169
+```
+
+Or pass it inline:
+
+```bash
+netpath asn AS15169 --cf-token your_token_here
+```
+
+Tokens are free. Create one in the [Cloudflare dashboard](https://dash.cloudflare.com/profile/api-tokens) with the `radar:read` permission scope.
+
+## License
+
+MIT

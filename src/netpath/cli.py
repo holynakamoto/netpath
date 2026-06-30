@@ -3,13 +3,14 @@ import os
 import queue
 import re
 import subprocess
+import sys
 import threading
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from netpath import __version__
 from netpath import country as country_mod
-from netpath import display, iperf as iperf_mod, mtr, rum as rum_mod, servers, speedtest
+from netpath import display, globe as globe_mod, iperf as iperf_mod, mtr, rum as rum_mod, servers, speedtest
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
 
@@ -308,9 +309,13 @@ def asn(
     no_throughput: bool = _NO_TPUT,
     cf_token:      str | None = _CF_TOK,
     output_json:   bool = typer.Option(False, "--json", help="Output results as JSON to stdout; suppresses terminal display"),
+    globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probe"),
 ):
     """Test latency, packet loss, and throughput to servers in a specific ASN."""
     asn_norm = normalize_asn(target)
+    if globe and output_json:
+        print("Warning: --globe is ignored when --json is set", file=sys.stderr)
+        globe = False
     if not output_json:
         display.header(__version__)
     skip_throughput = _check_deps(no_throughput)
@@ -378,13 +383,17 @@ def asn(
         }
         print(json.dumps(output, indent=2))
     else:
+        last_hubs: list[dict] = []
         for server in found:
-            _run_test(
+            r = _run_test(
                 host=server["HOST"], port=server["port"],
                 server_meta=server, target_asn=asn_norm,
                 cycles=cycles, duration=duration,
                 skip_throughput=skip_throughput, cf_token=cf_token,
             )
+            last_hubs = r["hubs"]
+        if globe and last_hubs:
+            globe_mod.render({asn_norm: last_hubs})
 
 
 # ── country subcommand ────────────────────────────────────────────────────────
@@ -398,6 +407,7 @@ def country(
     cycles:        int  = _CYCLES,
     no_throughput: bool = _NO_TPUT,
     cf_token:      str | None = _CF_TOK,
+    globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probes"),
 ):
     """Test the top N ASNs (by allocated IPv4 address space) for a country."""
     code = code.upper()
@@ -449,6 +459,7 @@ def country(
     display.console.print()
 
     summary_rows: list[dict] = []
+    hubs_for_globe: dict[str, list[dict]] = {}
 
     for i, asn_info in enumerate(top_asns, 1):
         asn_str  = asn_info["asn"]
@@ -503,8 +514,12 @@ def country(
             "name": display.clean_asn_name(isp_name),
             **r,
         })
+        if globe:
+            hubs_for_globe[asn_str] = r.get("hubs", [])
 
     display.country_summary(code, summary_rows)
+    if globe and hubs_for_globe:
+        globe_mod.render(hubs_for_globe)
 
 
 def run():

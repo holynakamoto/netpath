@@ -6,13 +6,33 @@ build-backend = "hatchling.build"
 name = "netpath"
 version = "0.1.0"
 description = "Network path analyzer: throughput, latency, and packet loss across AS paths"
+readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
+authors = [
+    { name = "Nick Moore", email = "nickm@dave.io" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Networking :: Monitoring",
+]
 dependencies = [
     "rich>=13.0",
     "typer>=0.9",
     "requests>=2.28",
 ]
+
+[project.urls]
+Homepage = "https://github.com/holynakamoto/netpath"
+"Bug Tracker" = "https://github.com/holynakamoto/netpath/issues"
 
 [project.scripts]
 netpath = "netpath.cli:run"

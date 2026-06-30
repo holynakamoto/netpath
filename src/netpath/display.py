@@ -12,6 +12,9 @@ from netpath.asn import cymru_bulk_lookup_rich, normalize_asn
 
 _IP_PAT = re.compile(r'^\d{1,3}(?:\.\d{1,3}){3}$')
 
+LATENCY_GREEN_MS = 20
+LATENCY_YELLOW_MS = 80
+
 console = Console()
 
 
@@ -44,9 +47,9 @@ def fmt_latency(ms: float) -> Text:
     s = f"{ms:.1f} ms"
     if ms <= 0:
         return Text("—", style="dim")
-    if ms < 20:
+    if ms < LATENCY_GREEN_MS:
         return Text(s, style="bold green")
-    if ms < 80:
+    if ms < LATENCY_YELLOW_MS:
         return Text(s, style="yellow")
     return Text(s, style="bold red")
 
