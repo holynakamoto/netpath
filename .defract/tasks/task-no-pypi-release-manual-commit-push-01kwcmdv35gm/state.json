@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 1,
   "createdAt": "2026-06-30T16:05:06Z",
-  "updatedAt": "2026-06-30T16:09:14Z",
+  "updatedAt": "2026-06-30T16:12:45Z",
   "events": [
     {
       "base_branch": "main",
@@ -54,27 +54,89 @@
       "timed_out": false,
       "timestamp": "2026-06-30T16:09:14Z",
       "type": "agent_exited"
+    },
+    {
+      "change_summary": "Full scope: VCS versioning via hatch-vcs + OIDC-based PyPI publish workflow",
+      "revision": 2,
+      "timestamp": "2026-06-30T16:12:09Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "No UI changes (skip design). Changes touch 4 files across the build config and CI pipeline — well-contained, single subsystem (packaging), building on existing hatchling patterns (skip architecture). Standard backend-feature pipeline is the right fit.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "backend-feature",
+      "tier": "standard",
+      "timestamp": "2026-06-30T16:12:17Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [
+        "setuptools-scm with hatchling (cross-tool, unsupported combination)",
+        "Custom version script reading git describe output (fragile, reinvents the wheel)",
+        "Hardcoded version managed by a release script (status quo — error-prone, requires manual file edits)"
+      ],
+      "decision": "Use hatch-vcs for VCS-based versioning instead of setuptools-scm or a manual version script",
+      "rationale": "The project already uses hatchling as its build backend. hatch-vcs is hatchling's first-party VCS plugin, so it requires no additional tooling or backend changes — just adding it to [build-system].requires and configuring [tool.hatch.version]. setuptools-scm would require switching build backends or adding an awkward cross-tool integration.",
+      "timestamp": "2026-06-30T16:12:24Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "PyPI API token stored as GitHub Actions secret (requires token rotation, leak risk)",
+        "Manually running twine upload locally (status quo — no automation)"
+      ],
+      "decision": "Use PyPI OIDC trusted publishing instead of a stored API token for the publish workflow",
+      "rationale": "Trusted publishing requires no secrets in GitHub repository settings — the OIDC token is ephemeral and scoped to the specific workflow run. Stored API tokens must be rotated, can be leaked, and are permanently valid until manually revoked. The one-time browser setup in the PyPI UI is a reasonable trade-off for permanently eliminating token management overhead.",
+      "timestamp": "2026-06-30T16:12:31Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2. Single-phase implementation: (1) switch pyproject.toml to hatch-vcs dynamic versioning, (2) update __init__.py to import from the generated _version.py with a fallback, (3) add _version.py to .gitignore, (4) create .github/workflows/publish.yml with OIDC trusted publishing triggered on v*.*.* tags. No architecture stage needed — all changes are well-contained. Workflow classified as backend-feature / standard.",
+      "timestamp": "2026-06-30T16:12:45Z",
+      "type": "stage_work_complete",
+      "worktree_head": "8f8a723d6e9a435fbf06b507fc5cdbffa81fe1eb",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "backend-feature",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "No UI changes (skip design). Changes touch 4 files across the build config and CI pipeline — well-contained, single subsystem (packaging), building on existing hatchling patterns (skip architecture). Standard backend-feature pipeline is the right fit."
+  },
   "stages": {
-    "release": {
+    "review": {
       "status": "not_started"
     },
     "scope": {
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "startedAt": "2026-06-30T16:09:14Z"
     },
-    "design": {
+    "release": {
       "status": "not_started"
     },
-    "review": {
-      "status": "not_started"
+    "design": {
+      "status": "skipped"
     },
     "implementation": {
       "status": "not_started"
     },
     "architecture": {
-      "status": "not_started"
+      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-no-pypi-release-manual-commit-push-01kwcmdv35gm",
