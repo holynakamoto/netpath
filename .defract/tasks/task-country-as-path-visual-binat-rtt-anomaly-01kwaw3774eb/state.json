@@ -1,11 +1,11 @@
 {
   "id": "task-country-as-path-visual-binat-rtt-anomaly-01kwaw3774eb",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 2,
   "createdAt": "2026-06-29T23:40:37Z",
-  "updatedAt": "2026-06-29T23:47:35Z",
+  "updatedAt": "2026-06-30T00:29:43Z",
   "events": [
     {
       "base_branch": "main",
@@ -108,6 +108,175 @@
       "type": "stage_work_complete",
       "worktree_head": "57be2dd80c5aef18c2b8f3a3008d437461229e1f",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 3,
+      "timestamp": "2026-06-30T00:25:41Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-06-30T00:25:41Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "8ea9df443903155df235ded8338cfbcc5b915602",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "57be2dd80c5aef18c2b8f3a3008d437461229e1f",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T00:25:42Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-06-30T00:25:42Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-06-30T00:25:42Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T00:25:42Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwaynr7te7gwp4xs6h6684ry",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T00:25:42Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwaw85ncar2xv3hfr8n4kqtt",
+      "timed_out": false,
+      "timestamp": "2026-06-30T00:25:42Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting Phase 1: adding _classify_path, updating _run_test with path_complete/verified_rtt_ms/entry_transit_asn fields",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T00:26:49Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Path Completeness Classification",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-06-30T00:26:52Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes to cli.py",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-06-30T00:26:55Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-06-30T00:27:43Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-06-30T00:28:56Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "5 manual unit tests of _classify_path: complete path, Binat incomplete path, single-hop direct, all-AS??? no resolvable, case normalization. All passed. Module imports cleanly.",
+      "failed": 0,
+      "passed": 5,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-06-30T00:29:00Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Implementation: inlined last_rtt_ms logic rather than keeping _extract_last_rtt as a named function",
+      "phase": 1,
+      "rationale": "Phase spec required removing _extract_last_rtt while R4 required last_rtt_ms to remain populated. Inlining the three-line loop directly in _run_test satisfies both without adding an extra private helper or a 4th return key on _classify_path.",
+      "timestamp": "2026-06-30T00:29:06Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-06-30T00:29:09Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 1 complete: Path Completeness Classification",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T00:29:21Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/cli.py"
+      ],
+      "phase": 0,
+      "summary": "Added _classify_path to cli.py; removed _extract_last_rtt; _run_test now populates path_complete, verified_rtt_ms, entry_transit_asn alongside the preserved last_rtt_ms. Binat-style paths that never enter the target ASN now have verified_rtt_ms=None instead of the transit RTT.",
+      "timestamp": "2026-06-30T00:29:26Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `netpath country IL --no-throughput` and find Binat (Internet Binat / AS199524) in the output. Confirm it appears in the final summary table with a blank or '—' RTT rather than a sub-30 ms reading from a transit router."
+        },
+        {
+          "description": "Add a quick debug print or inspect summary_rows in a Python REPL: `PYTHONPATH=src /Users/nickmoore/netpath/.venv/bin/python -c \"from netpath.cli import _classify_path; r = _classify_path([{'ASN':'AS3257','host':'r.gtt.net','Avg':26.0}], 'AS199524'); print(r)\"` — confirm `complete=False` and `rtt_ms=None`."
+        },
+        {
+          "description": "Run `netpath country US --no-throughput` against an ISP with a confirmed reachable path (e.g. Comcast / AS7922). Confirm that ISP shows a non-None RTT value in the summary, matching a hop that actually carried the target ASN label."
+        },
+        {
+          "description": "Run `netpath asn AS15169 --json` and confirm the JSON output still contains a `last_rtt_ms` key with a numeric value (not null), verifying backward compatibility of the asn subcommand."
+        },
+        {
+          "description": "Run `netpath country IL --no-throughput` for an ISP with a complete path (e.g. Bezeq / AS8551). In the terminal summary row, confirm the RTT shown matches the Avg latency of the last hop inside AS8551 in the per-hop path table, not a transit hop."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Path Completeness Classification",
+      "timestamp": "2026-06-30T00:29:39Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Path Completeness Classification",
+      "server_phase": 0,
+      "timestamp": "2026-06-30T00:29:43Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Path Completeness Classification",
+      "timestamp": "2026-06-30T00:29:43Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "8ea9df443903155df235ded8338cfbcc5b915602",
+      "worktree_status_digest": "2009eeb389f916c0e9ffade12d4d6a7621ebcd74cea09520b3ade6be117cf485"
     }
   ],
   "needsArchitecture": false,
@@ -124,28 +293,36 @@
     "classifiedBy": "scope-agent",
     "rationale": "Primary issue is a data classification bug (wrong RTT attributed to unreachable ISPs) bundled with a display enhancement. No design stage — terminal ASCII output with no new visual design decisions beyond color thresholds. No architecture stage — changes are confined to two files (cli.py and display.py) and build on existing patterns without introducing new subsystems."
   },
+  "stageApprovals": {
+    "scope": "2026-06-30T00:25:41Z"
+  },
+  "stageContent": {
+    "implementation": "## Phase 1: Path Completeness Classification\n\n**Files changed:** `src/netpath/cli.py`\n\n**What was built:**\n\n- Removed `_extract_last_rtt` helper. Its logic (last responsive hop regardless of ASN) is inlined directly in `_run_test` to preserve `last_rtt_ms` for backward compatibility.\n- Added `_classify_path(hubs, target_asn) -> dict` returning `{complete, rtt_ms, entry_transit_asn}`. Normalizes ASN strings via `normalize_asn` before comparison to handle casing differences.\n- `complete` is `True` only when `target_asn` appears in at least one hub's ASN field.\n- `rtt_ms` is the Avg RTT of the last hub inside the target ASN when complete; `None` otherwise — the Binat fix.\n- `entry_transit_asn` is the last distinct non-AS??? ASN before the target (complete) or the last resolvable ASN seen (incomplete).\n- `_run_test` result dict gains `path_complete`, `verified_rtt_ms`, `entry_transit_asn`. `last_rtt_ms` still populated from inlined loop.\n- The early-continue path in the `country` command (no test IP found) also gets the three new fields defaulted to `False`/`None`/`None`.\n- `summary_rows` entries carry `path_complete`, `verified_rtt_ms`, `entry_transit_asn` via `**r` spread (or explicit defaults on the skip path).\n\n**Deviations from plan:** None. `_extract_last_rtt` logic inlined rather than kept as a named helper — satisfies \"remove _extract_last_rtt\" while preserving `last_rtt_ms` backward compat."
+  },
   "stages": {
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T00:25:42Z"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "release": {
+      "status": "not_started"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T00:25:41Z",
+      "startedAt": "2026-06-29T23:43:20Z"
+    },
     "review": {
       "status": "not_started"
     },
     "architecture": {
       "status": "skipped"
-    },
-    "design": {
-      "status": "skipped"
-    },
-    "implementation": {
-      "status": "not_started"
-    },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-06-29T23:43:20Z"
-    },
-    "release": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-country-as-path-visual-binat-rtt-anomaly-01kwaw3774eb",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-29T23:43:20Z"
+  "worktreeLastSyncedAt": "2026-06-30T00:25:42Z"
 }

@@ -3,7 +3,7 @@ defract:
   id: task-country-as-path-visual-binat-rtt-anomaly-01kwaw3774eb
   type: bug
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
   total_phases: 2
   priority: normal
@@ -128,3 +128,22 @@ For the tree structure: `rich.tree.Tree` is clean but adds visible connectors th
 ### Dependencies
 
 None beyond existing dependencies (Rich 13+ and requests already in use).
+
+## Implementation Notes
+
+## Phase 1: Path Completeness Classification
+
+**Files changed:** `src/netpath/cli.py`
+
+**What was built:**
+
+- Removed `_extract_last_rtt` helper. Its logic (last responsive hop regardless of ASN) is inlined directly in `_run_test` to preserve `last_rtt_ms` for backward compatibility.
+- Added `_classify_path(hubs, target_asn) -> dict` returning `{complete, rtt_ms, entry_transit_asn}`. Normalizes ASN strings via `normalize_asn` before comparison to handle casing differences.
+- `complete` is `True` only when `target_asn` appears in at least one hub's ASN field.
+- `rtt_ms` is the Avg RTT of the last hub inside the target ASN when complete; `None` otherwise — the Binat fix.
+- `entry_transit_asn` is the last distinct non-AS??? ASN before the target (complete) or the last resolvable ASN seen (incomplete).
+- `_run_test` result dict gains `path_complete`, `verified_rtt_ms`, `entry_transit_asn`. `last_rtt_ms` still populated from inlined loop.
+- The early-continue path in the `country` command (no test IP found) also gets the three new fields defaulted to `False`/`None`/`None`.
+- `summary_rows` entries carry `path_complete`, `verified_rtt_ms`, `entry_transit_asn` via `**r` spread (or explicit defaults on the skip path).
+
+**Deviations from plan:** None. `_extract_last_rtt` logic inlined rather than kept as a named helper — satisfies "remove _extract_last_rtt" while preserving `last_rtt_ms` backward compat.
