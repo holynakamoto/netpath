@@ -247,3 +247,17 @@ Three phases of work tighten netpath's accuracy and add diagnostic depth. Phase 
 
 **Test results:** 15/15 passed, ruff clean.
 
+## Phase 2: Smarter probing and calibrated metrics
+
+**Status:** Complete
+
+**Files changed:**
+- `src/netpath/country.py` — `get_test_ip_for_asn()` now pre-sorts valid IPv4 prefixes by `prefixlen` descending before iterating, so the most-specific announced prefix is selected first.
+- `src/netpath/mtr.py` — `run_traceroute()` gains `prefer_tcp: bool = False` parameter. When `True`, tries TCP-443 first; falls back to UDP if TCP returns all-stars or raises. Default (False) preserves existing UDP-first behaviour.
+- `src/netpath/cli.py` — `_trace()`, `_measure()`, and `_run_test()` each gain `prefer_tcp: bool = False`; the country-mode no-server path passes `prefer_tcp=True`. `_measure()` initialises `jitter_ms: None` and `probe_count: cycles` in the result dict, then computes `jitter_ms` as the mean `StDev` across responsive hubs. JSON output adds a `jitter_ms` field. Forward-scan comparison in `diagnosis.py` updated to use the calibrated `loss_threshold` so the rate-limit suppression stays consistent with the trigger threshold.
+- `src/netpath/diagnosis.py` — Added `JITTER_WARNING_MS = 10.0`, `LOSS_THRESHOLD_FEW = 5.0`, `LOSS_THRESHOLD_DEFAULT = 1.0`, `LOSS_THRESHOLD_MANY = 0.5` constants. `diagnose()` now selects a calibrated loss threshold from `probe_count` and applies it to both the trigger and the forward-scan. Added High Jitter warning (check 5) when `jitter_ms > JITTER_WARNING_MS`.
+- `tests/test_diagnosis.py` — Added `test_high_jitter_warning`, `test_jitter_below_threshold_is_healthy`, `test_calibrated_loss_few_probes_no_alarm`, `test_calibrated_loss_many_probes_strict_threshold`.
+- `tests/test_country.py` (new) — `test_get_test_ip_prefers_most_specific_prefix`, `test_run_traceroute_prefer_tcp_calls_tcp_first`, `test_run_traceroute_prefer_tcp_falls_back_to_udp_on_allstars`.
+
+**Test results:** 22/22 passed, ruff clean.
+
