@@ -3,7 +3,7 @@ defract:
   id: task-incomplete-paths-still-showing-in-za-01kwddfsahcm
   type: improvement
   status: active
-  stage: implementation
+  stage: release
   phase: 0
   total_phases: 1
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 ## Story Brief
 
@@ -164,4 +165,47 @@ Mocking in tests: `unittest.mock.patch("netpath.country.requests.get")` — same
 ### Verification
 - `pytest`: 40/40 passed (7 new country tests + 33 pre-existing).
 - `ruff check src/netpath/country.py tests/test_country.py`: no errors.
+
+## Review
+
+## Verdict
+
+**Verdict:** APPROVE
+**Files reviewed:** 2 files changed across 1 phases
+
+All 6 acceptance criteria pass. The Atlas probe lookup is correctly implemented as the primary IP-selection strategy with the existing prefix-based fallback preserved unchanged. All 40 tests pass and ruff is clean.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Test suite (pytest) | PASS | 40/40 passed across test_country.py (7), test_diagnosis.py (19), test_mtr.py (14) |
+| Lint (ruff) | PASS | ruff check src/netpath/country.py tests/test_country.py — no errors |
+
+### Acceptance Criteria (6/6 passed)
+
+- [x] AC-1: Running `netpath country ZA --top 10` produces fewer incomplete paths than before; at least one previously-stalling ASN now shows a complete trace to the destination ASN. — PASS: country.py:131-133 calls _get_atlas_probe_ip() first and returns early on a hit, routing traces to known-live Atlas probe IPs instead of dark prefix addresses. Builder approved the phase after manual smoke testing.
+- [x] AC-2: get_test_ip_for_asn() returns the Atlas probe IP when the Atlas API response contains a connected probe with a non-null address_v4. (Verified by pytest tests/test_country.py -v.) — PASS: test_get_test_ip_uses_atlas_probe_when_available (tests/test_country.py:23-28) passes. country.py:120-123 iterates results, checks `if ip:`, returns first non-null address_v4.
+- [x] AC-3: When the Atlas API returns an empty results list, the function falls through to prefix-based selection without error. (Verified by pytest tests/test_country.py -v.) — PASS: test_get_test_ip_falls_through_to_prefix_when_atlas_empty (tests/test_country.py:31-50) passes. Empty results list causes _get_atlas_probe_ip() to return None, get_test_ip_for_asn() falls through to prefix logic at country.py:135.
+- [x] AC-4: When the Atlas API call raises a requests.RequestException, the function falls through to prefix-based selection without raising. (Verified by pytest tests/test_country.py -v.) — PASS: test_get_test_ip_falls_through_to_prefix_on_atlas_error (tests/test_country.py:53-71) passes. country.py:124-125: `except requests.RequestException: pass` catches and suppresses the error.
+- [x] AC-5: The caller in cli.py is unchanged — get_test_ip_for_asn() still returns str | None. — PASS: git diff main..HEAD -- src/netpath/cli.py returns empty; cli.py:633 still calls `country_mod.get_test_ip_for_asn(asn_str)` unchanged. Return type annotation at country.py:129 is `str | None`.
+- [x] AC-6: ruff check src/netpath/country.py tests/test_country.py passes with no errors. — PASS: ruff output: 'All checks passed!'
+
+### Code Quality (Refactor Review)
+
+No code quality issues found in changed files.
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- Atlas probe lookup added as primary IP selection strategy in get_test_ip_for_asn(); existing prefix-based selection retained as fallback for ASNs with no registered probes.
+- _get_atlas_probe_ip() uses raise_for_status() to handle non-200 responses and catches requests.RequestException broadly to silently fall through on any network error.
+- page_size=1 and sort=id parameters minimize data transfer and ensure a deterministic result across calls.
+
+## Required Changes
+
+None.
 
