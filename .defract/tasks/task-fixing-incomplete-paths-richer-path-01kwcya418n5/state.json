@@ -1,0 +1,62 @@
+{
+  "id": "task-fixing-incomplete-paths-richer-path-01kwcya418n5",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 1,
+  "createdAt": "2026-06-30T18:57:50Z",
+  "updatedAt": "2026-06-30T18:58:41Z",
+  "events": [
+    {
+      "base_branch": "main",
+      "branch": "feature/task-fixing-incomplete-paths-richer-path-01kwcya418n5",
+      "path": "/Users/nickmoore/netpath/.defract-worktrees/task-fixing-incomplete-paths-richer-path-01kwcya418n5",
+      "timestamp": "2026-06-30T18:57:51Z",
+      "type": "worktree_created"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwcya51x5axye98knfrtrc3f",
+      "stage": "scope",
+      "timestamp": "2026-06-30T18:57:51Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Intent check: incomplete path display, false-positive loss warnings, smarter path completion",
+      "revision": 1,
+      "timestamp": "2026-06-30T18:58:37Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Intent check pushed: three focused improvements — fix false-positive mid-path loss warnings, surface stall location in incomplete paths, and improve path completion with smarter IP selection and TCP probing. Advanced metrics (jitter, PMTU, IPv6) are out of scope.",
+      "timestamp": "2026-06-30T18:58:41Z",
+      "type": "stage_work_complete",
+      "worktree_head": "b4d96836cf33342307922b94d2814b61db72b334",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "stages": {
+    "scope": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-06-30T18:57:51Z"
+    },
+    "review": {
+      "status": "not_started"
+    },
+    "architecture": {
+      "status": "not_started"
+    },
+    "release": {
+      "status": "not_started"
+    },
+    "design": {
+      "status": "not_started"
+    },
+    "implementation": {
+      "status": "not_started"
+    }
+  },
+  "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-fixing-incomplete-paths-richer-path-01kwcya418n5",
+  "worktreeBaseBranch": "main"
+}
