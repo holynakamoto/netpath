@@ -1,11 +1,11 @@
 {
   "id": "task-no-pypi-release-manual-commit-push-01kwcmdv35gm",
   "status": "active",
-  "stage": "implementation",
-  "phase": 0,
+  "stage": "release",
+  "phase": 1,
   "totalPhases": 1,
   "createdAt": "2026-06-30T16:05:06Z",
-  "updatedAt": "2026-06-30T16:50:08Z",
+  "updatedAt": "2026-06-30T16:58:23Z",
   "events": [
     {
       "base_branch": "main",
@@ -283,6 +283,160 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "c737241b7a692dccd4298fd93b79fa74c957d4e7",
       "worktree_status_digest": "d350ac045369eef18e74a1935f0cca7e46134074ab3f7fee274646490c12ea15"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Wire up VCS versioning and automated publish",
+      "timestamp": "2026-06-30T16:54:16Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 0,
+      "timestamp": "2026-06-30T16:54:16Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "stage": "implementation",
+      "summary": "All phases approved — implementation ready for review.",
+      "timestamp": "2026-06-30T16:54:16Z",
+      "type": "stage_work_complete",
+      "worktree_head": "0059285d087ce1e4be443db35731a64d370e5cd5",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T16:54:17Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T16:54:16Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "b808873cbc50673aa328b26dce31978aeb5ea41d",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "implementation",
+      "stale_worktree_head": "0059285d087ce1e4be443db35731a64d370e5cd5",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T16:54:17Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T16:54:17Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "implementation",
+      "timestamp": "2026-06-30T16:54:17Z",
+      "to": "review",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T16:54:17Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwcq7wy14vt0a1c7h6s799nq",
+      "stage": "review",
+      "timestamp": "2026-06-30T16:54:17Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "details": "14 tests passing across test_diagnosis.py (6) and test_mtr.py (8). Ruff reports no issues in the 2 changed Python source files (pyproject.toml, src/netpath/__init__.py). Pre-existing lint warnings in display.py, speedtest.py, and zoom_analyze.py are outside this task's changed-file set.",
+      "failed": 0,
+      "passed": 14,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-06-30T16:55:58Z",
+      "type": "test_results"
+    },
+    {
+      "change_summary": "APPROVE: All 7 acceptance criteria pass with concrete evidence. The VCS versioning via hatch-vcs is correctly wired, the fallback for missing tags works, and the publish workflow is structured correctly with OIDC trusted publishing scoped to the publish job only.",
+      "revision": 1,
+      "stage": "review",
+      "timestamp": "2026-06-30T16:56:25Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Review verdict: APPROVE",
+      "rationale": "7/7 acceptance criteria passed, 2/2 automated checks passed (pytest 14/14, ruff clean on changed files). No security issues. Code quality is clean across all 4 changed files.",
+      "timestamp": "2026-06-30T16:56:32Z",
+      "type": "decision"
+    },
+    {
+      "stage": "review",
+      "summary": "APPROVE — all 7 acceptance criteria pass, pytest 14/14, ruff clean on changed files. No security or code quality issues. Ready to advance to release.",
+      "timestamp": "2026-06-30T16:56:45Z",
+      "type": "stage_work_complete",
+      "worktree_head": "b808873cbc50673aa328b26dce31978aeb5ea41d",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T16:58:04Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "actor": null,
+      "stage": "review",
+      "timestamp": "2026-06-30T16:58:04Z",
+      "type": "stage_approved"
+    },
+    {
+      "from": "review",
+      "timestamp": "2026-06-30T16:58:04Z",
+      "to": "release",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T16:58:04Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwcqev82r2c5vr7n322ha1ah",
+      "stage": "release",
+      "timestamp": "2026-06-30T16:58:04Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "from": "review",
+      "timestamp": "2026-06-30T16:58:04Z",
+      "to": "release",
+      "type": "stage_handoff"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwcq7wy14vt0a1c7h6s799nq",
+      "timed_out": false,
+      "timestamp": "2026-06-30T16:58:05Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting release: running production build, then pushing branch",
+      "phase": 1,
+      "stage": "release",
+      "timestamp": "2026-06-30T16:58:23Z",
+      "type": "work_resumed"
     }
   ],
   "needsArchitecture": false,
@@ -300,15 +454,31 @@
     "rationale": "No UI changes (skip design). Changes touch 4 files across the build config and CI pipeline — well-contained, single subsystem (packaging), building on existing hatchling patterns (skip architecture). Standard backend-feature pipeline is the right fit."
   },
   "stageApprovals": {
-    "scope": "2026-06-30T16:46:54Z"
+    "scope": "2026-06-30T16:46:54Z",
+    "implementation": "2026-06-30T16:54:16Z",
+    "review": "2026-06-30T16:58:04Z"
   },
   "stageContent": {
+    "review": "## Verdict\n\n**Verdict:** APPROVE\n**Files reviewed:** 4 files changed across 1 phases\n\nAll 7 acceptance criteria pass with concrete evidence. The VCS versioning via hatch-vcs is correctly wired, the fallback for missing tags works, and the publish workflow is structured correctly with OIDC trusted publishing scoped to the publish job only.\n\n### Automated Checks\n\n| Check | Result | Details |\n|-------|--------|---------|\n| Test suite (pytest) | PASS | 14 passed, 0 failed across test_diagnosis.py and test_mtr.py |\n| Lint (ruff, changed files) | PASS | No issues in pyproject.toml or src/netpath/__init__.py |\n\n### Acceptance Criteria (7/7 passed)\n\n- [x] AC-1: Running `pip install -e .` in a clean checkout generates `src/netpath/_version.py` and `python -c \"import netpath; print(netpath.__version__)\"` prints a non-empty string. — PASS: src/netpath/_version.py exists (575 bytes, generated by hatch-vcs); `python3 -c 'import netpath; print(netpath.__version__)'` prints `0.1.dev50+gc737241b7.d20260630`\n- [x] AC-2: `pyproject.toml` contains `dynamic = [\"version\"]` with no residual `version = \"0.1.0\"` field; `[tool.hatch.version]` sets `source = \"vcs\"`. — PASS: pyproject.toml:7 `dynamic = [\"version\"]`; pyproject.toml:46-47 `[tool.hatch.version]` / `source = \"vcs\"`; `grep -c 'version = \"0.1.0\"' pyproject.toml` → 0\n- [x] AC-3: `grep 'hatch-vcs' pyproject.toml` matches inside the `[build-system] requires` list. — PASS: pyproject.toml:2 `requires = [\"hatchling\", \"hatch-vcs\"]` under `[build-system]`\n- [x] AC-4: `src/netpath/_version.py` appears in `.gitignore`; after an editable install, `git status --short` does not show it as an untracked file. — PASS: .gitignore:7 `src/netpath/_version.py`; `git status --short` output is clean — no _version.py entry\n- [x] AC-5: `.github/workflows/publish.yml` exists and contains `on: push: tags: - \"v*.*.*\"`, `pypa/gh-action-pypi-publish`, and `id-token: write` with no `password:` input. — PASS: publish.yml:6 `- \"v*.*.*\"`; publish.yml:51 `uses: pypa/gh-action-pypi-publish@release/v1`; publish.yml:39 `id-token: write`; no `password:` key found in file\n- [x] AC-6: The publish workflow's checkout step contains `fetch-depth: 0`. — PASS: publish.yml:15 `fetch-depth: 0` under the `actions/checkout@v4` step in the `build` job\n- [x] AC-7: With no git tags reachable, `python -c \"import netpath; print(netpath.__version__)\"` completes without exception and prints a non-empty string. — PASS: Tested by temporarily renaming _version.py and re-importing: prints `0.0.0+unknown` with no exception. src/netpath/__init__.py:1-4 wraps the import in `try/except Exception`\n\n### Code Quality (Refactor Review)\n\nNo code quality issues found in changed files.\n\n### Security Assessment (Security Review)\n\nNo security issues found in changed files.\n\n### Decisions Made During Implementation\n\n- hatch-vcs chosen over setuptools-scm to keep the build stack homogeneous with the existing hatchling backend\n- PyPI OIDC trusted publishing used instead of a stored API token — eliminates secret rotation overhead\n- publish.yml splits build and publish into two jobs so id-token: write is scoped only to the upload step (least privilege)\n\n## Required Changes\n\nNone.\n",
     "implementation": "## Phase 1: Wire up VCS versioning and automated publish\n\n### Files Changed\n\n- **`pyproject.toml`** — Added `hatch-vcs` to `[build-system].requires`; replaced `version = \"0.1.0\"` with `dynamic = [\"version\"]`; added `[tool.hatch.version]` (`source = \"vcs\"`) and `[tool.hatch.build.hooks.vcs]` (`version-file = \"src/netpath/_version.py\"`) sections.\n- **`src/netpath/__init__.py`** — Replaced hardcoded `__version__ = \"0.1.0\"` with a try/except import from the generated `_version.py`, falling back to `\"0.0.0+unknown\"` when the file is absent.\n- **`.gitignore`** — Appended `src/netpath/_version.py` so the generated file is never committed.\n- **`.github/workflows/publish.yml`** — Created new two-job workflow: `build` checks out with `fetch-depth: 0`, builds sdist + wheel via `python -m build`, uploads dist/ as an artifact; `publish` downloads the artifact and runs `pypa/gh-action-pypi-publish@release/v1` with `permissions: id-token: write`. Triggered on `v*.*.*` tag pushes.\n\n### Verification Results\n\n- `grep -c 'version = \"0.1.0\"' pyproject.toml` → 0 (no hardcoded version)\n- `grep 'hatch-vcs' pyproject.toml` → matches in `[build-system].requires`\n- `grep '_version.py' .gitignore` → matches\n- `grep 'id-token: write' publish.yml` → matches\n- `grep 'fetch-depth: 0' publish.yml` → matches\n- Editable install generates `src/netpath/_version.py`; `git status --short` does not show it as untracked\n- `python -c \"import netpath; print(netpath.__version__)\"` → `0.1.dev50+gc737241b7.d20260630`\n- All 14 tests pass (unchanged from baseline)\n\n### Deviations from Plan\n\nNone. Implementation follows the phase spec exactly."
   },
   "stages": {
+    "architecture": {
+      "status": "skipped"
+    },
     "implementation": {
-      "status": "in_progress",
+      "status": "approved",
+      "approvedAt": "2026-06-30T16:54:16Z",
       "startedAt": "2026-06-30T16:46:55Z"
+    },
+    "review": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T16:58:04Z",
+      "startedAt": "2026-06-30T16:54:17Z"
+    },
+    "release": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T16:58:04Z"
     },
     "design": {
       "status": "skipped"
@@ -317,18 +487,99 @@
       "status": "approved",
       "approvedAt": "2026-06-30T16:46:54Z",
       "startedAt": "2026-06-30T16:09:14Z"
-    },
-    "review": {
-      "status": "not_started"
-    },
-    "architecture": {
-      "status": "skipped"
-    },
-    "release": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-no-pypi-release-manual-commit-push-01kwcmdv35gm",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-30T16:46:55Z"
+  "worktreeLastSyncedAt": "2026-06-30T16:58:04Z",
+  "reviewPayload": {
+    "verdict": "approve",
+    "summary": "All 7 acceptance criteria pass with concrete evidence. The VCS versioning via hatch-vcs is correctly wired, the fallback for missing tags works, and the publish workflow is structured correctly with OIDC trusted publishing scoped to the publish job only.",
+    "filesReviewedCount": 4,
+    "phasesReviewedCount": 1,
+    "automatedChecks": [
+      {
+        "name": "Test suite (pytest)",
+        "result": "pass",
+        "detail": "14 passed, 0 failed across test_diagnosis.py and test_mtr.py"
+      },
+      {
+        "name": "Lint (ruff, changed files)",
+        "result": "pass",
+        "detail": "No issues in pyproject.toml or src/netpath/__init__.py"
+      }
+    ],
+    "acceptanceCriteria": [
+      {
+        "acId": "AC-1",
+        "text": "Running `pip install -e .` in a clean checkout generates `src/netpath/_version.py` and `python -c \"import netpath; print(netpath.__version__)\"` prints a non-empty string.",
+        "status": "pass",
+        "evidence": "src/netpath/_version.py exists (575 bytes, generated by hatch-vcs); `python3 -c 'import netpath; print(netpath.__version__)'` prints `0.1.dev50+gc737241b7.d20260630`"
+      },
+      {
+        "acId": "AC-2",
+        "text": "`pyproject.toml` contains `dynamic = [\"version\"]` with no residual `version = \"0.1.0\"` field; `[tool.hatch.version]` sets `source = \"vcs\"`.",
+        "status": "pass",
+        "evidence": "pyproject.toml:7 `dynamic = [\"version\"]`; pyproject.toml:46-47 `[tool.hatch.version]` / `source = \"vcs\"`; `grep -c 'version = \"0.1.0\"' pyproject.toml` → 0"
+      },
+      {
+        "acId": "AC-3",
+        "text": "`grep 'hatch-vcs' pyproject.toml` matches inside the `[build-system] requires` list.",
+        "status": "pass",
+        "evidence": "pyproject.toml:2 `requires = [\"hatchling\", \"hatch-vcs\"]` under `[build-system]`"
+      },
+      {
+        "acId": "AC-4",
+        "text": "`src/netpath/_version.py` appears in `.gitignore`; after an editable install, `git status --short` does not show it as an untracked file.",
+        "status": "pass",
+        "evidence": ".gitignore:7 `src/netpath/_version.py`; `git status --short` output is clean — no _version.py entry"
+      },
+      {
+        "acId": "AC-5",
+        "text": "`.github/workflows/publish.yml` exists and contains `on: push: tags: - \"v*.*.*\"`, `pypa/gh-action-pypi-publish`, and `id-token: write` with no `password:` input.",
+        "status": "pass",
+        "evidence": "publish.yml:6 `- \"v*.*.*\"`; publish.yml:51 `uses: pypa/gh-action-pypi-publish@release/v1`; publish.yml:39 `id-token: write`; no `password:` key found in file"
+      },
+      {
+        "acId": "AC-6",
+        "text": "The publish workflow's checkout step contains `fetch-depth: 0`.",
+        "status": "pass",
+        "evidence": "publish.yml:15 `fetch-depth: 0` under the `actions/checkout@v4` step in the `build` job"
+      },
+      {
+        "acId": "AC-7",
+        "text": "With no git tags reachable, `python -c \"import netpath; print(netpath.__version__)\"` completes without exception and prints a non-empty string.",
+        "status": "pass",
+        "evidence": "Tested by temporarily renaming _version.py and re-importing: prints `0.0.0+unknown` with no exception. src/netpath/__init__.py:1-4 wraps the import in `try/except Exception`"
+      }
+    ],
+    "headlineFindings": [],
+    "requiredChanges": [],
+    "codeQualityFindings": [],
+    "securityFindings": [],
+    "decisions": [
+      "hatch-vcs chosen over setuptools-scm to keep the build stack homogeneous with the existing hatchling backend",
+      "PyPI OIDC trusted publishing used instead of a stored API token — eliminates secret rotation overhead",
+      "publish.yml splits build and publish into two jobs so id-token: write is scoped only to the upload step (least privilege)"
+    ],
+    "revision": 1,
+    "changeAnnotations": [
+      {
+        "file": "pyproject.toml",
+        "note": "Switches version management from a hardcoded string to hatch-vcs dynamic derivation from git tags; adds hatch-vcs to build-system requirements"
+      },
+      {
+        "file": "src/netpath/__init__.py",
+        "note": "Replaces the hardcoded version constant with an import from the hatch-vcs-generated _version.py, with a safe fallback for environments where that file does not yet exist"
+      },
+      {
+        "file": ".gitignore",
+        "note": "Excludes the generated _version.py file from version control so it is never accidentally committed"
+      },
+      {
+        "file": ".github/workflows/publish.yml",
+        "note": "New two-job workflow that builds sdist and wheel on any v*.*.* tag push and publishes to PyPI using OIDC trusted publishing with no stored secrets"
+      }
+    ]
+  }
 }

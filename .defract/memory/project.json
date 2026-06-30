@@ -9,12 +9,13 @@
       "timestamp": "2026-06-30T15:52:53.210507+00:00"
     }
   ],
+  "usage_sweep_cursor": "2026-06-30T16:54:17Z",
   "last_emit_hashes": {
     "mistakes.md": "3d2a0e14e8c50341118dcfa158eafc00eda585e5a94582ee9d4531d0c82450e0",
-    "project-facts.md": "7aaf00d964a2c9e4ec1a643016aa788787e83ec24231b6059f5ef8a30bc2f071",
     "builder-preferences.md": "1770be583c81276593e6eb63d01a1b5e92b6bc4eeccc9c3cdbdaa9c87fc04ff5",
-    "workflows.md": "fe0ef018bba98248fd8036982868181bf6c6217c27c709c6f40fcab54c519cdb",
-    "decisions.md": "017412beb454a8c7dc7d18d844535ef283f9ae7da17f332d559b6bbd6ac46310"
+    "decisions.md": "017412beb454a8c7dc7d18d844535ef283f9ae7da17f332d559b6bbd6ac46310",
+    "project-facts.md": "7aaf00d964a2c9e4ec1a643016aa788787e83ec24231b6059f5ef8a30bc2f071",
+    "workflows.md": "fe0ef018bba98248fd8036982868181bf6c6217c27c709c6f40fcab54c519cdb"
   },
   "pending_external_edits": []
 }
