@@ -3,7 +3,7 @@ defract:
   id: task-country-as-path-visual-binat-rtt-anomaly-01kwaw3774eb
   type: bug
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 2
   priority: normal
@@ -13,7 +13,6 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
-
 
 ## Story Brief
 
@@ -167,3 +166,86 @@ None beyond existing dependencies (Rich 13+ and requests already in use).
   - Edge cases: "direct" label for entry_transit_asn=None; ASN code fallback when Cymru name lookup fails; empty results → no output; all incomplete → no star or footer.
 
 **Deviations from plan:** None.
+
+## Review
+
+## Verdict
+
+**Verdict:** APPROVE
+**Files reviewed:** 2 files changed across 2 phases
+
+Both phases are correctly implemented and all six acceptance criteria pass. The Binat RTT bug is fixed and the tree summary groups ISPs correctly by transit entry point with the right color thresholds, one star, and intact backward compatibility.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Module imports | PASS | Both cli.py and display.py import cleanly with PYTHONPATH=src |
+| _classify_path unit tests | PASS | 5 scenarios: Binat incomplete, complete path RTT, single-hop direct, all-AS??? hops, case normalization |
+| fmt_country_latency thresholds | PASS | 6 boundary values verified: <120ms=bold green, 120-199.9ms=yellow, >=200ms=bold red |
+| country_summary rendering | PASS | Grouping, star placement, incomplete branch, footer all render correctly |
+| Edge case coverage | PASS | All-incomplete (no star/footer), direct path (None transit → 'direct' label) |
+| fmt_latency unchanged | PASS | Per-hop thresholds 20ms/80ms unmodified |
+| Backward compat: last_rtt_ms | PASS | last_rtt_ms present in result dict init and set by inlined loop; asn JSON output unchanged |
+
+### Acceptance Criteria (6/6 passed)
+
+- [x] AC-1: Running `netpath country IL` with Binat reachable only via transit: Binat appears in the incomplete branch with no RTT, not in the ranked list with a sub-30 ms reading. (Verify by inspecting that `path_complete = False` for that row, or by reading the summary output.) — PASS: cli.py:55-59 — complete flag requires target_asn in at least one hub; transit-only paths return complete=False, rtt_ms=None. display.py:329 — rows with path_complete=False routed to incomplete list. Rendering test confirmed AS199524 in dimmed branch with no RTT.
+- [x] AC-2: ISPs sharing the same `entry_transit_asn` are grouped together under one branch heading in the country summary. — PASS: display.py:337-338 — groups.setdefault(r.get('entry_transit_asn'), []) groups by transit ASN. display.py:385-395 — each group renders one heading then all ISPs under it. Rendering test with two ISPs under AS3257 confirmed single branch heading.
+- [x] AC-3: A verified ISP with RTT < 120 ms shows the latency in green; 120–200 ms in yellow; > 200 ms in red. — PASS: display.py:34-40 — fmt_country_latency: <120 → bold green, <200 → yellow, else bold red. Six boundary-value tests (50, 119.9, 120, 199.9, 200, 300 ms) all produced the expected Rich style.
+- [x] AC-4: Exactly one ISP row carries a '★' — the one with the lowest `verified_rtt_ms` across all complete paths. — PASS: display.py:333 — star_asn set to asn of min verified_rtt_ms row. display.py:391 — star prefix applied only when r['asn'] == star_asn. Rendering test with AS8551 (87ms) and AS5765 (142ms) found exactly one ★ on AS8551.
+- [x] AC-5: ISPs with `path_complete = False` render in a distinct dimmed branch with a '⚠ incomplete' indicator and no RTT value. — PASS: display.py:397-406 — incomplete rows rendered with dim 'incomplete paths' heading, '⚠' in yellow, 'incomplete' in dim, and no RTT. Rendering test confirmed all three elements with no numeric RTT on the AS199524 row.
+- [x] AC-6: The `asn` subcommand JSON output is unchanged — `last_rtt_ms` remains present in the result dict with the same semantics as before. — PASS: cli.py:156-194 — result dict initialized with last_rtt_ms:None; inlined reversed-hub loop sets it to the last responsive hop Avg regardless of ASN (same semantics as removed _extract_last_rtt). The JSON output blob in the asn subcommand (cli.py:350-378) does not include last_rtt_ms, matching pre-task behavior.
+
+### Code Quality (Refactor Review)
+
+No code quality issues found in changed files.
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- Preserve last_rtt_ms in the result dict alongside the new verified_rtt_ms — avoids breaking the asn subcommand's internal result contract while fixing the display bug for the country subcommand.
+- Add fmt_country_latency as a new function rather than modifying fmt_latency — country-level ISP comparison uses different thresholds (120ms/200ms) than per-hop tables (20ms/80ms); keeping them separate avoids unintended side effects.
+- Inline the last_rtt_ms loop in _run_test rather than retaining _extract_last_rtt as a named helper — satisfies the removal requirement while preserving backward compat without an extra private function.
+- Use manual tree connectors (├─/└─) rather than rich.tree.Tree — cleaner at 80-char width; allows mixing colored RTT Text objects with plain prefixes on the same line.
+- Import cymru_bulk_lookup_rich and normalize_asn at module level in display.py — no circular import risk; cleaner than deferred function-level imports.
+
+## Required Changes
+
+None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Fixed a latency reporting bug in the `country` subcommand where ISPs whose traceroute path never entered the target ASN (e.g. Binat/Internet Binat reaching only a transit router) were falsely assigned the transit router's RTT instead of being marked incomplete
+- Added `_classify_path(hubs, target_asn)` helper in `cli.py` that determines path completeness by checking whether the target ASN appears in any traceroute hub, returning `complete`, `rtt_ms`, and `entry_transit_asn`
+- Extended the `_run_test` result dict with three new fields (`path_complete`, `verified_rtt_ms`, `entry_transit_asn`) while preserving `last_rtt_ms` for backward compatibility with the `asn` subcommand
+- Rewrote `country_summary` in `display.py` as a transit-grouped tree view with color-coded latency (green < 120 ms / yellow 120–200 ms / red >= 200 ms), a star marker on the fastest verified ISP, incomplete paths in a dimmed branch with a warning indicator, and a footer naming the fastest entry transit
+- Added `fmt_country_latency` with country-level thresholds separate from the existing per-hop `fmt_latency` (20 ms / 80 ms)
+
+### Key decisions
+- Preserve `last_rtt_ms` in the result dict alongside the new `verified_rtt_ms` — avoids breaking the asn subcommand's internal result contract while fixing the display bug for the country subcommand
+- Add `fmt_country_latency` as a new function rather than modifying `fmt_latency` — country-level ISP comparison uses different thresholds (120 ms / 200 ms) than per-hop tables (20 ms / 80 ms); keeping them separate avoids unintended side effects
+- Inline the `last_rtt_ms` loop in `_run_test` rather than retaining `_extract_last_rtt` as a named helper — satisfies the removal requirement while preserving backward compat without an extra private function
+- Use manual tree connectors (├─ / └─) rather than `rich.tree.Tree` — cleaner at 80-char width; allows mixing colored RTT Text objects with plain-text prefix on the same line
+- Import `cymru_bulk_lookup_rich` and `normalize_asn` at module level in `display.py` — no circular import risk; cleaner than deferred function-level imports
+
+### Changes by phase
+- **Phase 1: Path Completeness Classification** — Replaced `_extract_last_rtt` with `_classify_path` in `cli.py`. ISPs that never reached the target ASN now have `verified_rtt_ms=None` and `path_complete=False`. `last_rtt_ms` preserved via inlined loop for backward compatibility.
+- **Phase 2: Tree Summary Display** — Rewrote `country_summary` in `display.py` as a transit-grouped tree. Added `fmt_country_latency`, batched Cymru lookup for transit org names, star marker for fastest verified ISP, dimmed incomplete branch, and footer line.
+
+## Verification
+
+All 6 acceptance criteria passed in review (2026-06-30):
+- Binat-style incomplete paths report no RTT and appear in the dimmed branch
+- ISPs sharing the same `entry_transit_asn` group under one branch heading
+- Color thresholds verified at boundary values (< 120 ms green, 120–200 ms yellow, > 200 ms red)
+- Exactly one star on the ISP with the lowest `verified_rtt_ms`
+- Incomplete branch renders with "⚠ incomplete" and no RTT
+- `last_rtt_ms` preserved in result dict; `asn` subcommand JSON output unchanged
+
