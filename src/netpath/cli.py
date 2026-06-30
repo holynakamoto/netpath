@@ -41,11 +41,52 @@ def _extract_as_path(hubs: list[dict]) -> list[str]:
     return asns
 
 
-def _extract_last_rtt(hubs: list[dict]) -> float | None:
-    for h in reversed(hubs):
-        if h.get("host") not in ("???", None, "") and h.get("Avg", 0) > 0:
-            return h["Avg"]
-    return None
+def _classify_path(hubs: list[dict], target_asn: str) -> dict:
+    """
+    Determine whether the traceroute reached target_asn.
+    Returns {complete, rtt_ms, entry_transit_asn}.
+    complete is True only when target_asn appears in at least one hub's ASN field.
+    rtt_ms is the Avg RTT of the last hub inside target_asn (None when incomplete).
+    entry_transit_asn is the last non-AS??? ASN before target_asn (complete) or
+    the last non-AS??? ASN seen (incomplete); None if no resolvable ASNs exist.
+    """
+    target_norm = normalize_asn(target_asn)
+
+    complete = any(
+        normalize_asn(h.get("ASN", "")) == target_norm
+        for h in hubs
+        if h.get("ASN") and h.get("ASN") != "AS???"
+    )
+
+    if complete:
+        rtt_ms = None
+        for h in reversed(hubs):
+            if (h.get("ASN") and normalize_asn(h["ASN"]) == target_norm
+                    and h.get("host") not in ("???", None, "")
+                    and h.get("Avg", 0) > 0):
+                rtt_ms = h["Avg"]
+                break
+
+        entry_transit_asn = None
+        prev_asn = None
+        for h in hubs:
+            asn = h.get("ASN", "")
+            if not asn or asn == "AS???":
+                continue
+            asn_norm = normalize_asn(asn)
+            if asn_norm == target_norm:
+                entry_transit_asn = prev_asn
+                break
+            prev_asn = asn_norm
+    else:
+        rtt_ms = None
+        entry_transit_asn = None
+        for h in hubs:
+            asn = h.get("ASN", "")
+            if asn and asn != "AS???":
+                entry_transit_asn = normalize_asn(asn)
+
+    return {"complete": complete, "rtt_ms": rtt_ms, "entry_transit_asn": entry_transit_asn}
 
 
 def _parse_ping_avg(output: str) -> float | None:
@@ -114,7 +155,9 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
     """Run trace + optional throughput test. Returns enriched result dict."""
     result: dict = {"as_path": [], "last_rtt_ms": None, "rum": None,
                     "hubs": [], "bufferbloat_ms": None,
-                    "download_mbps": None, "upload_mbps": None, "verdict": {}}
+                    "download_mbps": None, "upload_mbps": None, "verdict": {},
+                    "path_complete": False, "verified_rtt_ms": None,
+                    "entry_transit_asn": None}
 
     if show_server_heading and not json_mode:
         display.server_heading(server_meta)
@@ -141,9 +184,19 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         display.path_table(hubs, target_asn)
         display.as_path_summary(hubs)
 
-    result["as_path"]     = _extract_as_path(hubs)
-    result["last_rtt_ms"] = _extract_last_rtt(hubs)
-    result["hubs"]        = hubs
+    result["as_path"] = _extract_as_path(hubs)
+    result["hubs"]    = hubs
+
+    # last_rtt_ms: last responsive hop regardless of ASN (backward compat for asn subcommand)
+    for _h in reversed(hubs):
+        if _h.get("host") not in ("???", None, "") and _h.get("Avg", 0) > 0:
+            result["last_rtt_ms"] = _h["Avg"]
+            break
+
+    classification = _classify_path(hubs, target_asn)
+    result["path_complete"]      = classification["complete"]
+    result["verified_rtt_ms"]    = classification["rtt_ms"]
+    result["entry_transit_asn"]  = classification["entry_transit_asn"]
 
     rum_data = _fetch_rum(target_asn, cf_token)
     result["rum"] = rum_data
@@ -426,7 +479,9 @@ def country(
             if not test_ip:
                 display.warn(f"Could not find a test IP for {asn_str} — skipping")
                 summary_rows.append({"asn": asn_str, "name": display.clean_asn_name(isp_name),
-                                     "as_path": [], "last_rtt_ms": None, "rum": None})
+                                     "as_path": [], "last_rtt_ms": None, "rum": None,
+                                     "path_complete": False, "verified_rtt_ms": None,
+                                     "entry_transit_asn": None})
                 continue
 
             display.console.print(
