@@ -1,4 +1,4 @@
-#!/Users/nickmoore/netpath/.defract-worktrees/task-no-pypi-release-manual-commit-push-01kwcmdv35gm/.venv/bin/python3
+#!/Users/nickmoore/netpath/.defract-worktrees/task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import sys
 from netpath.cli import run
