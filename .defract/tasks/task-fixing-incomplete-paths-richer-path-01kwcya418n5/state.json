@@ -2,10 +2,10 @@
   "id": "task-fixing-incomplete-paths-richer-path-01kwcya418n5",
   "status": "active",
   "stage": "implementation",
-  "phase": 0,
+  "phase": 1,
   "totalPhases": 3,
   "createdAt": "2026-06-30T18:57:50Z",
-  "updatedAt": "2026-06-30T20:40:29Z",
+  "updatedAt": "2026-06-30T20:44:21Z",
   "events": [
     {
       "base_branch": "main",
@@ -377,6 +377,90 @@
       "phase": 1,
       "timestamp": "2026-06-30T20:40:29Z",
       "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 1 complete: Fix the two accuracy bugs",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T20:40:42Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/diagnosis.py",
+        "src/netpath/cli.py",
+        "src/netpath/display.py",
+        "src/netpath/speedtest.py",
+        "tests/test_diagnosis.py"
+      ],
+      "phase": 0,
+      "summary": "Fixed ICMP rate-limit false positive in diagnosis.py via forward-scan; added stall_hop to _classify_path and threaded it through _measure; country_summary incomplete rows now show stall ASN, hop number, and RTT.",
+      "timestamp": "2026-06-30T20:40:48Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `uv run python3 -m pytest tests/test_diagnosis.py::test_rate_limited_hop_produces_healthy_not_mid_path_loss -v` and confirm it passes with verdict Healthy and a `rate_limited_hops` signal."
+        },
+        {
+          "description": "Run `uv run python3 -m pytest tests/ -v` and confirm all 15 tests pass with no failures."
+        },
+        {
+          "description": "Run `uv run python3 -m ruff check .` and confirm it exits with `All checks passed!`."
+        },
+        {
+          "description": "Run `netpath country US --no-throughput` against a country with known incomplete paths and confirm incomplete rows now display `⚠ stalled at AS{n}, hop {n}, {rtt} ms` instead of the flat `⚠ incomplete` label. (Requires mtr installed and network access.)"
+        },
+        {
+          "description": "For a path that does complete end-to-end, verify the country summary still shows the verified RTT in the grouped complete-paths section with no stall context shown."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Fix the two accuracy bugs",
+      "timestamp": "2026-06-30T20:40:57Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Fix the two accuracy bugs",
+      "server_phase": 0,
+      "timestamp": "2026-06-30T20:41:04Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Fix the two accuracy bugs",
+      "timestamp": "2026-06-30T20:41:04Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "19ffebb77b46f02f3e4fdcd1b6120f138bfe4b9e",
+      "worktree_status_digest": "c006baeefca5be6d8c18545840e7def8d6c5c554402439681f515db936e2480e"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Fix the two accuracy bugs",
+      "timestamp": "2026-06-30T20:44:18Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 0,
+      "timestamp": "2026-06-30T20:44:18Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T20:44:20Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwd4d54sd1pf5y6bgz9521gs",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T20:44:21Z",
+      "type": "stage_agent_started"
     }
   ],
   "needsArchitecture": true,
@@ -395,10 +479,11 @@
     "rationale": "backend-feature: CLI tool — all display changes are terminal output additions following established Rich patterns, no design-stage thinking required. Architecture included: task touches 5+ existing modules (cli.py, diagnosis.py, display.py, mtr.py, country.py) and introduces 2 new modules (pmtu.py, ixp.py), warranting a dedicated architecture pass before implementation. Tier full: 16 requirements across 10+ files, new subsystems, cross-cutting changes."
   },
   "stageApprovals": {
-    "scope": "2026-06-30T19:27:42Z",
-    "architecture": "2026-06-30T20:35:13Z"
+    "architecture": "2026-06-30T20:35:13Z",
+    "scope": "2026-06-30T19:27:42Z"
   },
   "stageContent": {
+    "implementation": "## Phase 1: Fix the two accuracy bugs\n\n**Status:** Complete\n\n**Files changed:**\n- `src/netpath/diagnosis.py` — Added forward-scan in the mid-path loss block: after finding a hop with Loss% > 1.0, checks all subsequent responsive hubs; if all have Loss% ≤ 1.0, returns Healthy verdict with `rate_limited_hops` signal instead of Mid-path Packet Loss.\n- `src/netpath/cli.py` — `_classify_path()` now returns `stall_hop` (count of last responsive hub in incomplete paths) and `rtt_ms` from the incomplete scan. `_measure()` stores `stall_hop` in result dict and uses classification's `rtt_ms` for incomplete paths. Skipped-ASN summary row gains `stall_hop: None`.\n- `src/netpath/display.py` — `country_summary()` incomplete section now renders \"⚠ stalled at {entry_transit_asn}, hop {n}, {rtt} ms\" using the new fields instead of flat \"⚠ incomplete\". Pre-existing unused `Rule` import removed.\n- `src/netpath/speedtest.py` — Pre-existing unused `shutil` import removed (ruff clean-up).\n- `tests/test_diagnosis.py` — Added `test_rate_limited_hop_produces_healthy_not_mid_path_loss`: 10-hop trace with 50% loss at hop 6 and 0% at hops 7–10 asserts Healthy verdict with `rate_limited_hops` signal. Updated `test_mid_path_packet_loss` to use a downstream-lossy hub (8% at hop 3) so it tests genuine congestion rather than the now-suppressed rate-limit pattern.\n\n**Test results:** 15/15 passed, ruff clean.\n",
     "architecture": "### Architecture Summary\n\nThree phases of work tighten netpath's accuracy and add diagnostic depth. Phase 1 stops false alarms from transit hops that rate-limit ICMP probes, and makes incomplete-path rows in country sweeps show where the trace actually stalled — the transit ASN, hop number, and last measured RTT — instead of a flat warning. Phase 2 makes country sweeps reach more destinations by probing over TCP-443 first (where transit networks often pass traffic that blocks UDP probes), choosing test IPs from the most-specific announced prefix, and calibrating loss alarms to the actual number of packets measured rather than a fixed 1% threshold for every run. Phase 3 adds six advanced diagnostics built as standalone modules: PMTU black-hole detection (finding paths where large packets are silently dropped), TCP and TLS application latency alongside ICMP RTT, ECMP path tracing (running multiple passes to detect load-balanced diverging paths), route flapping detection across probe cycles, IXP hop classification to speed up triage, and IPv6 dual-stack comparison via a new --compare-v6 flag. Two new runtime dependencies are avoided entirely — all new code uses only the Python standard library and the system ping binary already used for bufferbloat.\n\n### Implementation Phases\n\n### Phase 1: Fix the two accuracy bugs\n\n**Verification:**\n- [ ] Unit test: hubs with 50% loss at hop 6 and 0% at hops 7-10 produce verdict='Healthy' with a rate_limited_hops signal (tests/test_diagnosis.py)\n- [ ] Visual: netpath country US shows an incomplete-path row with stall ASN, hop number, and RTT instead of bare '⚠ incomplete'\n- [ ] ruff check . passes with no new violations\n\n**Estimated effort:** Small\n\n### Phase 2: Smarter probing and calibrated metrics\n\n**Verification:**\n- [ ] Unit test: get_test_ip_for_asn() with mocked prefixes [/24, /20, /16] returns a host from the /24 (tests/test_country.py)\n- [ ] Unit test: mocked traceroute path calls mtr._run_traceroute_cmd(tcp=True) before tcp=False when prefer_tcp=True (tests/test_country.py)\n- [ ] Unit test: diagnose({'jitter_ms': 15.0, 'hubs': [...]}) returns a warning with 'High Jitter' signal (tests/test_diagnosis.py)\n- [ ] Unit test: diagnose({'probe_count': 10, 'hubs': [{...3% loss...}]}) returns Healthy — 3% does not exceed the 5% threshold for fewer than 20 probes (tests/test_diagnosis.py)\n- [ ] netpath asn AS15169 --json output includes a jitter_ms field (numeric or null)\n- [ ] ruff check . passes with no new violations\n\n**Estimated effort:** Medium\n\n### Phase 3: Advanced path analysis\n\n**Verification:**\n- [ ] Unit test: pmtu.probe() with mocked subprocess returning exit-code 2 for large ping and 0 for small returns {blackhole: True}; with all probes failing returns {blackhole: False, mtu_floor_bytes: None} without raising\n- [ ] Unit test: mtr._compare_as_paths([[hubset_A], [hubset_B]]) where hubset_B differs at hop 3 returns ecmp_paths=2 (tests/test_mtr.py)\n- [ ] Unit test: diagnose({'path_changes': 1}) triggers Route Flapping warning (tests/test_diagnosis.py)\n- [ ] Unit test: diagnose({'tcp_connect_ms': 250}) triggers TCP Latency warning; diagnose({'tls_handshake_ms': 600}) triggers TLS Latency warning (tests/test_diagnosis.py)\n- [ ] Visual: netpath asn AS15169 path table shows a Type column with IXP/transit/dest label per responsive hop\n- [ ] Visual: netpath asn AS15169 --compare-v6 renders two path tables side-by-side (or IPv4-only with a yellow warning when IPv6 resolution fails)\n- [ ] ruff check . passes with no new violations\n\n**Estimated effort:** Large\n"
   },
   "architectureIntel": {
@@ -675,31 +760,31 @@
     "summary": "Three phases of work tighten netpath's accuracy and add diagnostic depth. Phase 1 stops false alarms from transit hops that rate-limit ICMP probes, and makes incomplete-path rows in country sweeps show where the trace actually stalled — the transit ASN, hop number, and last measured RTT — instead of a flat warning. Phase 2 makes country sweeps reach more destinations by probing over TCP-443 first (where transit networks often pass traffic that blocks UDP probes), choosing test IPs from the most-specific announced prefix, and calibrating loss alarms to the actual number of packets measured rather than a fixed 1% threshold for every run. Phase 3 adds six advanced diagnostics built as standalone modules: PMTU black-hole detection (finding paths where large packets are silently dropped), TCP and TLS application latency alongside ICMP RTT, ECMP path tracing (running multiple passes to detect load-balanced diverging paths), route flapping detection across probe cycles, IXP hop classification to speed up triage, and IPv6 dual-stack comparison via a new --compare-v6 flag. Two new runtime dependencies are avoided entirely — all new code uses only the Python standard library and the system ping binary already used for bufferbloat."
   },
   "stages": {
+    "architecture": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T20:35:13Z",
+      "startedAt": "2026-06-30T20:28:21Z"
+    },
     "review": {
+      "status": "not_started"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T20:44:21Z"
+    },
+    "release": {
       "status": "not_started"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-06-30T19:27:42Z",
       "startedAt": "2026-06-30T19:05:16Z"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-06-30T20:35:14Z"
-    },
-    "design": {
-      "status": "skipped"
-    },
-    "architecture": {
-      "status": "approved",
-      "approvedAt": "2026-06-30T20:35:13Z",
-      "startedAt": "2026-06-30T20:28:21Z"
-    },
-    "release": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-fixing-incomplete-paths-richer-path-01kwcya418n5",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-30T20:35:14Z"
+  "worktreeLastSyncedAt": "2026-06-30T20:44:20Z"
 }

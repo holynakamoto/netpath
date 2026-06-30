@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 # Fixing incomplete paths + richer path metrics
@@ -232,4 +231,19 @@ Three phases of work tighten netpath's accuracy and add diagnostic depth. Phase 
 - [ ] ruff check . passes with no new violations
 
 **Estimated effort:** Large
+
+## Implementation Notes
+
+## Phase 1: Fix the two accuracy bugs
+
+**Status:** Complete
+
+**Files changed:**
+- `src/netpath/diagnosis.py` — Added forward-scan in the mid-path loss block: after finding a hop with Loss% > 1.0, checks all subsequent responsive hubs; if all have Loss% ≤ 1.0, returns Healthy verdict with `rate_limited_hops` signal instead of Mid-path Packet Loss.
+- `src/netpath/cli.py` — `_classify_path()` now returns `stall_hop` (count of last responsive hub in incomplete paths) and `rtt_ms` from the incomplete scan. `_measure()` stores `stall_hop` in result dict and uses classification's `rtt_ms` for incomplete paths. Skipped-ASN summary row gains `stall_hop: None`.
+- `src/netpath/display.py` — `country_summary()` incomplete section now renders "⚠ stalled at {entry_transit_asn}, hop {n}, {rtt} ms" using the new fields instead of flat "⚠ incomplete". Pre-existing unused `Rule` import removed.
+- `src/netpath/speedtest.py` — Pre-existing unused `shutil` import removed (ruff clean-up).
+- `tests/test_diagnosis.py` — Added `test_rate_limited_hop_produces_healthy_not_mid_path_loss`: 10-hop trace with 50% loss at hop 6 and 0% at hops 7–10 asserts Healthy verdict with `rate_limited_hops` signal. Updated `test_mid_path_packet_loss` to use a downstream-lossy hub (8% at hop 3) so it tests genuine congestion rather than the now-suppressed rate-limit pattern.
+
+**Test results:** 15/15 passed, ruff clean.
 
