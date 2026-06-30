@@ -48,7 +48,8 @@ src/netpath/
 ├── iperf.py         — iperf3 subprocess wrapper; bidirectional throughput
 ├── speedtest.py     — Cloudflare HTTP speedtest fallback
 ├── rum.py           — Cloudflare Radar API; per-ASN RUM quality metrics
-└── country.py       — RIPE allocation data; ranks top ASNs by IPv4 space
+├── country.py       — RIPE allocation data; ranks top ASNs by IPv4 space
+└── diagnosis.py     — verdict logic; classifies path health as ok/warning/critical
 ```
 
 ## Key Dependencies
