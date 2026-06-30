@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 # Automated PyPI Publishing with VCS Versioning
@@ -193,4 +192,33 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Switched version management from a hardcoded `"0.1.0"` string to VCS-derived versioning via `hatch-vcs`, eliminating the need to manually edit version files before each release
+- Added `hatch-vcs` to `[build-system].requires` and configured `[tool.hatch.version]` with `source = "vcs"` in `pyproject.toml`
+- Updated `src/netpath/__init__.py` to import from the hatch-vcs-generated `_version.py` with a safe `"0.0.0+unknown"` fallback for environments where the file does not exist
+- Added `src/netpath/_version.py` to `.gitignore` to prevent the generated file from being committed
+- Created `.github/workflows/publish.yml` — a two-job OIDC trusted publish workflow triggered on `v*.*.*` tag pushes, eliminating the need for stored PyPI API tokens
+
+### Key decisions
+- Use `hatch-vcs` (hatchling's first-party VCS plugin) rather than `setuptools-scm` or a custom script, keeping the build stack homogeneous with the existing hatchling backend
+- Use PyPI OIDC trusted publishing instead of a stored API token, eliminating secret rotation overhead
+- Split `publish.yml` into separate build and publish jobs so `id-token: write` is scoped only to the upload step (least privilege)
+
+### Changes by phase
+- **Phase 1: Wire up VCS versioning and automated publish** — Switched `pyproject.toml` to hatch-vcs dynamic versioning, updated `__init__.py` with try/except `_version` import, added `_version.py` to `.gitignore`, and created `.github/workflows/publish.yml` with two-job OIDC trusted publish workflow triggered on `v*.*.*` tags.
+
+## Verification
+
+### Production Build
+- `python -m build` (via `uv run`) succeeded
+- Built: `netpath-0.1.dev53+gb808873cb.d20260630.tar.gz` and `netpath-0.1.dev53+gb808873cb.d20260630-py3-none-any.whl`
+
+### Push
+- Branch `feature/task-no-pypi-release-manual-commit-push-01kwcmdv35gm` pushed to `origin` with upstream tracking set
+- Implementation commit: `0059285 feat(task-no-pypi-release-manual-commit-push-01kwcmdv35gm): phase 1 — Wire up VCS versioning and automated publish`
 

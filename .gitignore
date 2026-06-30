@@ -4,3 +4,4 @@ dist/
 __pycache__/
 *.pyc
 .venv/
+src/netpath/_version.py

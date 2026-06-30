@@ -1,4 +1,4 @@
-#!/Users/nickmoore/netpath/.defract-worktrees/task-ways-to-improve-netpath-01kwc564vewr/.venv/bin/python3
+#!/Users/nickmoore/netpath/.defract-worktrees/task-no-pypi-release-manual-commit-push-01kwcmdv35gm/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import sys
 from netpath.cli import run
