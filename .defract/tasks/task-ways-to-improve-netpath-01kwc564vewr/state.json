@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 2,
   "createdAt": "2026-06-30T11:38:45Z",
-  "updatedAt": "2026-06-30T11:41:55Z",
+  "updatedAt": "2026-06-30T11:44:22Z",
   "events": [
     {
       "base_branch": "main",
@@ -54,26 +54,81 @@
       "timed_out": false,
       "timestamp": "2026-06-30T11:41:55Z",
       "type": "agent_exited"
+    },
+    {
+      "change_summary": "Full scope: test suite + CI, exit codes, _run_test refactor",
+      "revision": 2,
+      "timestamp": "2026-06-30T11:43:59Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "No UI changes (skip design). Work is well-contained to one Python package with 4-5 files and builds directly on existing patterns — no new system boundaries (skip architecture). Two phases are independently reviewable but neither requires an architecture checkpoint.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "backend-feature",
+      "tier": "standard",
+      "timestamp": "2026-06-30T11:44:05Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Test only pure functions: diagnosis.diagnose() and mtr._parse_traceroute_output / _all_stars",
+      "rationale": "These are the only logic units with no subprocess, network, or filesystem dependencies. Testing _run_test, servers.find_servers_in_asn, or iperf.run would require mocking subprocess and HTTP — high friction for minimal reliability gain at this stage.",
+      "timestamp": "2026-06-30T11:44:11Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Exit code reflects worst verdict across all probes in a run (0=ok, 1=warning, 2=critical)",
+      "rationale": "A monitoring script checking country mode wants to know if ANY ASN has a problem. Taking the worst severity makes netpath useful as a health-check gate without requiring callers to parse JSON.",
+      "timestamp": "2026-06-30T11:44:14Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope pushed as revision 2. Two phases: (1) dev extras + test suite for diagnosis.py and mtr.py pure functions + GitHub Actions CI matrix across Python 3.9–3.13; (2) extract _measure() from _run_test() to separate data collection from display, then wire exit codes (0/1/2) into both asn and country subcommands based on worst verdict severity. Workflow classified as backend-feature (standard) with no design or architecture stages.",
+      "timestamp": "2026-06-30T11:44:22Z",
+      "type": "stage_work_complete",
+      "worktree_head": "f1e2ac74086c1f36f6452928b0db0a5dc093b247",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "backend-feature",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "No UI changes (skip design). Work is well-contained to one Python package with 4-5 files and builds directly on existing patterns — no new system boundaries (skip architecture). Two phases are independently reviewable but neither requires an architecture checkpoint."
+  },
   "stages": {
-    "release": {
+    "implementation": {
       "status": "not_started"
     },
+    "scope": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-06-30T11:41:55Z"
+    },
     "architecture": {
-      "status": "not_started"
+      "status": "skipped"
     },
     "review": {
       "status": "not_started"
     },
-    "scope": {
-      "status": "in_progress",
-      "startedAt": "2026-06-30T11:41:55Z"
-    },
-    "implementation": {
-      "status": "not_started"
-    },
     "design": {
+      "status": "skipped"
+    },
+    "release": {
       "status": "not_started"
     }
   },
