@@ -1,11 +1,11 @@
 {
   "id": "task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 1,
   "createdAt": "2026-06-30T17:27:32Z",
-  "updatedAt": "2026-06-30T17:27:33Z",
+  "updatedAt": "2026-06-30T18:34:25Z",
   "events": [
     {
       "base_branch": "main",
@@ -20,29 +20,178 @@
       "stage": "scope",
       "timestamp": "2026-06-30T17:27:33Z",
       "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Intent check: GitHub Actions version bump is the remaining code work after publish/macOS issues were resolved in chat",
+      "revision": 1,
+      "timestamp": "2026-06-30T18:23:50Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Intent check pushed — the task's one remaining code change is bumping GitHub Actions versions (checkout, setup-python, upload/download-artifact) in publish.yml and ci.yml to eliminate Node 20 deprecation warnings; the publish and macOS install work was completed in chat.",
+      "timestamp": "2026-06-30T18:23:54Z",
+      "type": "stage_work_complete",
+      "worktree_head": "16d537d7d32534a0e437525cba4c62892b2a9c77",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T18:26:25Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwcwgkynqn873dzvrxt58g8p",
+      "stage": "scope",
+      "timestamp": "2026-06-30T18:26:25Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Full scope: single-phase action version bump in both workflow files",
+      "revision": 2,
+      "timestamp": "2026-06-30T18:28:55Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Config-change: the only code change is bumping action version tags in two YAML files — no logic, no UI, no new system boundaries. No design stage (no UI), no architecture stage (single subsystem, no design decisions beyond looking up latest tags), no review stage (trivial mechanical change verified by CI run output).",
+      "stages": [
+        "scope",
+        "implementation",
+        "release"
+      ],
+      "template": "config-change",
+      "tier": "trivial",
+      "timestamp": "2026-06-30T18:29:03Z",
+      "type": "workflow_classified"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2. Single-phase config-change: bump action version tags in ci.yml and publish.yml to eliminate Node 20 deprecation warnings. Workflow: scope → implementation → release (no design, architecture, or review stages). Implementation phase includes file list, YAML validation commands, and a push-and-observe verification step.",
+      "timestamp": "2026-06-30T18:29:16Z",
+      "type": "stage_work_complete",
+      "worktree_head": "71db70b7a30b5bdbdc4648b1eda13f55754bc980",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T18:32:29Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-06-30T18:32:28Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "25e500abc68073b940a27629c764f720c6b0a428",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "71db70b7a30b5bdbdc4648b1eda13f55754bc980",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T18:32:29Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-06-30T18:32:29Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-06-30T18:32:29Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T18:32:29Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwcwvq4466z600rqwys5ge3v",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T18:32:29Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwcwgkynqn873dzvrxt58g8p",
+      "timed_out": false,
+      "timestamp": "2026-06-30T18:32:30Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting Phase 1: bump GitHub Actions versions in ci.yml and publish.yml",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T18:33:10Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Bump action versions in both workflows",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-06-30T18:33:11Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes: bumping action versions in both workflow files",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-06-30T18:34:25Z",
+      "type": "progress_report"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "trivial",
+    "template": "config-change",
+    "stages": [
+      "scope",
+      "implementation",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Config-change: the only code change is bumping action version tags in two YAML files — no logic, no UI, no new system boundaries. No design stage (no UI), no architecture stage (single subsystem, no design decisions beyond looking up latest tags), no review stage (trivial mechanical change verified by CI run output)."
+  },
+  "stageApprovals": {
+    "scope": "2026-06-30T18:32:28Z"
+  },
   "stages": {
-    "architecture": {
-      "status": "not_started"
+    "design": {
+      "status": "skipped"
     },
     "review": {
-      "status": "not_started"
-    },
-    "design": {
-      "status": "not_started"
-    },
-    "implementation": {
-      "status": "not_started"
-    },
-    "scope": {
-      "status": "in_progress",
-      "startedAt": "2026-06-30T17:27:33Z"
+      "status": "skipped"
     },
     "release": {
       "status": "not_started"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T18:32:29Z"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T18:32:28Z",
+      "startedAt": "2026-06-30T18:26:25Z"
+    },
+    "architecture": {
+      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-06-30T18:32:29Z"
 }
