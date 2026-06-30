@@ -3,7 +3,7 @@ defract:
   id: task-country-as-path-visual-binat-rtt-anomaly-01kwaw3774eb
   type: bug
   status: active
-  stage: implementation
+  stage: review
   phase: 0
   total_phases: 2
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 ## Story Brief
 
@@ -147,3 +148,22 @@ None beyond existing dependencies (Rich 13+ and requests already in use).
 - `summary_rows` entries carry `path_complete`, `verified_rtt_ms`, `entry_transit_asn` via `**r` spread (or explicit defaults on the skip path).
 
 **Deviations from plan:** None. `_extract_last_rtt` logic inlined rather than kept as a named helper — satisfies "remove _extract_last_rtt" while preserving `last_rtt_ms` backward compat.
+
+## Phase 2: Tree Summary Display
+
+**Files changed:** `src/netpath/display.py`
+
+**What was built:**
+
+- Added `from netpath.asn import cymru_bulk_lookup_rich, normalize_asn` at module level and `_IP_PAT` regex for IP detection.
+- Added `fmt_country_latency(ms: float) -> Text` with 120 ms / 200 ms thresholds (green < 120 ms, yellow 120–200 ms, red >= 200 ms). Does not modify the existing `fmt_latency` (20 ms / 80 ms).
+- Rewrote `country_summary` as a grouped tree view:
+  - Separates complete rows (path_complete=True, verified_rtt_ms not None) from incomplete rows.
+  - Groups complete rows by `entry_transit_asn`; sorts groups by best RTT ascending; sorts ISPs within each group by RTT.
+  - Collects one IP per transit ASN from hub lists, runs a single `cymru_bulk_lookup_rich` batch call for org names. Falls back to ASN code if lookup fails or no IP is available.
+  - Renders each group with `├─` / `└─` connectors, star prefix on the fastest ISP across all complete paths, and color-coded RTT via `fmt_country_latency`.
+  - Incomplete paths render in a final dimmed branch with "⚠ incomplete" and no RTT.
+  - Footer line names the fastest entry transit and its best ISP RTT. Omitted when no complete paths exist.
+  - Edge cases: "direct" label for entry_transit_asn=None; ASN code fallback when Cymru name lookup fails; empty results → no output; all incomplete → no star or footer.
+
+**Deviations from plan:** None.
