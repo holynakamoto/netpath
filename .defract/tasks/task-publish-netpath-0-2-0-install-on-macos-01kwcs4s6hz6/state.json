@@ -1,11 +1,11 @@
 {
   "id": "task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6",
-  "status": "active",
+  "status": "completed",
   "stage": "release",
   "phase": 1,
   "totalPhases": 1,
   "createdAt": "2026-06-30T17:27:32Z",
-  "updatedAt": "2026-06-30T18:38:16Z",
+  "updatedAt": "2026-06-30T18:48:16Z",
   "events": [
     {
       "base_branch": "main",
@@ -343,6 +343,29 @@
       "type": "stage_work_complete",
       "worktree_head": "47bba39798081880155ad7c66f8c6bda989702cc",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "files_changed": 8,
+      "lines_added": 7,
+      "lines_removed": 7,
+      "timestamp": "2026-06-30T18:47:46Z",
+      "type": "worktree_merged"
+    },
+    {
+      "timestamp": "2026-06-30T18:47:46Z",
+      "type": "worktree_removed"
+    },
+    {
+      "branch": "feature/task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6",
+      "reason": "git push --delete timed out after 30s",
+      "timestamp": "2026-06-30T18:48:16Z",
+      "type": "remote_branch_delete_failed"
+    },
+    {
+      "actor": null,
+      "timestamp": "2026-06-30T18:48:16Z",
+      "type": "task_completed"
     }
   ],
   "needsArchitecture": false,
@@ -362,14 +385,16 @@
     "scope": "2026-06-30T18:32:28Z",
     "implementation": "2026-06-30T18:36:37Z"
   },
+  "completedAt": "2026-06-30T18:48:16Z",
   "stageContent": {
     "release": "## Release Notes\n\n### What was built\n- Bumped `actions/checkout` from v4 to v7 in both CI and publish workflows\n- Bumped `actions/setup-python` from v5 to v6 in both CI and publish workflows\n- Bumped `actions/upload-artifact` from v4 to v7 in the publish workflow\n- Bumped `actions/download-artifact` from v4 to v8 in the publish workflow\n- All version bumps reviewed for breaking changes; none affect existing usage patterns\n\n### Key decisions\n- Chose latest stable major versions (checkout@v7, setup-python@v6, upload-artifact@v7, download-artifact@v8) rather than intermediate versions to maximise the time before the next required upgrade\n- `pypa/gh-action-pypi-publish@release/v1` left unchanged — it is Docker-based and does not run Node, so it is not a source of Node deprecation warnings\n- Confirmed upload-artifact@v7 + download-artifact@v8 cross-version compatibility: name-based artifact handoff between the build and publish jobs continues to work identically\n\n### Changes by phase\n- **Phase 1: Bump action versions in both workflows** — Updated `.github/workflows/ci.yml` (checkout v4→v7, setup-python v5→v6) and `.github/workflows/publish.yml` (same two plus upload-artifact v4→v7, download-artifact v4→v8). Both YAML files validate cleanly; 14 pytest tests pass; 9 pre-existing ruff issues in unrelated files are unchanged.\n\n## Verification\n\n- Production build: PASS (`uv build` produced `netpath-0.2.1.dev7+g47bba3979` wheel and sdist)\n- Code pushed to remote branch: `feature/task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6`\n- YAML syntax: both workflow files validated cleanly during implementation phase\n- Tests: 14 passed, 0 failed during implementation phase\n- Review stage: skipped (config-change workflow — CI run output is the verification signal)\n",
     "implementation": "## Phase 1: Bump action versions in both workflows\n\n### What was built\n\nUpdated `.github/workflows/ci.yml` and `.github/workflows/publish.yml` to use the latest stable major versions of all referenced GitHub Actions, resolving Node 20 deprecation warnings.\n\n**Version changes:**\n- `actions/checkout@v4` → `@v7` (both workflows)\n- `actions/setup-python@v5` → `@v6` (both workflows)\n- `actions/upload-artifact@v4` → `@v7` (publish.yml)\n- `actions/download-artifact@v4` → `@v8` (publish.yml)\n\n### Changelog review summary\n\n- **checkout@v7**: ESM upgrade + security fix (blocks fork PR checkout for pull_request_target). Transparent for our usage.\n- **setup-python@v6**: Upgrades internal runtime to Node 24 — exactly the fix needed. Requires runner v2.327.1+ (ubuntu-latest is always current).\n- **upload-artifact@v7**: ESM upgrade + new optional direct-upload feature. Existing name+path usage unchanged.\n- **download-artifact@v8**: ESM upgrade + direct-download support + hash-mismatch now errors by default (security hardening). Name-based download still works identically.\n\n### Verification results\n\n- `ci.yml` YAML: valid\n- `publish.yml` YAML: valid\n- 14 pytest tests: all passed\n- Ruff: 9 pre-existing lint issues in unrelated files (display.py, speedtest.py, zoom_analyze.py) — not introduced by this phase\n"
   },
   "stages": {
-    "release": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-06-30T18:36:38Z"
+    "implementation": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T18:36:37Z",
+      "startedAt": "2026-06-30T18:32:29Z"
     },
     "design": {
       "status": "skipped"
@@ -382,16 +407,13 @@
     "architecture": {
       "status": "skipped"
     },
+    "release": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-06-30T18:36:38Z"
+    },
     "review": {
       "status": "skipped"
-    },
-    "implementation": {
-      "status": "approved",
-      "approvedAt": "2026-06-30T18:36:37Z",
-      "startedAt": "2026-06-30T18:32:29Z"
     }
   },
-  "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6",
-  "worktreeBaseBranch": "main",
   "worktreeLastSyncedAt": "2026-06-30T18:36:38Z"
 }
