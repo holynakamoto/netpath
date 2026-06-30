@@ -1,7 +1,8 @@
-# Mistakes
+# Mistake Patterns
 
-Last updated: (auto)
+## Mistakes
 
-## Patterns to Avoid
 
-## Lessons Learned
+## Anti-Patterns
+
+

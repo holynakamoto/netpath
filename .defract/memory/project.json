@@ -1,12 +1,12 @@
 {
-  "tasks_since_consolidation": 2,
+  "tasks_since_consolidation": 0,
   "consolidation_history": [],
   "last_emit_hashes": {
-    "project-facts.md": "aec51a7dc0defb877c4fed510163f202d46255bb8fbb6333e01e017049c0e396",
-    "mistakes.md": "c7c770a2bf206f69ce7d223be34eed35de91c522e272963633b739e9785b374d",
-    "builder-preferences.md": "9c7a4c5961e1084bbc1e238e10d9c498b4cbdcbf46833c8835eb8c1b0018e2fc",
-    "workflows.md": "0cda5930aa930cfd40f6ec35e17dbaaa70d9d2e5c6fd8daa967d7f24ae4f9a8e",
-    "decisions.md": "1cf94ddf1116c0006271e80df79ecf16e47f6f42d659660757781d6c8c4fa1cf"
+    "workflows.md": "f8cb1f1b7f9ebb7e336be25e29bb30516e779429bc5a7102b7243177c1406793",
+    "mistakes.md": "3d2a0e14e8c50341118dcfa158eafc00eda585e5a94582ee9d4531d0c82450e0",
+    "decisions.md": "077c5f012df758a5fed6bb799efdc21daa1c0ef0da200e295219d67ad8903adb",
+    "project-facts.md": "7aaf00d964a2c9e4ec1a643016aa788787e83ec24231b6059f5ef8a30bc2f071",
+    "builder-preferences.md": "1770be583c81276593e6eb63d01a1b5e92b6bc4eeccc9c3cdbdaa9c87fc04ff5"
   },
   "pending_external_edits": []
 }

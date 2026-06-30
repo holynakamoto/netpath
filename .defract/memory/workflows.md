@@ -1,9 +1,5 @@
-# Workflows
+# Proven Workflows
 
-Last updated: (auto)
+## Workflows
 
-## Development
 
-## Testing
-
-## Deployment

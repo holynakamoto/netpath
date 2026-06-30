@@ -1,7 +1,5 @@
 # Past Decisions
 
-Last updated: (auto)
+## Decisions
 
-## Architecture
 
-## CI/CD

@@ -1,11 +1,8 @@
 # Builder Preferences
 
-Last updated: (auto)
+## Preferences
 
-## Scope Style
 
-## Architecture Style
+## Corrections
 
-## Review Preferences
 
-## Communication Style
