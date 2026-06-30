@@ -7,6 +7,7 @@ This project uses [defract](https://defract.dev) for structured AI-assisted deve
 | Task | Stage | Status |
 |------|-------|--------|
 | Country AS-path visual + Binat RTT anomaly | release | active |
+| Incomplete paths still showing in ZA country sweep | scope | active |
 | Automated PyPI Publishing with VCS Versioning | release | completed |
 | Fixing incomplete paths + richer path metrics | release | completed |
 | Globe AS-path latency viz + pip/uv install | release | completed |

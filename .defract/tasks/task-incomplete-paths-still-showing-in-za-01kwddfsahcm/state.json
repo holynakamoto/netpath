@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 1,
   "createdAt": "2026-06-30T23:23:04Z",
-  "updatedAt": "2026-06-30T23:27:57Z",
+  "updatedAt": "2026-06-30T23:28:33Z",
   "events": [
     {
       "base_branch": "main",
@@ -66,27 +66,72 @@
       "revision": 3,
       "timestamp": "2026-06-30T23:27:57Z",
       "type": "scope_update"
+    },
+    {
+      "rationale": "Bug fix in country-mode IP selection — no UI changes (skip design), well-contained to country.py and its test file (skip architecture). The Atlas probe lookup adds one helper function and updates one existing function.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "bug-fix",
+      "tier": "standard",
+      "timestamp": "2026-06-30T23:28:05Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [
+        "TCP socket probing across multiple prefix candidates: would have worked but adds latency (500ms per candidate × 10 candidates = up to 5s per ASN worst case) and still targets arbitrary addresses rather than known-live ones",
+        "Keep existing single-prefix approach unchanged: does not fix the problem"
+      ],
+      "decision": "Use RIPE Atlas probe registry as the primary target IP source, with the existing RIPE prefix-based selection as fallback",
+      "rationale": "Atlas probes are known-live hardware devices inside ISP networks — using a probe IP as the traceroute target eliminates the core problem (tracing to a dark address). The probes API is public, unauthenticated, and returns connected-only probes with a status filter. Prefix-based selection is retained as fallback for ASNs with no registered probes (backbone carriers, small operators).",
+      "timestamp": "2026-06-30T23:28:13Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope (revision 3): RIPE Atlas probe lookup as primary target IP strategy, existing prefix-based selection as fallback. Single phase in country.py + test updates. Bug-fix workflow, standard tier.",
+      "timestamp": "2026-06-30T23:28:33Z",
+      "type": "stage_work_complete",
+      "worktree_head": "c8540b0798453dd91ce18b14dec11b67901817b1",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "bug-fix",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Bug fix in country-mode IP selection — no UI changes (skip design), well-contained to country.py and its test file (skip architecture). The Atlas probe lookup adds one helper function and updates one existing function."
+  },
   "stages": {
-    "architecture": {
-      "status": "not_started"
-    },
-    "scope": {
-      "status": "in_progress",
-      "startedAt": "2026-06-30T23:24:05Z"
-    },
-    "release": {
-      "status": "not_started"
-    },
-    "design": {
-      "status": "not_started"
-    },
     "implementation": {
       "status": "not_started"
     },
     "review": {
       "status": "not_started"
+    },
+    "release": {
+      "status": "not_started"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "scope": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-06-30T23:24:05Z"
+    },
+    "architecture": {
+      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-incomplete-paths-still-showing-in-za-01kwddfsahcm",
