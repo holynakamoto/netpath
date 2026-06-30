@@ -8,6 +8,10 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
+from netpath.asn import cymru_bulk_lookup_rich, normalize_asn
+
+_IP_PAT = re.compile(r'^\d{1,3}(?:\.\d{1,3}){3}$')
+
 console = Console()
 
 
@@ -26,6 +30,15 @@ def clean_asn_name(name: str) -> str:
 
 
 # ── formatting helpers ────────────────────────────────────────────────────────
+
+def fmt_country_latency(ms: float) -> Text:
+    s = f"{ms:.1f} ms"
+    if ms < 120:
+        return Text(s, style="bold green")
+    if ms < 200:
+        return Text(s, style="yellow")
+    return Text(s, style="bold red")
+
 
 def fmt_latency(ms: float) -> Text:
     s = f"{ms:.1f} ms"
@@ -308,60 +321,95 @@ def baseline_panel(upload: dict, download: dict):
 
 
 def country_summary(code: str, results: list[dict]):
-    """Compact one-line-per-ISP comparison table shown after all per-ISP tests."""
+    """Tree summary grouped by transit entry point with color-coded latency."""
     if not results:
         return
 
-    has_rum = any(r.get("rum") for r in results)
+    complete = [r for r in results if r.get("path_complete") and r.get("verified_rtt_ms") is not None]
+    incomplete = [r for r in results if not r.get("path_complete") or r.get("verified_rtt_ms") is None]
+
+    star_asn: str | None = None
+    if complete:
+        star_asn = min(complete, key=lambda r: r["verified_rtt_ms"])["asn"]
+
+    # Group complete rows by entry_transit_asn; sort each group by RTT
+    groups: dict[str | None, list[dict]] = {}
+    for r in complete:
+        groups.setdefault(r.get("entry_transit_asn"), []).append(r)
+    sorted_keys = sorted(groups, key=lambda k: min(r["verified_rtt_ms"] for r in groups[k]))
+    for key in sorted_keys:
+        groups[key].sort(key=lambda r: r["verified_rtt_ms"])
+
+    # Collect one IP per transit ASN from hub lists for Cymru name lookup
+    transit_ips: dict[str, str] = {}
+    for key in sorted_keys:
+        if key is None:
+            continue
+        for r in groups[key]:
+            for hub in r.get("hubs", []):
+                raw_asn = hub.get("ASN", "")
+                if raw_asn and normalize_asn(raw_asn) == key:
+                    host = hub.get("host", "")
+                    if host and host not in ("???", None, "") and _IP_PAT.match(host):
+                        transit_ips[key] = host
+                        break
+            if key in transit_ips:
+                break
+
+    # Batch Cymru lookup for transit org names (one TCP connection)
+    transit_names: dict[str, str] = {}
+    if transit_ips:
+        try:
+            lookup = cymru_bulk_lookup_rich(list(transit_ips.values()))
+            for asn_key, ip in transit_ips.items():
+                if ip in lookup:
+                    n = lookup[ip].get("name", "")
+                    if n:
+                        transit_names[asn_key] = clean_asn_name(n)
+        except Exception:
+            pass
+
+    def _transit_label(key: str | None) -> str:
+        if key is None:
+            return "direct"
+        name = transit_names.get(key)
+        return f"{key} · {name}" if name else key
+
+    def _trim(name: str, width: int = 26) -> str:
+        return name[:width - 1] + "…" if len(name) > width else name
 
     console.print()
     console.rule(f" {code} summary ", style="bold cyan")
     console.print()
 
-    table = Table(
-        box=box.SIMPLE_HEAD,
-        show_header=True,
-        header_style="bold cyan",
-        padding=(0, 1),
-        expand=False,
-    )
-    table.add_column("ASN", min_width=9)
-    table.add_column("ISP", min_width=22)
-    table.add_column("Transit", min_width=9)
-    table.add_column("RTT", justify="right", min_width=8)
-    if has_rum:
-        table.add_column("↓ RUM", justify="right", min_width=9)
-        table.add_column("↑ RUM", justify="right", min_width=9)
-        table.add_column("Idle", justify="right", min_width=7)
+    for key in sorted_keys:
+        rows = groups[key]
+        console.print(f"[bold]{_transit_label(key)}[/bold]")
+        for ri, r in enumerate(rows):
+            connector = "└─" if ri == len(rows) - 1 else "├─"
+            star = "★ " if r["asn"] == star_asn else "  "
+            line = Text()
+            line.append(f"  {connector} {star}{r['asn']:<10}  {_trim(r['name']):<26}  ")
+            line.append_text(fmt_country_latency(r["verified_rtt_ms"]))
+            console.print(line)
+        console.print()
 
-    for r in results:
-        asn  = r["asn"]
-        name = r["name"]
-        if len(name) > 28:
-            name = name[:27] + "…"
+    if incomplete:
+        console.print("[dim]incomplete paths[/dim]")
+        for ri, r in enumerate(incomplete):
+            connector = "└─" if ri == len(incomplete) - 1 else "├─"
+            line = Text()
+            line.append(f"  {connector}   {r['asn']:<10}  {_trim(r['name']):<26}  ", style="dim")
+            line.append("⚠ ", style="yellow")
+            line.append("incomplete", style="dim")
+            console.print(line)
+        console.print()
 
-        path  = r.get("as_path", [])
-        # Middle hops: strip source (first) and destination (last if it's the target ASN)
-        inner = path[1:-1] if (len(path) >= 2 and path[-1] == asn) else path[1:]
-        transit = Text(" → ".join(inner)) if inner else Text("—", style="dim")
-
-        rtt     = r.get("last_rtt_ms")
-        latency = fmt_latency(rtt) if rtt else Text("—", style="dim")
-
-        if has_rum:
-            rum     = r.get("rum") or {}
-            dl_val  = rum.get("dl_mbps")
-            ul_val  = rum.get("ul_mbps")
-            idle_val = rum.get("latency_idle")
-            dl   = Text(f"{dl_val:.0f} Mbps", style="cyan")  if dl_val  else Text("—", style="dim")
-            ul   = Text(f"{ul_val:.0f} Mbps", style="green") if ul_val  else Text("—", style="dim")
-            idle = Text(f"{idle_val:.0f} ms")                if idle_val else Text("—", style="dim")
-            table.add_row(asn, name, transit, latency, dl, ul, idle)
-        else:
-            table.add_row(asn, name, transit, latency)
-
-    console.print(table)
-    console.print()
+    if sorted_keys:
+        best_key = sorted_keys[0]
+        best_rtt = groups[best_key][0]["verified_rtt_ms"]
+        console.print(f"  [dim]Fastest entry transit: [bold]{_transit_label(best_key)}[/bold] — {best_rtt:.1f} ms[/dim]")
+        console.print()
 
 
 def bufferbloat_line(idle_ms: float | None, loaded_ms: float | None) -> None:
