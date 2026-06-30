@@ -1,11 +1,11 @@
 {
   "id": "task-globe-as-path-latency-viz-pip-uv-install-01kwb0sw8gr0",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 2,
   "createdAt": "2026-06-30T01:02:55Z",
-  "updatedAt": "2026-06-30T01:03:41Z",
+  "updatedAt": "2026-06-30T01:20:03Z",
   "events": [
     {
       "base_branch": "main",
@@ -34,29 +34,201 @@
       "type": "stage_work_complete",
       "worktree_head": "6062086c6b384f1401acaa7a36690dc4c009316e",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T01:09:28Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwb15wga7wwthjpqk7xhw96x",
+      "stage": "scope",
+      "timestamp": "2026-06-30T01:09:28Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Full scope: globe viz + PyPI packaging — 12 requirements, 10 ACs, 2 phases",
+      "revision": 2,
+      "timestamp": "2026-06-30T01:12:55Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "New Python features (globe module + packaging metadata) with no UI components to design. Skip design: the globe's color scheme is derived from existing display.py thresholds; Globe.gl handles all rendering decisions. Skip architecture: the approach is fully specified in the scope (ip-api.com batch + Globe.gl CDN HTML + tempfile/webbrowser stdlib); only 3 files touched plus 3 new files, well within a single-phase implementation review.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "backend-feature",
+      "tier": "standard",
+      "timestamp": "2026-06-30T01:13:16Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Use ip-api.com batch API for hop geolocation",
+      "rationale": "Free, no API key required, supports up to 100 IPs per batch call, returns lat/lon in a single HTTP request. The free tier rate limit (45 req/min) is not a concern for typical probe sizes (≤50 hops). Alternatives considered: MaxMind GeoLite2 (requires bundling a large binary database and a reader dependency), ipinfo.io (free tier requires registration). ip-api.com is the lowest-friction path and keeps the install footprint minimal.",
+      "timestamp": "2026-06-30T01:13:23Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Use Globe.gl via CDN for 3D globe rendering",
+      "rationale": "Globe.gl provides a declarative arc/point/label API on a Three.js sphere with no bundler required. Loading from unpkg CDN keeps the generated HTML self-contained as a single file with no Python build-time dependencies. Alternatives: D3.js + topojson (more code to write, less visual impact out of the box); Cesium (heavyweight, requires API key); pure Three.js (would need to write arc math from scratch).",
+      "timestamp": "2026-06-30T01:13:31Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Extract latency threshold constants from display.py rather than duplicating them in globe.py",
+      "rationale": "The per-hop thresholds (green <20 ms, yellow 20–79 ms, red ≥80 ms) currently live inline inside fmt_latency() in display.py. Globe.py needs the same values for arc coloring. Extracting them as module-level constants (LATENCY_GREEN_MS, LATENCY_YELLOW_MS) ensures one source of truth and prevents drift if the thresholds are ever adjusted.",
+      "timestamp": "2026-06-30T01:13:37Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2. 12 requirements across two feature areas, 10 acceptance criteria, 2 implementation phases (Phase 1: PyPI packaging — Small effort; Phase 2: Globe visualization — Medium effort). Key decisions logged: ip-api.com batch API for geolocation, Globe.gl via CDN for rendering, shared latency threshold constants from display.py. Workflow: backend-feature, standard tier, scope → implementation → review → release.",
+      "timestamp": "2026-06-30T01:13:45Z",
+      "type": "stage_work_complete",
+      "worktree_head": "30a66c4b26bc22fcb7814f444a3adeae871fd339",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T01:17:37Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-06-30T01:17:36Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "7918baed28512dc66dfae220094754a54968a263",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "30a66c4b26bc22fcb7814f444a3adeae871fd339",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T01:17:37Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-06-30T01:17:37Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-06-30T01:17:37Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T01:17:37Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwb1mt0xkm570qxnvtwf7cd4",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T01:17:37Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwb15wga7wwthjpqk7xhw96x",
+      "timed_out": false,
+      "timestamp": "2026-06-30T01:17:37Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting Phase 1: PyPI packaging — creating README.md, LICENSE, and updating pyproject.toml",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T01:17:53Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: PyPI Packaging",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-06-30T01:18:01Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes: README.md, LICENSE, pyproject.toml metadata",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-06-30T01:18:37Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-06-30T01:19:05Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-06-30T01:20:03Z",
+      "type": "progress_report"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "backend-feature",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "New Python features (globe module + packaging metadata) with no UI components to design. Skip design: the globe's color scheme is derived from existing display.py thresholds; Globe.gl handles all rendering decisions. Skip architecture: the approach is fully specified in the scope (ip-api.com batch + Globe.gl CDN HTML + tempfile/webbrowser stdlib); only 3 files touched plus 3 new files, well within a single-phase implementation review."
+  },
+  "stageApprovals": {
+    "scope": "2026-06-30T01:17:36Z"
+  },
   "stages": {
-    "design": {
-      "status": "not_started"
-    },
-    "architecture": {
-      "status": "not_started"
-    },
     "release": {
       "status": "not_started"
-    },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-06-30T01:02:56Z"
     },
     "review": {
       "status": "not_started"
     },
+    "design": {
+      "status": "skipped"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T01:17:36Z",
+      "startedAt": "2026-06-30T01:09:28Z"
+    },
+    "architecture": {
+      "status": "skipped"
+    },
     "implementation": {
-      "status": "not_started"
+      "status": "in_progress",
+      "startedAt": "2026-06-30T01:17:37Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-globe-as-path-latency-viz-pip-uv-install-01kwb0sw8gr0",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-06-30T01:17:37Z"
 }
