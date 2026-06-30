@@ -5,7 +5,7 @@
   "phase": 1,
   "totalPhases": 1,
   "createdAt": "2026-06-30T17:27:32Z",
-  "updatedAt": "2026-06-30T18:37:54Z",
+  "updatedAt": "2026-06-30T18:38:16Z",
   "events": [
     {
       "base_branch": "main",
@@ -335,6 +335,14 @@
       "rationale": "Production build passes (uv build), implementation approved on 2026-06-30T18:36:37Z, code committed (a6aa5f7) and pushed to remote. Review stage was skipped per config-change workflow classification.",
       "timestamp": "2026-06-30T18:37:54Z",
       "type": "decision"
+    },
+    {
+      "stage": "release",
+      "summary": "Production build passes (uv build), branch pushed to remote. GitHub Actions version bumps (checkout v4→v7, setup-python v5→v6, upload-artifact v4→v7, download-artifact v4→v8) are committed and ready for merge into main.",
+      "timestamp": "2026-06-30T18:38:16Z",
+      "type": "stage_work_complete",
+      "worktree_head": "47bba39798081880155ad7c66f8c6bda989702cc",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "needsArchitecture": false,
@@ -359,28 +367,28 @@
     "implementation": "## Phase 1: Bump action versions in both workflows\n\n### What was built\n\nUpdated `.github/workflows/ci.yml` and `.github/workflows/publish.yml` to use the latest stable major versions of all referenced GitHub Actions, resolving Node 20 deprecation warnings.\n\n**Version changes:**\n- `actions/checkout@v4` → `@v7` (both workflows)\n- `actions/setup-python@v5` → `@v6` (both workflows)\n- `actions/upload-artifact@v4` → `@v7` (publish.yml)\n- `actions/download-artifact@v4` → `@v8` (publish.yml)\n\n### Changelog review summary\n\n- **checkout@v7**: ESM upgrade + security fix (blocks fork PR checkout for pull_request_target). Transparent for our usage.\n- **setup-python@v6**: Upgrades internal runtime to Node 24 — exactly the fix needed. Requires runner v2.327.1+ (ubuntu-latest is always current).\n- **upload-artifact@v7**: ESM upgrade + new optional direct-upload feature. Existing name+path usage unchanged.\n- **download-artifact@v8**: ESM upgrade + direct-download support + hash-mismatch now errors by default (security hardening). Name-based download still works identically.\n\n### Verification results\n\n- `ci.yml` YAML: valid\n- `publish.yml` YAML: valid\n- 14 pytest tests: all passed\n- Ruff: 9 pre-existing lint issues in unrelated files (display.py, speedtest.py, zoom_analyze.py) — not introduced by this phase\n"
   },
   "stages": {
-    "review": {
+    "release": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-06-30T18:36:38Z"
+    },
+    "design": {
       "status": "skipped"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T18:32:28Z",
+      "startedAt": "2026-06-30T18:26:25Z"
     },
     "architecture": {
       "status": "skipped"
     },
-    "design": {
+    "review": {
       "status": "skipped"
     },
     "implementation": {
       "status": "approved",
       "approvedAt": "2026-06-30T18:36:37Z",
       "startedAt": "2026-06-30T18:32:29Z"
-    },
-    "release": {
-      "status": "in_progress",
-      "startedAt": "2026-06-30T18:36:38Z"
-    },
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-06-30T18:32:28Z",
-      "startedAt": "2026-06-30T18:26:25Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-publish-netpath-0-2-0-install-on-macos-01kwcs4s6hz6",
