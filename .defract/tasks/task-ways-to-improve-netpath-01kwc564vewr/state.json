@@ -1,11 +1,11 @@
 {
   "id": "task-ways-to-improve-netpath-01kwc564vewr",
   "status": "active",
-  "stage": "implementation",
-  "phase": 1,
+  "stage": "review",
+  "phase": 2,
   "totalPhases": 2,
   "createdAt": "2026-06-30T11:38:45Z",
-  "updatedAt": "2026-06-30T15:12:03Z",
+  "updatedAt": "2026-06-30T15:39:24Z",
   "events": [
     {
       "base_branch": "main",
@@ -401,6 +401,108 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "4248cfb35eb6ac2a122bb1ba4545fb2ad1c3336f",
       "worktree_status_digest": "38419b3060a9540fac837ae6f33b57b53c8951fe9ba27ada99ceab0c98baf72e"
+    },
+    {
+      "approved_by": "user",
+      "phase": 1,
+      "phase_title": "Exit codes and measurement/display separation",
+      "timestamp": "2026-06-30T15:35:37Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 1,
+      "timestamp": "2026-06-30T15:35:37Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "stage": "implementation",
+      "summary": "All phases approved — implementation ready for review.",
+      "timestamp": "2026-06-30T15:35:37Z",
+      "type": "stage_work_complete",
+      "worktree_head": "260243c3c59ef172d412c7cc39aaafde0bfd6f3d",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-06-30T15:35:38Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T15:35:38Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "c5a6de17139800a6f3d50dc6eca498fc43e8568d",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "implementation",
+      "stale_worktree_head": "260243c3c59ef172d412c7cc39aaafde0bfd6f3d",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T15:35:38Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T15:35:38Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "implementation",
+      "timestamp": "2026-06-30T15:35:38Z",
+      "to": "review",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T15:35:38Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwcjqx2ngqyqeg1ncw8rb5qm",
+      "stage": "review",
+      "timestamp": "2026-06-30T15:35:38Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "details": "14 tests across test_diagnosis.py (6) and test_mtr.py (8), all passing. Ruff clean on src/netpath/cli.py and tests/. Dev extras install succeeded.",
+      "failed": 0,
+      "passed": 14,
+      "phase": 2,
+      "skipped": 0,
+      "timestamp": "2026-06-30T15:38:32Z",
+      "type": "test_results"
+    },
+    {
+      "change_summary": "APPROVE: All 11 acceptance criteria pass, all 3 automated checks pass (install, pytest 14/14, ruff clean), and no security or code quality issues were found. The implementation correctly separates measurement from display in _measure(), wires exit codes through typer.Exit, and the test suite covers all required verdict paths and traceroute parser scenarios.",
+      "revision": 1,
+      "stage": "review",
+      "timestamp": "2026-06-30T15:39:10Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Review verdict: APPROVE",
+      "rationale": "11/11 acceptance criteria passed, 3/3 automated checks passed (install, pytest 14/14, ruff clean). No security, performance, or code quality findings. _measure() is correctly free of display calls and json_mode branching; exit codes are correctly wired via typer.Exit in both asn and country subcommands.",
+      "timestamp": "2026-06-30T15:39:16Z",
+      "type": "decision"
+    },
+    {
+      "stage": "review",
+      "summary": "APPROVE — all 11 ACs pass, pytest 14/14, ruff clean. _measure() correctly isolated, exit codes correctly wired, CI matrix complete. Ready for release.",
+      "timestamp": "2026-06-30T15:39:24Z",
+      "type": "stage_work_complete",
+      "worktree_head": "c5a6de17139800a6f3d50dc6eca498fc43e8568d",
+      "worktree_status_digest": "588724c4439adbea82e455c6ab0911c3cf6202c2325adbfac3d9470ff1cd70b5"
     }
   ],
   "needsArchitecture": false,
@@ -418,10 +520,12 @@
     "rationale": "No UI changes (skip design). Work is well-contained to one Python package with 4-5 files and builds directly on existing patterns — no new system boundaries (skip architecture). Two phases are independently reviewable but neither requires an architecture checkpoint."
   },
   "stageApprovals": {
-    "scope": "2026-06-30T14:46:09Z"
+    "scope": "2026-06-30T14:46:09Z",
+    "implementation": "2026-06-30T15:35:38Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Test suite and CI workflow\n\n**Files changed:**\n- `pyproject.toml` — added `[project.optional-dependencies]` with `dev = [\"pytest>=8\", \"ruff>=0.4\"]`\n- `tests/__init__.py` — empty package marker\n- `tests/test_diagnosis.py` — 6 tests: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, Throughput Cap, malformed-input fallback\n- `tests/test_mtr.py` — 8 tests: normal multi-hop, all-stars, mixed, single-hop, macOS parenthesized-IP format, `_all_stars()` empty/all-filtered/mixed\n- `.github/workflows/ci.yml` — CI matrix over Python 3.9, 3.10, 3.11, 3.12, 3.13 on ubuntu-latest using `pip install -e \"[dev]\"` then `pytest`\n\n**Results:** 14/14 tests pass, no deviations from plan.\n\n## Phase 2: Exit codes and measurement/display separation\n\n**Files changed:**\n- `src/netpath/cli.py` — extracted `_measure()`, wired exit codes into `asn` and `country` subcommands\n\n**What was built:**\n\n`_measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token)` handles all data collection: trace, path classification, RUM fetch, iperf3/speedtest throughput, bufferbloat computation, and `diagnose()`. It returns the enriched result dict with no display calls and no `json_mode` parameter. Internal `_`-prefixed keys (`_iperf_upload`, `_iperf_download`, `_iperf_idle_rtt`, `_iperf_loaded_rtt`, `_iperf_error`, `_speedtest_upload`, `_speedtest_download`, `_speedtest_error`, `_trace_method`, `_trace_error`) carry intermediate state for `_run_test()` to use in display without re-running any measurement.\n\n`_run_test()` now calls `_measure()` inside a single Progress spinner (normal mode) or directly (json_mode), then handles all display rendering afterward. `json_mode` branching remains only in `_run_test()`.\n\nExit codes via `_SEVERITY_CODE = {\"ok\": 0, \"warning\": 1, \"critical\": 2}` and `_worst_exit_code(verdicts)`:\n- `asn` subcommand: collects verdicts from all tested servers (or the single json-mode server) and raises `typer.Exit(code)` where code is the worst severity.\n- `country` subcommand: collects verdicts from all rows that have a verdict (skipped ASNs have no verdict key and naturally score 0), raises `typer.Exit(code)` for the worst severity.\n\n**Results:** 14/14 tests pass, ruff clean on `src/netpath/cli.py` and `tests/`."
+    "implementation": "## Phase 1: Test suite and CI workflow\n\n**Files changed:**\n- `pyproject.toml` — added `[project.optional-dependencies]` with `dev = [\"pytest>=8\", \"ruff>=0.4\"]`\n- `tests/__init__.py` — empty package marker\n- `tests/test_diagnosis.py` — 6 tests: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, Throughput Cap, malformed-input fallback\n- `tests/test_mtr.py` — 8 tests: normal multi-hop, all-stars, mixed, single-hop, macOS parenthesized-IP format, `_all_stars()` empty/all-filtered/mixed\n- `.github/workflows/ci.yml` — CI matrix over Python 3.9, 3.10, 3.11, 3.12, 3.13 on ubuntu-latest using `pip install -e \"[dev]\"` then `pytest`\n\n**Results:** 14/14 tests pass, no deviations from plan.\n\n## Phase 2: Exit codes and measurement/display separation\n\n**Files changed:**\n- `src/netpath/cli.py` — extracted `_measure()`, wired exit codes into `asn` and `country` subcommands\n\n**What was built:**\n\n`_measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token)` handles all data collection: trace, path classification, RUM fetch, iperf3/speedtest throughput, bufferbloat computation, and `diagnose()`. It returns the enriched result dict with no display calls and no `json_mode` parameter. Internal `_`-prefixed keys (`_iperf_upload`, `_iperf_download`, `_iperf_idle_rtt`, `_iperf_loaded_rtt`, `_iperf_error`, `_speedtest_upload`, `_speedtest_download`, `_speedtest_error`, `_trace_method`, `_trace_error`) carry intermediate state for `_run_test()` to use in display without re-running any measurement.\n\n`_run_test()` now calls `_measure()` inside a single Progress spinner (normal mode) or directly (json_mode), then handles all display rendering afterward. `json_mode` branching remains only in `_run_test()`.\n\nExit codes via `_SEVERITY_CODE = {\"ok\": 0, \"warning\": 1, \"critical\": 2}` and `_worst_exit_code(verdicts)`:\n- `asn` subcommand: collects verdicts from all tested servers (or the single json-mode server) and raises `typer.Exit(code)` where code is the worst severity.\n- `country` subcommand: collects verdicts from all rows that have a verdict (skipped ASNs have no verdict key and naturally score 0), raises `typer.Exit(code)` for the worst severity.\n\n**Results:** 14/14 tests pass, ruff clean on `src/netpath/cli.py` and `tests/`.",
+    "review": "## Verdict\n\n**Verdict:** APPROVE\n**Files reviewed:** 6 files changed across 2 phases\n\nAll 11 acceptance criteria pass, all 3 automated checks pass (install, pytest 14/14, ruff clean), and no security or code quality issues were found. The implementation correctly separates measurement from display in _measure(), wires exit codes through typer.Exit, and the test suite covers all required verdict paths and traceroute parser scenarios.\n\n### Automated Checks\n\n| Check | Result | Details |\n|-------|--------|---------|\n| Install (dev extras) | PASS | uv pip install -e \".[dev]\" exits 0; pytest>=8 and ruff>=0.4 resolved |\n| Test suite (pytest) | PASS | 14/14 tests pass: 6 in test_diagnosis.py, 8 in test_mtr.py |\n| Linter (ruff) | PASS | ruff check src/netpath/cli.py tests/ — all checks passed |\n\n### Acceptance Criteria (11/11 passed)\n\n- [x] AC-1: pip install -e \".[dev]\" succeeds from a clean checkout and installs pytest and ruff. — PASS: uv pip install -e \".[dev]\" exits 0; pyproject.toml:37-41 defines dev = [\"pytest>=8\", \"ruff>=0.4\"]\n- [x] AC-2: pytest exits 0 with no errors; the suite includes at least 12 test cases across test_diagnosis.py and test_mtr.py. — PASS: 14 tests pass (6 in test_diagnosis.py + 8 in test_mtr.py), pytest exit 0\n- [x] AC-3: test_diagnosis.py covers: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, and Throughput Cap paths. — PASS: tests/test_diagnosis.py lines 4-45: test_healthy_default, test_severe_bufferbloat, test_mid_path_packet_loss, test_last_mile_congestion, test_throughput_cap — all 5 verdict paths present\n- [x] AC-4: test_mtr.py covers: normal multi-hop, all-stars, mixed, single-hop traceroute output, plus _all_stars() edge cases. — PASS: tests/test_mtr.py: normal multi-hop (line 38), all-stars (line 49), mixed (line 56), single-hop (line 65); _all_stars() empty/all-filtered/mixed (lines 84-95)\n- [x] AC-5: GitHub Actions CI workflow file exists at .github/workflows/ci.yml and defines a matrix over Python 3.9-3.13. — PASS: .github/workflows/ci.yml line 14: python-version: [\"3.9\", \"3.10\", \"3.11\", \"3.12\", \"3.13\"]\n- [x] AC-6: netpath asn AS15169 --no-throughput exits 0 when the path is healthy (verified via echo $?). — PASS: Code path: _worst_exit_code returns 0 for all-ok verdicts; if code: is False so no typer.Exit raised; program exits 0 naturally. Programmatically verified: _worst_exit_code([{'severity':'ok'}]) == 0\n- [x] AC-7: When diagnose() returns severity warning, the asn subcommand exits 1; when severity is critical, it exits 2. — PASS: _SEVERITY_CODE at cli.py:32 maps warning->1, critical->2; _worst_exit_code at cli.py:35-36; raise typer.Exit(code) at cli.py:433. Programmatically verified: warning->1, critical->2\n- [x] AC-8: netpath country US --top 1 --no-throughput exits with a code that matches the worst verdict across tested ASNs (0/1/2). — PASS: cli.py:561-564: verdicts = [row[\"verdict\"] for row in summary_rows if row.get(\"verdict\")], exit_code = _worst_exit_code(verdicts), raise typer.Exit(exit_code) when >0\n- [x] AC-9: ASNs skipped due to missing servers in country mode do not cause a spurious non-zero exit. — PASS: cli.py:527-533: skipped ASN rows appended without a verdict key; row.get(\"verdict\") returns None for those rows, excluding them from the verdicts list\n- [x] AC-10: _measure() exists in cli.py and contains no Rich console calls and no json_mode branching; verified by reading the function body. — PASS: cli.py:157-244 defines _measure(); no display. calls, no json_mode parameter in signature, no json_mode references in the body\n- [x] AC-11: netpath asn ... --json output is identical before and after the refactor (same keys, same values for the same input). — PASS: JSON output built from cli.py:385-411 uses same keys (asn, target_host, path, throughput, bufferbloat_ms, rum, verdict); all values come from _measure() which returns the same field set; internal _-prefixed keys excluded from output\n\n### Code Quality (Refactor Review)\n\nNo code quality issues found in changed files.\n\n### Security Assessment (Security Review)\n\nNo security issues found in changed files.\n\n### Decisions Made During Implementation\n\n- Tests target only pure functions (diagnosis.diagnose() and mtr._parse_traceroute_output / _all_stars) to avoid subprocess/network mocking overhead\n- Exit code reflects worst verdict across all probes in a run (0=ok, 1=warning, 2=critical) so monitoring scripts get a single actionable result\n- _measure() returns internal _-prefixed keys (e.g. _iperf_upload, _iperf_loaded_rtt) alongside public keys so _run_test() can reconstruct display without re-running measurements\n\n## Required Changes\n\nNone.\n"
   },
   "stages": {
     "design": {
@@ -432,21 +536,150 @@
       "approvedAt": "2026-06-30T14:46:09Z",
       "startedAt": "2026-06-30T11:41:55Z"
     },
-    "release": {
-      "status": "not_started"
-    },
     "implementation": {
-      "status": "in_progress",
+      "status": "approved",
+      "approvedAt": "2026-06-30T15:35:38Z",
       "startedAt": "2026-06-30T15:02:17Z"
-    },
-    "review": {
-      "status": "not_started"
     },
     "architecture": {
       "status": "skipped"
+    },
+    "release": {
+      "status": "not_started"
+    },
+    "review": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-06-30T15:35:38Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-ways-to-improve-netpath-01kwc564vewr",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-30T15:02:17Z"
+  "worktreeLastSyncedAt": "2026-06-30T15:35:38Z",
+  "reviewPayload": {
+    "verdict": "approve",
+    "summary": "All 11 acceptance criteria pass, all 3 automated checks pass (install, pytest 14/14, ruff clean), and no security or code quality issues were found. The implementation correctly separates measurement from display in _measure(), wires exit codes through typer.Exit, and the test suite covers all required verdict paths and traceroute parser scenarios.",
+    "filesReviewedCount": 6,
+    "phasesReviewedCount": 2,
+    "automatedChecks": [
+      {
+        "name": "Install (dev extras)",
+        "result": "pass",
+        "detail": "uv pip install -e \".[dev]\" exits 0; pytest>=8 and ruff>=0.4 resolved"
+      },
+      {
+        "name": "Test suite (pytest)",
+        "result": "pass",
+        "detail": "14/14 tests pass: 6 in test_diagnosis.py, 8 in test_mtr.py"
+      },
+      {
+        "name": "Linter (ruff)",
+        "result": "pass",
+        "detail": "ruff check src/netpath/cli.py tests/ — all checks passed"
+      }
+    ],
+    "acceptanceCriteria": [
+      {
+        "acId": "AC-1",
+        "text": "pip install -e \".[dev]\" succeeds from a clean checkout and installs pytest and ruff.",
+        "status": "pass",
+        "evidence": "uv pip install -e \".[dev]\" exits 0; pyproject.toml:37-41 defines dev = [\"pytest>=8\", \"ruff>=0.4\"]"
+      },
+      {
+        "acId": "AC-2",
+        "text": "pytest exits 0 with no errors; the suite includes at least 12 test cases across test_diagnosis.py and test_mtr.py.",
+        "status": "pass",
+        "evidence": "14 tests pass (6 in test_diagnosis.py + 8 in test_mtr.py), pytest exit 0"
+      },
+      {
+        "acId": "AC-3",
+        "text": "test_diagnosis.py covers: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, and Throughput Cap paths.",
+        "status": "pass",
+        "evidence": "tests/test_diagnosis.py lines 4-45: test_healthy_default, test_severe_bufferbloat, test_mid_path_packet_loss, test_last_mile_congestion, test_throughput_cap — all 5 verdict paths present"
+      },
+      {
+        "acId": "AC-4",
+        "text": "test_mtr.py covers: normal multi-hop, all-stars, mixed, single-hop traceroute output, plus _all_stars() edge cases.",
+        "status": "pass",
+        "evidence": "tests/test_mtr.py: normal multi-hop (line 38), all-stars (line 49), mixed (line 56), single-hop (line 65); _all_stars() empty/all-filtered/mixed (lines 84-95)"
+      },
+      {
+        "acId": "AC-5",
+        "text": "GitHub Actions CI workflow file exists at .github/workflows/ci.yml and defines a matrix over Python 3.9-3.13.",
+        "status": "pass",
+        "evidence": ".github/workflows/ci.yml line 14: python-version: [\"3.9\", \"3.10\", \"3.11\", \"3.12\", \"3.13\"]"
+      },
+      {
+        "acId": "AC-6",
+        "text": "netpath asn AS15169 --no-throughput exits 0 when the path is healthy (verified via echo $?).",
+        "status": "pass",
+        "evidence": "Code path: _worst_exit_code returns 0 for all-ok verdicts; if code: is False so no typer.Exit raised; program exits 0 naturally. Programmatically verified: _worst_exit_code([{'severity':'ok'}]) == 0"
+      },
+      {
+        "acId": "AC-7",
+        "text": "When diagnose() returns severity warning, the asn subcommand exits 1; when severity is critical, it exits 2.",
+        "status": "pass",
+        "evidence": "_SEVERITY_CODE at cli.py:32 maps warning->1, critical->2; _worst_exit_code at cli.py:35-36; raise typer.Exit(code) at cli.py:433. Programmatically verified: warning->1, critical->2"
+      },
+      {
+        "acId": "AC-8",
+        "text": "netpath country US --top 1 --no-throughput exits with a code that matches the worst verdict across tested ASNs (0/1/2).",
+        "status": "pass",
+        "evidence": "cli.py:561-564: verdicts = [row[\"verdict\"] for row in summary_rows if row.get(\"verdict\")], exit_code = _worst_exit_code(verdicts), raise typer.Exit(exit_code) when >0"
+      },
+      {
+        "acId": "AC-9",
+        "text": "ASNs skipped due to missing servers in country mode do not cause a spurious non-zero exit.",
+        "status": "pass",
+        "evidence": "cli.py:527-533: skipped ASN rows appended without a verdict key; row.get(\"verdict\") returns None for those rows, excluding them from the verdicts list"
+      },
+      {
+        "acId": "AC-10",
+        "text": "_measure() exists in cli.py and contains no Rich console calls and no json_mode branching; verified by reading the function body.",
+        "status": "pass",
+        "evidence": "cli.py:157-244 defines _measure(); no display. calls, no json_mode parameter in signature, no json_mode references in the body"
+      },
+      {
+        "acId": "AC-11",
+        "text": "netpath asn ... --json output is identical before and after the refactor (same keys, same values for the same input).",
+        "status": "pass",
+        "evidence": "JSON output built from cli.py:385-411 uses same keys (asn, target_host, path, throughput, bufferbloat_ms, rum, verdict); all values come from _measure() which returns the same field set; internal _-prefixed keys excluded from output"
+      }
+    ],
+    "headlineFindings": [],
+    "requiredChanges": [],
+    "codeQualityFindings": [],
+    "securityFindings": [],
+    "decisions": [
+      "Tests target only pure functions (diagnosis.diagnose() and mtr._parse_traceroute_output / _all_stars) to avoid subprocess/network mocking overhead",
+      "Exit code reflects worst verdict across all probes in a run (0=ok, 1=warning, 2=critical) so monitoring scripts get a single actionable result",
+      "_measure() returns internal _-prefixed keys (e.g. _iperf_upload, _iperf_loaded_rtt) alongside public keys so _run_test() can reconstruct display without re-running measurements"
+    ],
+    "revision": 1,
+    "changeAnnotations": [
+      {
+        "file": "pyproject.toml",
+        "note": "Adds the dev optional-dependencies group with pytest>=8 and ruff>=0.4, enabling pip install -e \".[dev]\" for contributors"
+      },
+      {
+        "file": "tests/__init__.py",
+        "note": "Empty package marker so pytest discovers the tests/ directory as a package"
+      },
+      {
+        "file": "tests/test_diagnosis.py",
+        "note": "Covers all 5 verdict paths in diagnose() plus malformed-input fallback — the pure-function core of netpath's health classification"
+      },
+      {
+        "file": "tests/test_mtr.py",
+        "note": "Covers _parse_traceroute_output with 5 input scenarios (including macOS format) and _all_stars() with 3 edge cases"
+      },
+      {
+        "file": ".github/workflows/ci.yml",
+        "note": "CI matrix across Python 3.9-3.13 on ubuntu-latest; installs dev extras and runs pytest on every push and PR to main"
+      },
+      {
+        "file": "src/netpath/cli.py",
+        "note": "Extracts _measure() to isolate all data collection from display; adds _SEVERITY_CODE/_worst_exit_code() helpers; wires exit codes into both asn and country subcommands"
+      }
+    ]
+  }
 }

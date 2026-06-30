@@ -3,7 +3,7 @@ defract:
   id: task-ways-to-improve-netpath-01kwc564vewr
   type: improvement
   status: active
-  stage: implementation
+  stage: review
   phase: 0
   total_phases: 2
   priority: normal
@@ -171,3 +171,53 @@ Exit codes via `_SEVERITY_CODE = {"ok": 0, "warning": 1, "critical": 2}` and `_w
 - `country` subcommand: collects verdicts from all rows that have a verdict (skipped ASNs have no verdict key and naturally score 0), raises `typer.Exit(code)` for the worst severity.
 
 **Results:** 14/14 tests pass, ruff clean on `src/netpath/cli.py` and `tests/`.
+
+## Review
+
+## Verdict
+
+**Verdict:** APPROVE
+**Files reviewed:** 6 files changed across 2 phases
+
+All 11 acceptance criteria pass, all 3 automated checks pass (install, pytest 14/14, ruff clean), and no security or code quality issues were found. The implementation correctly separates measurement from display in _measure(), wires exit codes through typer.Exit, and the test suite covers all required verdict paths and traceroute parser scenarios.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Install (dev extras) | PASS | uv pip install -e ".[dev]" exits 0; pytest>=8 and ruff>=0.4 resolved |
+| Test suite (pytest) | PASS | 14/14 tests pass: 6 in test_diagnosis.py, 8 in test_mtr.py |
+| Linter (ruff) | PASS | ruff check src/netpath/cli.py tests/ — all checks passed |
+
+### Acceptance Criteria (11/11 passed)
+
+- [x] AC-1: pip install -e ".[dev]" succeeds from a clean checkout and installs pytest and ruff. — PASS: uv pip install -e ".[dev]" exits 0; pyproject.toml:37-41 defines dev = ["pytest>=8", "ruff>=0.4"]
+- [x] AC-2: pytest exits 0 with no errors; the suite includes at least 12 test cases across test_diagnosis.py and test_mtr.py. — PASS: 14 tests pass (6 in test_diagnosis.py + 8 in test_mtr.py), pytest exit 0
+- [x] AC-3: test_diagnosis.py covers: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, and Throughput Cap paths. — PASS: tests/test_diagnosis.py lines 4-45: test_healthy_default, test_severe_bufferbloat, test_mid_path_packet_loss, test_last_mile_congestion, test_throughput_cap — all 5 verdict paths present
+- [x] AC-4: test_mtr.py covers: normal multi-hop, all-stars, mixed, single-hop traceroute output, plus _all_stars() edge cases. — PASS: tests/test_mtr.py: normal multi-hop (line 38), all-stars (line 49), mixed (line 56), single-hop (line 65); _all_stars() empty/all-filtered/mixed (lines 84-95)
+- [x] AC-5: GitHub Actions CI workflow file exists at .github/workflows/ci.yml and defines a matrix over Python 3.9-3.13. — PASS: .github/workflows/ci.yml line 14: python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+- [x] AC-6: netpath asn AS15169 --no-throughput exits 0 when the path is healthy (verified via echo $?). — PASS: Code path: _worst_exit_code returns 0 for all-ok verdicts; if code: is False so no typer.Exit raised; program exits 0 naturally. Programmatically verified: _worst_exit_code([{'severity':'ok'}]) == 0
+- [x] AC-7: When diagnose() returns severity warning, the asn subcommand exits 1; when severity is critical, it exits 2. — PASS: _SEVERITY_CODE at cli.py:32 maps warning->1, critical->2; _worst_exit_code at cli.py:35-36; raise typer.Exit(code) at cli.py:433. Programmatically verified: warning->1, critical->2
+- [x] AC-8: netpath country US --top 1 --no-throughput exits with a code that matches the worst verdict across tested ASNs (0/1/2). — PASS: cli.py:561-564: verdicts = [row["verdict"] for row in summary_rows if row.get("verdict")], exit_code = _worst_exit_code(verdicts), raise typer.Exit(exit_code) when >0
+- [x] AC-9: ASNs skipped due to missing servers in country mode do not cause a spurious non-zero exit. — PASS: cli.py:527-533: skipped ASN rows appended without a verdict key; row.get("verdict") returns None for those rows, excluding them from the verdicts list
+- [x] AC-10: _measure() exists in cli.py and contains no Rich console calls and no json_mode branching; verified by reading the function body. — PASS: cli.py:157-244 defines _measure(); no display. calls, no json_mode parameter in signature, no json_mode references in the body
+- [x] AC-11: netpath asn ... --json output is identical before and after the refactor (same keys, same values for the same input). — PASS: JSON output built from cli.py:385-411 uses same keys (asn, target_host, path, throughput, bufferbloat_ms, rum, verdict); all values come from _measure() which returns the same field set; internal _-prefixed keys excluded from output
+
+### Code Quality (Refactor Review)
+
+No code quality issues found in changed files.
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- Tests target only pure functions (diagnosis.diagnose() and mtr._parse_traceroute_output / _all_stars) to avoid subprocess/network mocking overhead
+- Exit code reflects worst verdict across all probes in a run (0=ok, 1=warning, 2=critical) so monitoring scripts get a single actionable result
+- _measure() returns internal _-prefixed keys (e.g. _iperf_upload, _iperf_loaded_rtt) alongside public keys so _run_test() can reconstruct display without re-running measurements
+
+## Required Changes
+
+None.
+
