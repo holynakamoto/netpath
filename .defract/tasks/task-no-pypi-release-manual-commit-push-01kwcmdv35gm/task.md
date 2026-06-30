@@ -3,7 +3,7 @@ defract:
   id: task-no-pypi-release-manual-commit-push-01kwcmdv35gm
   type: improvement
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
   total_phases: 1
   priority: normal
@@ -122,3 +122,29 @@ The publish workflow splits into two jobs so that `id-token: write` is scoped on
 `pypa/gh-action-pypi-publish@release/v1` handles the OIDC token exchange with PyPI automatically — no `password:` input. The matching trusted publisher on PyPI must specify: owner `holynakamoto`, repo `netpath`, workflow filename `publish.yml`.
 
 `uv.lock` tracks project runtime and dev dependencies, not build-system dependencies, so adding `hatch-vcs` to `[build-system].requires` does not require a lockfile update.
+
+## Implementation Notes
+
+## Phase 1: Wire up VCS versioning and automated publish
+
+### Files Changed
+
+- **`pyproject.toml`** — Added `hatch-vcs` to `[build-system].requires`; replaced `version = "0.1.0"` with `dynamic = ["version"]`; added `[tool.hatch.version]` (`source = "vcs"`) and `[tool.hatch.build.hooks.vcs]` (`version-file = "src/netpath/_version.py"`) sections.
+- **`src/netpath/__init__.py`** — Replaced hardcoded `__version__ = "0.1.0"` with a try/except import from the generated `_version.py`, falling back to `"0.0.0+unknown"` when the file is absent.
+- **`.gitignore`** — Appended `src/netpath/_version.py` so the generated file is never committed.
+- **`.github/workflows/publish.yml`** — Created new two-job workflow: `build` checks out with `fetch-depth: 0`, builds sdist + wheel via `python -m build`, uploads dist/ as an artifact; `publish` downloads the artifact and runs `pypa/gh-action-pypi-publish@release/v1` with `permissions: id-token: write`. Triggered on `v*.*.*` tag pushes.
+
+### Verification Results
+
+- `grep -c 'version = "0.1.0"' pyproject.toml` → 0 (no hardcoded version)
+- `grep 'hatch-vcs' pyproject.toml` → matches in `[build-system].requires`
+- `grep '_version.py' .gitignore` → matches
+- `grep 'id-token: write' publish.yml` → matches
+- `grep 'fetch-depth: 0' publish.yml` → matches
+- Editable install generates `src/netpath/_version.py`; `git status --short` does not show it as untracked
+- `python -c "import netpath; print(netpath.__version__)"` → `0.1.dev50+gc737241b7.d20260630`
+- All 14 tests pass (unchanged from baseline)
+
+### Deviations from Plan
+
+None. Implementation follows the phase spec exactly.
