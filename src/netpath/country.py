@@ -118,17 +118,23 @@ def get_test_ip_for_asn(asn: str) -> str | None:
     except Exception:
         return None
 
+    # Build valid IPv4 networks sorted most-specific first (highest prefixlen)
+    ipv4_nets: list[ipaddress.IPv4Network] = []
     for entry in prefixes:
         prefix = entry.get("prefix", "")
         if ":" in prefix:
             continue
         try:
             net = ipaddress.IPv4Network(prefix, strict=False)
-            if net.is_private or net.prefixlen < 8:
-                continue
-            hosts = list(net.hosts())
-            if len(hosts) >= 2:
-                return str(hosts[1])
+            if not net.is_private and net.prefixlen >= 8:
+                ipv4_nets.append(net)
         except ValueError:
             continue
+
+    ipv4_nets.sort(key=lambda n: n.prefixlen, reverse=True)
+
+    for net in ipv4_nets:
+        hosts = list(net.hosts())
+        if len(hosts) >= 2:
+            return str(hosts[1])
     return None

@@ -43,32 +43,57 @@ class MtrPermissionError(RuntimeError):
     pass
 
 
-def run(host: str, cycles: int = 10) -> list[dict]:
+def run(host: str, cycles: int = 10, passes: int = 1) -> list:
     """
-    Run mtr in JSON report mode. Raises MtrPermissionError on raw socket
-    denial so the caller can fall back to traceroute.
+    Run mtr in JSON report mode. Raises MtrPermissionError on raw socket denial.
+    When passes=1 (default): returns list[dict].
+    When passes>1: runs mtr that many times sequentially and returns list[list[dict]].
     """
-    cmd = ["mtr", "--json", "--report", f"--report-cycles={cycles}", "--aslookup", host]
+    def _single_pass() -> list[dict]:
+        cmd = ["mtr", "--json", "--report", f"--report-cycles={cycles}", "--aslookup", host]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=cycles * 4 + 30)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("mtr timed out")
+        if result.returncode != 0:
+            stderr_lower = result.stderr.strip().lower()
+            if _SUID_REFUSED in stderr_lower or any(m in stderr_lower for m in _SOCKET_ERR_MARKERS):
+                raise MtrPermissionError(result.stderr.strip())
+            raise RuntimeError(result.stderr.strip() or "mtr exited non-zero")
+        try:
+            data = json.loads(result.stdout)
+            hubs = data["report"]["hubs"]
+            for hub in hubs:
+                _enrich_percentiles(hub)
+            return hubs
+        except (json.JSONDecodeError, KeyError) as e:
+            raise RuntimeError(f"Failed to parse mtr output: {e}")
 
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=cycles * 4 + 30)
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("mtr timed out")
+    if passes <= 1:
+        return _single_pass()
+    return [_single_pass() for _ in range(passes)]
 
-    if result.returncode != 0:
-        stderr_lower = result.stderr.strip().lower()
-        if _SUID_REFUSED in stderr_lower or any(m in stderr_lower for m in _SOCKET_ERR_MARKERS):
-            raise MtrPermissionError(result.stderr.strip())
-        raise RuntimeError(result.stderr.strip() or "mtr exited non-zero")
 
-    try:
-        data = json.loads(result.stdout)
-        hubs = data["report"]["hubs"]
-        for hub in hubs:
-            _enrich_percentiles(hub)
-        return hubs
-    except (json.JSONDecodeError, KeyError) as e:
-        raise RuntimeError(f"Failed to parse mtr output: {e}")
+def _compare_as_paths(all_passes: list[list[dict]]) -> dict:
+    """
+    Compare AS paths across multiple mtr passes.
+    Returns {"ecmp_paths": int, "path_changes": int}.
+    ecmp_paths: number of distinct AS-hop sequences across all passes.
+    path_changes: number of consecutive pass pairs where the AS sequence differs.
+    """
+    if not all_passes:
+        return {"ecmp_paths": 1, "path_changes": 0}
+
+    def asn_sequence(hubs: list[dict]) -> tuple:
+        by_count = {h.get("count"): h.get("ASN", "AS???") for h in hubs}
+        if not by_count:
+            return ()
+        return tuple(by_count.get(i, "???") for i in range(1, max(by_count) + 1))
+
+    sequences = [asn_sequence(hubs) for hubs in all_passes]
+    ecmp_paths = len(set(sequences))
+    path_changes = sum(1 for i in range(1, len(sequences)) if sequences[i] != sequences[i - 1])
+    return {"ecmp_paths": ecmp_paths, "path_changes": path_changes}
 
 
 # ── traceroute fallback ───────────────────────────────────────────────────────
@@ -170,22 +195,35 @@ def _run_traceroute_cmd(host: str, tcp: bool = False) -> list[dict]:
     return _parse_traceroute_output(result.stdout)
 
 
-def run_traceroute(host: str, probes: int = 5) -> list[dict]:
+def run_traceroute(host: str, probes: int = 5, prefer_tcp: bool = False) -> list[dict]:
     """
     Fallback when mtr lacks raw socket access.
-    Tries UDP first; if all hops are filtered, retries with TCP SYN (port 443).
-    TCP requires pcap — if that also fails (common on macOS), returns the
-    filtered UDP result rather than raising an error.
+    When prefer_tcp=True: tries TCP-443 first; falls back to UDP if TCP returns
+    all-stars or raises (used for country-mode paths without an iperf3 server).
+    When prefer_tcp=False (default): tries UDP first; if all hops are filtered,
+    retries with TCP SYN (port 443). TCP requires pcap — if that also fails
+    (common on macOS), returns the filtered UDP result rather than raising.
     """
-    hubs = _run_traceroute_cmd(host, tcp=False)
-
-    if _all_stars(hubs):
+    if prefer_tcp:
+        tcp_hubs = None
         try:
             tcp_hubs = _run_traceroute_cmd(host, tcp=True)
-            if not _all_stars(tcp_hubs):
-                hubs = tcp_hubs
         except RuntimeError:
-            pass  # pcap unavailable or path still filtered — keep UDP result
+            pass
+        if tcp_hubs is not None and not _all_stars(tcp_hubs):
+            hubs = tcp_hubs
+        else:
+            hubs = _run_traceroute_cmd(host, tcp=False)
+    else:
+        hubs = _run_traceroute_cmd(host, tcp=False)
+
+        if _all_stars(hubs):
+            try:
+                tcp_hubs = _run_traceroute_cmd(host, tcp=True)
+                if not _all_stars(tcp_hubs):
+                    hubs = tcp_hubs
+            except RuntimeError:
+                pass  # pcap unavailable or path still filtered — keep UDP result
 
     ips = [h["host"] for h in hubs if h["host"] != "???"]
     if ips:

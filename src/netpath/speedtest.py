@@ -7,7 +7,6 @@ the path from this host to the nearest Cloudflare PoP, which is typically
 inside the local ISP's network.
 """
 
-import shutil
 import time
 import requests
 

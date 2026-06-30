@@ -1,4 +1,7 @@
-from netpath.mtr import _all_stars, _parse_traceroute_output
+from unittest.mock import patch
+
+from netpath.mtr import _all_stars, _compare_as_paths, _parse_traceroute_output
+from netpath.pmtu import probe as pmtu_probe
 
 NORMAL_MULTI_HOP = """\
 traceroute to 8.8.8.8 (8.8.8.8), 30 hops max, 60 byte packets
@@ -93,3 +96,76 @@ def test_all_stars_returns_true_when_all_filtered():
 def test_all_stars_returns_false_for_mixed():
     hubs = [{"host": "192.168.1.1"}, {"host": "???"}]
     assert _all_stars(hubs) is False
+
+
+# _compare_as_paths tests
+
+def test_compare_as_paths_ecmp_two_distinct_paths():
+    """Two passes with different ASN at hop 3 → ecmp_paths=2, path_changes=1."""
+    hubset_a = [
+        {"count": 1, "host": "192.168.1.1", "ASN": "AS65001"},
+        {"count": 2, "host": "10.0.0.1",    "ASN": "AS65002"},
+        {"count": 3, "host": "203.0.113.1",  "ASN": "AS65003"},
+    ]
+    hubset_b = [
+        {"count": 1, "host": "192.168.1.1", "ASN": "AS65001"},
+        {"count": 2, "host": "10.0.0.2",    "ASN": "AS65002"},
+        {"count": 3, "host": "203.0.114.1",  "ASN": "AS65004"},
+    ]
+    result = _compare_as_paths([hubset_a, hubset_b])
+    assert result["ecmp_paths"] == 2
+    assert result["path_changes"] == 1
+
+
+def test_compare_as_paths_identical_passes():
+    """Three identical passes → ecmp_paths=1, path_changes=0."""
+    hubs = [
+        {"count": 1, "host": "192.168.1.1", "ASN": "AS65001"},
+        {"count": 2, "host": "8.8.8.8",    "ASN": "AS15169"},
+    ]
+    result = _compare_as_paths([hubs, hubs, hubs])
+    assert result["ecmp_paths"] == 1
+    assert result["path_changes"] == 0
+
+
+def test_compare_as_paths_empty():
+    result = _compare_as_paths([])
+    assert result["ecmp_paths"] == 1
+    assert result["path_changes"] == 0
+
+
+# pmtu.probe tests
+
+def test_pmtu_blackhole_large_fails_small_succeeds():
+    """Large ping fails (exit 2), small ping succeeds (exit 0) → blackhole=True."""
+    def mock_run(cmd, **kwargs):
+        size = int(cmd[cmd.index("-s") + 1])
+        rc = 2 if size == 1472 else 0
+        return type("R", (), {"returncode": rc})()
+
+    with patch("netpath.pmtu.subprocess.run", side_effect=mock_run):
+        result = pmtu_probe("203.0.113.1")
+    assert result["blackhole"] is True
+    assert result["mtu_floor_bytes"] == 64
+
+
+def test_pmtu_all_probes_fail_no_blackhole():
+    """All pings fail → cannot confirm blackhole → blackhole=False, mtu_floor_bytes=None."""
+    def mock_run(cmd, **kwargs):
+        return type("R", (), {"returncode": 2})()
+
+    with patch("netpath.pmtu.subprocess.run", side_effect=mock_run):
+        result = pmtu_probe("203.0.113.1")
+    assert result["blackhole"] is False
+    assert result["mtu_floor_bytes"] is None
+
+
+def test_pmtu_subprocess_raises_no_exception():
+    """subprocess.run raising OSError does not propagate — returns safe default."""
+    def mock_run(cmd, **kwargs):
+        raise OSError("permission denied")
+
+    with patch("netpath.pmtu.subprocess.run", side_effect=mock_run):
+        result = pmtu_probe("203.0.113.1")
+    assert result["blackhole"] is False
+    assert result["mtu_floor_bytes"] is None

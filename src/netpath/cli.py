@@ -1,6 +1,7 @@
 import json
 import queue
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -9,7 +10,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from netpath import __version__
 from netpath import country as country_mod
-from netpath import display, globe as globe_mod, iperf as iperf_mod, mtr, rum as rum_mod, servers, speedtest
+from netpath import display, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
+from netpath import mtr, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
 
@@ -50,11 +52,12 @@ def _extract_as_path(hubs: list[dict]) -> list[str]:
 def _classify_path(hubs: list[dict], target_asn: str) -> dict:
     """
     Determine whether the traceroute reached target_asn.
-    Returns {complete, rtt_ms, entry_transit_asn}.
+    Returns {complete, rtt_ms, entry_transit_asn, stall_hop}.
     complete is True only when target_asn appears in at least one hub's ASN field.
     rtt_ms is the Avg RTT of the last hub inside target_asn (None when incomplete).
     entry_transit_asn is the last non-AS??? ASN before target_asn (complete) or
     the last non-AS??? ASN seen (incomplete); None if no resolvable ASNs exist.
+    stall_hop is the count of the last responsive hub when path is incomplete (None when complete).
     """
     target_norm = normalize_asn(target_asn)
 
@@ -84,15 +87,22 @@ def _classify_path(hubs: list[dict], target_asn: str) -> dict:
                 entry_transit_asn = prev_asn
                 break
             prev_asn = asn_norm
+
+        return {"complete": True, "rtt_ms": rtt_ms, "entry_transit_asn": entry_transit_asn, "stall_hop": None}
     else:
         rtt_ms = None
         entry_transit_asn = None
+        stall_hop = None
         for h in hubs:
             asn = h.get("ASN", "")
             if asn and asn != "AS???":
                 entry_transit_asn = normalize_asn(asn)
+            if h.get("host") not in ("???", None, ""):
+                stall_hop = h.get("count")
+                if h.get("Avg", 0) > 0:
+                    rtt_ms = h["Avg"]
 
-    return {"complete": complete, "rtt_ms": rtt_ms, "entry_transit_asn": entry_transit_asn}
+        return {"complete": False, "rtt_ms": rtt_ms, "entry_transit_asn": entry_transit_asn, "stall_hop": stall_hop}
 
 
 def _parse_ping_avg(output: str) -> float | None:
@@ -135,11 +145,11 @@ def _check_deps(no_throughput: bool) -> bool:
     return no_throughput
 
 
-def _trace(host: str, cycles: int) -> tuple[list[dict], str]:
+def _trace(host: str, cycles: int, prefer_tcp: bool = False) -> tuple[list[dict], str]:
     try:
         return mtr.run(host, cycles=cycles), "mtr"
     except mtr.MtrPermissionError:
-        return mtr.run_traceroute(host, probes=cycles), "traceroute"
+        return mtr.run_traceroute(host, probes=cycles, prefer_tcp=prefer_tcp), "traceroute"
 
 
 def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
@@ -156,7 +166,8 @@ def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
 
 def _measure(host: str, port: int, target_asn: str,
              cycles: int, duration: int, skip_throughput: bool,
-             cf_token: str | None = None) -> dict:
+             cf_token: str | None = None, prefer_tcp: bool = False,
+             ecmp_passes: int = 1, compare_v6: bool = False) -> dict:
     """Collect all measurement data. Returns enriched result dict.
     No display calls, no json_mode parameter.
     Internal _-prefixed keys carry state needed by _run_test() for display.
@@ -166,22 +177,93 @@ def _measure(host: str, port: int, target_asn: str,
         "hubs": [], "bufferbloat_ms": None,
         "download_mbps": None, "upload_mbps": None, "verdict": {},
         "path_complete": False, "verified_rtt_ms": None,
-        "entry_transit_asn": None,
+        "entry_transit_asn": None, "stall_hop": None,
+        "jitter_ms": None, "probe_count": cycles,
+        "pmtu": None, "tcp_connect_ms": None, "tls_handshake_ms": None,
+        "ecmp_paths": None, "path_changes": 0,
+        "hubs_v4": None, "hubs_v6": None,
         "_trace_method": None, "_trace_error": None,
         "_iperf_upload": None, "_iperf_download": None,
         "_iperf_idle_rtt": None, "_iperf_loaded_rtt": None, "_iperf_error": None,
         "_speedtest_upload": None, "_speedtest_download": None, "_speedtest_error": None,
+        "_v6_warn": None,
     }
 
-    try:
-        hubs, method = _trace(host, cycles)
+    # Trace — single pass, multi-pass ECMP, or dual-stack IPv4/IPv6
+    if compare_v6:
+        v6_host = None
+        try:
+            v6_info = socket.getaddrinfo(host, None, socket.AF_INET6)
+            v6_host = v6_info[0][4][0]
+        except socket.gaierror:
+            result["_v6_warn"] = "IPv6 resolution failed — showing IPv4 only"
+
+        v4_q: queue.Queue = queue.Queue()
+        v6_q: queue.Queue = queue.Queue()
+
+        def _run_v4():
+            try:
+                v4_q.put(_trace(host, cycles, prefer_tcp=prefer_tcp))
+            except RuntimeError as exc:
+                v4_q.put(exc)
+
+        def _run_v6():
+            if v6_host is None:
+                v6_q.put(None)
+                return
+            try:
+                v6_hubs, _ = _trace(v6_host, cycles)
+                v6_q.put(v6_hubs)
+            except Exception:
+                v6_q.put(None)
+
+        t_v4 = threading.Thread(target=_run_v4, daemon=True)
+        t_v6 = threading.Thread(target=_run_v6, daemon=True)
+        t_v4.start()
+        t_v6.start()
+        t_v4.join(timeout=cycles * 4 + 35)
+        t_v6.join(timeout=cycles * 4 + 35)
+
+        v4_val = v4_q.get_nowait() if not v4_q.empty() else RuntimeError("v4 trace timed out")
+        if isinstance(v4_val, RuntimeError):
+            result["_trace_error"] = str(v4_val)
+            return result
+        hubs, method = v4_val
         result["_trace_method"] = method
-    except RuntimeError as e:
-        result["_trace_error"] = str(e)
-        return result
+        result["hubs_v4"] = hubs
+        result["hubs_v6"] = v6_q.get_nowait() if not v6_q.empty() else None
+
+    elif ecmp_passes > 1:
+        try:
+            all_passes = mtr.run(host, cycles=cycles, passes=ecmp_passes)
+            comparison = mtr._compare_as_paths(all_passes)
+            result["ecmp_paths"] = comparison["ecmp_paths"]
+            result["path_changes"] = comparison["path_changes"]
+            hubs = all_passes[0] if all_passes else []
+            result["_trace_method"] = "mtr"
+        except mtr.MtrPermissionError:
+            hubs = mtr.run_traceroute(host, probes=cycles, prefer_tcp=prefer_tcp)
+            result["_trace_method"] = "traceroute"
+        except RuntimeError as e:
+            result["_trace_error"] = str(e)
+            return result
+
+    else:
+        try:
+            hubs, method = _trace(host, cycles, prefer_tcp=prefer_tcp)
+            result["_trace_method"] = method
+        except RuntimeError as e:
+            result["_trace_error"] = str(e)
+            return result
 
     result["as_path"] = _extract_as_path(hubs)
     result["hubs"] = hubs
+
+    responsive = [h for h in hubs if h.get("host") not in ("???", None, "")]
+    if responsive:
+        result["jitter_ms"] = round(
+            sum(h.get("StDev", 0.0) or 0.0 for h in responsive) / len(responsive), 2
+        )
 
     for _h in reversed(hubs):
         if _h.get("host") not in ("???", None, "") and _h.get("Avg", 0) > 0:
@@ -192,6 +274,14 @@ def _measure(host: str, port: int, target_asn: str,
     result["path_complete"] = classification["complete"]
     result["verified_rtt_ms"] = classification["rtt_ms"]
     result["entry_transit_asn"] = classification["entry_transit_asn"]
+    result["stall_hop"] = classification["stall_hop"]
+    if not classification["complete"] and classification["rtt_ms"] is not None:
+        result["last_rtt_ms"] = classification["rtt_ms"]
+
+    # PMTU black-hole detection and TCP/TLS application latency
+    result["pmtu"] = pmtu_mod.probe(host)
+    result["tcp_connect_ms"] = latency_mod.measure_tcp_connect(host)
+    result["tls_handshake_ms"] = latency_mod.measure_tls_handshake(host)
 
     rum_data = _fetch_rum(target_asn, cf_token)
     result["rum"] = rum_data
@@ -247,7 +337,8 @@ def _measure(host: str, port: int, target_asn: str,
 def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               cycles: int, duration: int, skip_throughput: bool,
               cf_token: str | None = None, show_server_heading: bool = True,
-              json_mode: bool = False) -> dict:
+              json_mode: bool = False, prefer_tcp: bool = False,
+              ecmp_passes: int = 1, compare_v6: bool = False) -> dict:
     """Run trace + optional throughput test. Returns enriched result dict."""
     if show_server_heading and not json_mode:
         display.server_heading(server_meta)
@@ -267,9 +358,11 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         with Progress(SpinnerColumn(), TextColumn("{task.description}"),
                       console=display.console, transient=True) as p:
             p.add_task(f"probing → {host}", total=None)
-            result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token)
+            result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
+                              prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6)
     else:
-        result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token)
+        result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
+                          prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6)
 
     if result.get("_trace_error"):
         if not json_mode:
@@ -280,7 +373,12 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         display.console.print("  [dim](mtr unavailable — using traceroute + Cymru ASN lookup)[/dim]\n")
 
     if not json_mode:
-        display.path_table(result["hubs"], target_asn)
+        if compare_v6 and result.get("hubs_v6") is not None:
+            display.dual_stack_columns(result["hubs_v4"], result["hubs_v6"], target_asn)
+        else:
+            if compare_v6 and result.get("_v6_warn"):
+                display.warn(result["_v6_warn"])
+            display.path_table(result["hubs"], target_asn)
         display.as_path_summary(result["hubs"])
 
     rum_data = result.get("rum")
@@ -338,6 +436,8 @@ def asn(
     cf_token:      str | None = _CF_TOK,
     output_json:   bool = typer.Option(False, "--json", help="Output results as JSON to stdout; suppresses terminal display"),
     globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probe"),
+    ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
+    compare_v6:    bool = typer.Option(False, "--compare-v6", help="Run parallel IPv4/IPv6 traces and display side-by-side"),
 ):
     """Test latency, packet loss, and throughput to servers in a specific ASN."""
     asn_norm = normalize_asn(target)
@@ -378,7 +478,7 @@ def asn(
             server_meta=server, target_asn=asn_norm,
             cycles=cycles, duration=duration,
             skip_throughput=skip_throughput, cf_token=cf_token,
-            json_mode=True,
+            json_mode=True, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
         )
         upload_mbps   = result.get("upload_mbps")
         download_mbps = result.get("download_mbps")
@@ -405,9 +505,15 @@ def asn(
                 if upload_mbps is not None or download_mbps is not None
                 else None
             ),
-            "bufferbloat_ms": result.get("bufferbloat_ms"),
-            "rum":            result.get("rum"),
-            "verdict":        result.get("verdict", {}),
+            "jitter_ms":        result.get("jitter_ms"),
+            "tcp_connect_ms":   result.get("tcp_connect_ms"),
+            "tls_handshake_ms": result.get("tls_handshake_ms"),
+            "pmtu":             result.get("pmtu"),
+            "ecmp_paths":       result.get("ecmp_paths"),
+            "path_changes":     result.get("path_changes"),
+            "bufferbloat_ms":   result.get("bufferbloat_ms"),
+            "rum":              result.get("rum"),
+            "verdict":          result.get("verdict", {}),
         }
         print(json.dumps(output, indent=2))
         code = _worst_exit_code([result.get("verdict", {})])
@@ -422,6 +528,7 @@ def asn(
                 server_meta=server, target_asn=asn_norm,
                 cycles=cycles, duration=duration,
                 skip_throughput=skip_throughput, cf_token=cf_token,
+                ecmp_passes=ecmp_passes, compare_v6=compare_v6,
             )
             last_hubs = r["hubs"]
             if r.get("verdict"):
@@ -529,7 +636,7 @@ def country(
                 summary_rows.append({"asn": asn_str, "name": display.clean_asn_name(isp_name),
                                      "as_path": [], "last_rtt_ms": None, "rum": None,
                                      "path_complete": False, "verified_rtt_ms": None,
-                                     "entry_transit_asn": None})
+                                     "entry_transit_asn": None, "stall_hop": None})
                 continue
 
             display.console.print(
@@ -544,6 +651,7 @@ def country(
                 skip_throughput=True,
                 show_server_heading=False,
                 cf_token=cf_token,
+                prefer_tcp=True,
             )
 
         summary_rows.append({

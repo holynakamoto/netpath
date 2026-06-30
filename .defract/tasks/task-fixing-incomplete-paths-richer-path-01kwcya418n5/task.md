@@ -3,7 +3,7 @@ defract:
   id: task-fixing-incomplete-paths-richer-path-01kwcya418n5
   type: bug
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 3
   priority: normal
@@ -334,4 +334,45 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Fixed ICMP rate-limit false positive: mid-path loss at a transit hop is suppressed when all downstream hops are clean, emitting a `rate_limited_hops` informational signal in a Healthy verdict instead of a Mid-path Packet Loss alarm
+- Enriched incomplete-path display in country mode: rows now show stall ASN, hop number, and last RTT (e.g., "⚠ stalled at AS1299, hop 8, 45.2 ms") instead of a flat "⚠ incomplete" label
+- Country mode selects test IPs from the most-specific (highest prefixlen) announced prefix and prefers TCP-443 traceroute for ASNs without an iperf3 server, falling back to UDP only when TCP returns all-stars
+- Added jitter tracking and probe-count-calibrated loss thresholds: High Jitter warning at 10 ms; loss alarms scaled to sample size (>5% for <20 probes, >1% for 20–99, >0.5% for ≥100)
+- Added PMTU black-hole detection (pmtu.py), TCP and TLS application latency measurement (latency.py), ECMP multi-pass tracing with --ecmp-passes, route flapping detection, IXP hop classification in path_table (ixp.py), and IPv6 dual-stack side-by-side comparison via --compare-v6
+
+### Key decisions
+- ICMP rate-limit false positive fixed via forward-scan in diagnosis.py: the fix lives in the pure-function module alongside the existing mid-path loss logic, not in the mtr parse layer
+- No new PyPI runtime dependencies introduced across all three phases: PMTU uses subprocess ping (already present), TCP/TLS latency uses stdlib socket/ssl, IXP classification uses requests (already a runtime dep)
+- IXP prefix data cached in process memory per process lifetime: avoids disk persistence complexity while amortizing PeeringDB fetch cost over country-mode sweeps
+- mtr.run() returns list[dict] when passes=1 (unchanged contract) and list[list[dict]] when passes>1, keeping the single-function API the spec requires
+- probe_count set to the existing mtr cycles parameter in _measure(): no new CLI surface required to supply loss calibration denominator
+- classify_hop() returns "ixp" or "transit" only; "dest" label determined independently by display.py against target_asn to avoid coupling ixp module to path context
+- pmtu/latency probes always run even when skip_throughput=True since PMTU and TCP/TLS latency are path properties independent of throughput testing
+
+### Changes by phase
+- **Phase 1: Fix the two accuracy bugs** — Forward-scan added to diagnosis.py mid-path loss block; _classify_path() returns stall_hop and rtt_ms; country_summary() incomplete rows render stall ASN, hop number, and RTT. 15/15 tests passed.
+- **Phase 2: Smarter probing and calibrated metrics** — get_test_ip_for_asn() sorts prefixes by prefixlen descending; run_traceroute() gains prefer_tcp parameter; _measure() computes jitter_ms and sets probe_count; diagnosis.py gains calibrated loss thresholds and High Jitter warning; jitter_ms added to JSON output. 22/22 tests passed.
+- **Phase 3: Advanced path analysis** — New pmtu.py, latency.py, ixp.py modules; mtr.run() gains passes parameter and _compare_as_paths() helper; diagnosis.py gains PMTU Black-hole critical, Route Flapping, TCP Latency, TLS Latency warnings; display.py gains Type column in path_table and dual_stack_columns(); cli.py gains --ecmp-passes and --compare-v6 flags with new JSON fields. 36/36 tests passed.
+
+## Verification
+
+### Production Build
+PASS — `netpath-0.2.1.dev31+g88c32baa1.d20260630` sdist and wheel built successfully.
+
+### Review Reference
+Approved by reviewer on 2026-06-30T22:28:24Z — 14/14 acceptance criteria passed, 36/36 tests passed, ruff clean.
+
+### Release Checklist
+- [x] Approved review exists (2026-06-30T22:28:24Z, verdict APPROVE)
+- [x] Production build passes
+- [x] Code committed and pushed (branch: feature/task-fixing-incomplete-paths-richer-path-01kwcya418n5)
+- [x] Release notes prepared
+- [x] Stage content updated
+- [x] Completion event logged
 
