@@ -5,7 +5,7 @@
   "phase": 1,
   "totalPhases": 3,
   "createdAt": "2026-06-30T18:57:50Z",
-  "updatedAt": "2026-06-30T20:44:21Z",
+  "updatedAt": "2026-06-30T20:48:59Z",
   "events": [
     {
       "base_branch": "main",
@@ -461,6 +461,27 @@
       "stage": "implementation",
       "timestamp": "2026-06-30T20:44:21Z",
       "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting Phase 2: Smarter probing and calibrated metrics",
+      "phase": 1,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T20:48:47Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 2: Smarter probing and calibrated metrics",
+      "percentage": 0,
+      "phase": 2,
+      "timestamp": "2026-06-30T20:48:54Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 2,
+      "timestamp": "2026-06-30T20:48:59Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": true,
@@ -760,28 +781,28 @@
     "summary": "Three phases of work tighten netpath's accuracy and add diagnostic depth. Phase 1 stops false alarms from transit hops that rate-limit ICMP probes, and makes incomplete-path rows in country sweeps show where the trace actually stalled — the transit ASN, hop number, and last measured RTT — instead of a flat warning. Phase 2 makes country sweeps reach more destinations by probing over TCP-443 first (where transit networks often pass traffic that blocks UDP probes), choosing test IPs from the most-specific announced prefix, and calibrating loss alarms to the actual number of packets measured rather than a fixed 1% threshold for every run. Phase 3 adds six advanced diagnostics built as standalone modules: PMTU black-hole detection (finding paths where large packets are silently dropped), TCP and TLS application latency alongside ICMP RTT, ECMP path tracing (running multiple passes to detect load-balanced diverging paths), route flapping detection across probe cycles, IXP hop classification to speed up triage, and IPv6 dual-stack comparison via a new --compare-v6 flag. Two new runtime dependencies are avoided entirely — all new code uses only the Python standard library and the system ping binary already used for bufferbloat."
   },
   "stages": {
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T19:27:42Z",
+      "startedAt": "2026-06-30T19:05:16Z"
+    },
     "architecture": {
       "status": "approved",
       "approvedAt": "2026-06-30T20:35:13Z",
       "startedAt": "2026-06-30T20:28:21Z"
+    },
+    "release": {
+      "status": "not_started"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T20:44:21Z"
     },
     "review": {
       "status": "not_started"
     },
     "design": {
       "status": "skipped"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-06-30T20:44:21Z"
-    },
-    "release": {
-      "status": "not_started"
-    },
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-06-30T19:27:42Z",
-      "startedAt": "2026-06-30T19:05:16Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-fixing-incomplete-paths-richer-path-01kwcya418n5",
