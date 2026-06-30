@@ -5,7 +5,7 @@
   "phase": 1,
   "totalPhases": 2,
   "createdAt": "2026-06-30T11:38:45Z",
-  "updatedAt": "2026-06-30T15:07:32Z",
+  "updatedAt": "2026-06-30T15:12:03Z",
   "events": [
     {
       "base_branch": "main",
@@ -300,6 +300,107 @@
       "phase": 2,
       "timestamp": "2026-06-30T15:07:32Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 2,
+      "timestamp": "2026-06-30T15:09:21Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 2,
+      "timestamp": "2026-06-30T15:10:14Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "14 tests across test_diagnosis.py (6) and test_mtr.py (8), all passing. No regressions from Phase 2 changes to cli.py.",
+      "failed": 0,
+      "passed": 14,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-06-30T15:10:57Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Break _measure() into sub-functions (_measure_trace, _measure_throughput) with _run_test() orchestrating spinners between them — rejected as it violates R11 which requires _measure() to handle all data collection",
+        "Return a separate display-state dict alongside the result dict — rejected as it requires changing _run_test() signature and all call sites"
+      ],
+      "decision": "Implementation: _measure() returns internal _-prefixed keys (e.g. _iperf_upload, _iperf_loaded_rtt, _trace_error) alongside public keys so _run_test() can reconstruct display without re-running measurements",
+      "phase": 2,
+      "rationale": "The measurement and display steps were deeply interleaved (iperf upload/download objects, idle/loaded RTT, trace method) with no clean boundary in the original code. Storing these in the result dict under _ prefixes keeps _measure() side-effect-free while giving _run_test() all the data it needs for display without a second measurement pass.",
+      "timestamp": "2026-06-30T15:11:08Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 2 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 2,
+      "timestamp": "2026-06-30T15:11:13Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 2 complete: Exit codes and measurement/display separation",
+      "revision": 2,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T15:11:36Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/cli.py"
+      ],
+      "phase": 1,
+      "summary": "Extracted _measure() from _run_test() to isolate all data collection (trace, classify, RUM, throughput, bufferbloat, diagnose()) with no display calls and no json_mode parameter. _run_test() now calls _measure() inside a spinner and handles all rendering afterward. Added _SEVERITY_CODE/_worst_exit_code() helpers; wired exit codes (0/1/2) into both asn and country subcommands based on worst verdict severity across all probes. Skipped ASNs in country mode have no verdict key and naturally contribute 0 to the exit code.",
+      "timestamp": "2026-06-30T15:11:44Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Open `src/netpath/cli.py` and locate the `_measure` function. Confirm it has no `display.` calls and no `json_mode` parameter in its signature."
+        },
+        {
+          "description": "In the worktree, run `uv run netpath asn AS15169 --no-throughput` against a healthy path and check the exit code with `echo $?` — expect `0`."
+        },
+        {
+          "description": "Run `uv run python -c \"from netpath.cli import _worst_exit_code; assert _worst_exit_code([{'severity':'warning'}])==1; assert _worst_exit_code([{'severity':'critical'}])==2; assert _worst_exit_code([])==0; print('OK')\"` to verify exit code mapping logic."
+        },
+        {
+          "description": "Run `uv run pytest -v` and confirm all 14 tests still pass with exit code 0."
+        },
+        {
+          "description": "In `src/netpath/cli.py`, find the `asn` subcommand. Confirm it collects `verdicts` from each `_run_test()` call and raises `typer.Exit(code)` after the loop (and after the json-mode `print`)."
+        },
+        {
+          "description": "In `src/netpath/cli.py`, find the `country` subcommand. Confirm it collects `verdicts = [row[\"verdict\"] for row in summary_rows if row.get(\"verdict\")]` and raises `typer.Exit(exit_code)` only when `exit_code > 0`."
+        },
+        {
+          "description": "Confirm skipped ASNs in `country` mode (the `continue` path where no test IP is found) append a row with no `verdict` key, so `row.get(\"verdict\")` is falsy and those rows are excluded from exit code calculation."
+        }
+      ],
+      "phase": 1,
+      "phase_title": "Exit codes and measurement/display separation",
+      "timestamp": "2026-06-30T15:11:57Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 2,
+      "phase_title": "Exit codes and measurement/display separation",
+      "server_phase": 1,
+      "timestamp": "2026-06-30T15:12:03Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 1,
+      "phase_title": "Exit codes and measurement/display separation",
+      "timestamp": "2026-06-30T15:12:03Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "4248cfb35eb6ac2a122bb1ba4545fb2ad1c3336f",
+      "worktree_status_digest": "38419b3060a9540fac837ae6f33b57b53c8951fe9ba27ada99ceab0c98baf72e"
     }
   ],
   "needsArchitecture": false,
@@ -320,16 +421,10 @@
     "scope": "2026-06-30T14:46:09Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Test suite and CI workflow\n\n**Files changed:**\n- `pyproject.toml` — added `[project.optional-dependencies]` with `dev = [\"pytest>=8\", \"ruff>=0.4\"]`\n- `tests/__init__.py` — empty package marker\n- `tests/test_diagnosis.py` — 6 tests: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, Throughput Cap, malformed-input fallback\n- `tests/test_mtr.py` — 8 tests: normal multi-hop, all-stars, mixed, single-hop, macOS parenthesized-IP format, `_all_stars()` empty/all-filtered/mixed\n- `.github/workflows/ci.yml` — CI matrix over Python 3.9, 3.10, 3.11, 3.12, 3.13 on ubuntu-latest using `pip install -e \".[dev]\"` then `pytest`\n\n**Results:** 14/14 tests pass, no deviations from plan."
+    "implementation": "## Phase 1: Test suite and CI workflow\n\n**Files changed:**\n- `pyproject.toml` — added `[project.optional-dependencies]` with `dev = [\"pytest>=8\", \"ruff>=0.4\"]`\n- `tests/__init__.py` — empty package marker\n- `tests/test_diagnosis.py` — 6 tests: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, Throughput Cap, malformed-input fallback\n- `tests/test_mtr.py` — 8 tests: normal multi-hop, all-stars, mixed, single-hop, macOS parenthesized-IP format, `_all_stars()` empty/all-filtered/mixed\n- `.github/workflows/ci.yml` — CI matrix over Python 3.9, 3.10, 3.11, 3.12, 3.13 on ubuntu-latest using `pip install -e \"[dev]\"` then `pytest`\n\n**Results:** 14/14 tests pass, no deviations from plan.\n\n## Phase 2: Exit codes and measurement/display separation\n\n**Files changed:**\n- `src/netpath/cli.py` — extracted `_measure()`, wired exit codes into `asn` and `country` subcommands\n\n**What was built:**\n\n`_measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token)` handles all data collection: trace, path classification, RUM fetch, iperf3/speedtest throughput, bufferbloat computation, and `diagnose()`. It returns the enriched result dict with no display calls and no `json_mode` parameter. Internal `_`-prefixed keys (`_iperf_upload`, `_iperf_download`, `_iperf_idle_rtt`, `_iperf_loaded_rtt`, `_iperf_error`, `_speedtest_upload`, `_speedtest_download`, `_speedtest_error`, `_trace_method`, `_trace_error`) carry intermediate state for `_run_test()` to use in display without re-running any measurement.\n\n`_run_test()` now calls `_measure()` inside a single Progress spinner (normal mode) or directly (json_mode), then handles all display rendering afterward. `json_mode` branching remains only in `_run_test()`.\n\nExit codes via `_SEVERITY_CODE = {\"ok\": 0, \"warning\": 1, \"critical\": 2}` and `_worst_exit_code(verdicts)`:\n- `asn` subcommand: collects verdicts from all tested servers (or the single json-mode server) and raises `typer.Exit(code)` where code is the worst severity.\n- `country` subcommand: collects verdicts from all rows that have a verdict (skipped ASNs have no verdict key and naturally score 0), raises `typer.Exit(code)` for the worst severity.\n\n**Results:** 14/14 tests pass, ruff clean on `src/netpath/cli.py` and `tests/`."
   },
   "stages": {
-    "release": {
-      "status": "not_started"
-    },
     "design": {
-      "status": "skipped"
-    },
-    "architecture": {
       "status": "skipped"
     },
     "scope": {
@@ -337,12 +432,18 @@
       "approvedAt": "2026-06-30T14:46:09Z",
       "startedAt": "2026-06-30T11:41:55Z"
     },
+    "release": {
+      "status": "not_started"
+    },
     "implementation": {
       "status": "in_progress",
       "startedAt": "2026-06-30T15:02:17Z"
     },
     "review": {
       "status": "not_started"
+    },
+    "architecture": {
+      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-ways-to-improve-netpath-01kwc564vewr",

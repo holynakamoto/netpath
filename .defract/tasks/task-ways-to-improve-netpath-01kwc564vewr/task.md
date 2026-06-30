@@ -151,6 +151,23 @@ The CI workflow should use `actions/setup-python@v5` and `actions/checkout@v4` (
 - `tests/__init__.py` — empty package marker
 - `tests/test_diagnosis.py` — 6 tests: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, Throughput Cap, malformed-input fallback
 - `tests/test_mtr.py` — 8 tests: normal multi-hop, all-stars, mixed, single-hop, macOS parenthesized-IP format, `_all_stars()` empty/all-filtered/mixed
-- `.github/workflows/ci.yml` — CI matrix over Python 3.9, 3.10, 3.11, 3.12, 3.13 on ubuntu-latest using `pip install -e ".[dev]"` then `pytest`
+- `.github/workflows/ci.yml` — CI matrix over Python 3.9, 3.10, 3.11, 3.12, 3.13 on ubuntu-latest using `pip install -e "[dev]"` then `pytest`
 
 **Results:** 14/14 tests pass, no deviations from plan.
+
+## Phase 2: Exit codes and measurement/display separation
+
+**Files changed:**
+- `src/netpath/cli.py` — extracted `_measure()`, wired exit codes into `asn` and `country` subcommands
+
+**What was built:**
+
+`_measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token)` handles all data collection: trace, path classification, RUM fetch, iperf3/speedtest throughput, bufferbloat computation, and `diagnose()`. It returns the enriched result dict with no display calls and no `json_mode` parameter. Internal `_`-prefixed keys (`_iperf_upload`, `_iperf_download`, `_iperf_idle_rtt`, `_iperf_loaded_rtt`, `_iperf_error`, `_speedtest_upload`, `_speedtest_download`, `_speedtest_error`, `_trace_method`, `_trace_error`) carry intermediate state for `_run_test()` to use in display without re-running any measurement.
+
+`_run_test()` now calls `_measure()` inside a single Progress spinner (normal mode) or directly (json_mode), then handles all display rendering afterward. `json_mode` branching remains only in `_run_test()`.
+
+Exit codes via `_SEVERITY_CODE = {"ok": 0, "warning": 1, "critical": 2}` and `_worst_exit_code(verdicts)`:
+- `asn` subcommand: collects verdicts from all tested servers (or the single json-mode server) and raises `typer.Exit(code)` where code is the worst severity.
+- `country` subcommand: collects verdicts from all rows that have a verdict (skipped ASNs have no verdict key and naturally score 0), raises `typer.Exit(code)` for the worst severity.
+
+**Results:** 14/14 tests pass, ruff clean on `src/netpath/cli.py` and `tests/`.
