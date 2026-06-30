@@ -7,6 +7,7 @@ from .asn import cymru_bulk_lookup_rich
 
 RIPE_COUNTRY_RESOURCES = "https://stat.ripe.net/data/country-resource-list/data.json"
 RIPE_PREFIXES          = "https://stat.ripe.net/data/announced-prefixes/data.json"
+RIPE_ATLAS_PROBES      = "https://atlas.ripe.net/api/v2/probes/"
 
 # Global CDN / cloud ASNs that appear in every country's allocation —
 # exclude so they don't crowd out actual domestic ISPs.
@@ -106,8 +107,31 @@ def get_top_asns(country_code: str, top_n: int = 4) -> list[dict]:
     ]
 
 
+def _get_atlas_probe_ip(asn: str) -> str | None:
+    """Return the IPv4 of the first connected RIPE Atlas probe in the ASN, or None."""
+    asn_num = asn.lstrip("ASas")
+    try:
+        r = requests.get(
+            RIPE_ATLAS_PROBES,
+            params={"asn": asn_num, "status": 1, "sort": "id", "page_size": 1},
+            timeout=5,
+        )
+        r.raise_for_status()
+        for probe in r.json().get("results", []):
+            ip = probe.get("address_v4")
+            if ip:
+                return ip
+    except requests.RequestException:
+        pass
+    return None
+
+
 def get_test_ip_for_asn(asn: str) -> str | None:
-    """Return a routable IPv4 from the ASN's announced prefixes via RIPE Stat."""
+    """Return a routable IPv4 in the ASN — Atlas probe first, RIPE prefix as fallback."""
+    atlas_ip = _get_atlas_probe_ip(asn)
+    if atlas_ip:
+        return atlas_ip
+
     asn_num = asn.lstrip("ASas")
     try:
         resp = requests.get(

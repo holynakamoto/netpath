@@ -1,4 +1,4 @@
-#!/Users/nickmoore/netpath/.defract-worktrees/task-fixing-incomplete-paths-richer-path-01kwcya418n5/.venv/bin/python3
+#!/Users/nickmoore/netpath/.defract-worktrees/task-incomplete-paths-still-showing-in-za-01kwddfsahcm/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import sys
 from netpath.cli import run
