@@ -2,10 +2,10 @@
   "id": "task-country-as-path-visual-binat-rtt-anomaly-01kwaw3774eb",
   "status": "active",
   "stage": "implementation",
-  "phase": 0,
+  "phase": 1,
   "totalPhases": 2,
   "createdAt": "2026-06-29T23:40:37Z",
-  "updatedAt": "2026-06-30T00:29:43Z",
+  "updatedAt": "2026-06-30T00:38:48Z",
   "events": [
     {
       "base_branch": "main",
@@ -277,6 +277,83 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "8ea9df443903155df235ded8338cfbcc5b915602",
       "worktree_status_digest": "2009eeb389f916c0e9ffade12d4d6a7621ebcd74cea09520b3ade6be117cf485"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Path Completeness Classification",
+      "timestamp": "2026-06-30T00:33:22Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 0,
+      "timestamp": "2026-06-30T00:33:22Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-06-30T00:33:23Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwaz3tqvye5s5zg8s99vbj4d",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T00:33:23Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting Phase 2: rewriting country_summary in display.py as grouped tree view with fmt_country_latency",
+      "phase": 1,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T00:37:06Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 2: Tree Summary Display",
+      "percentage": 0,
+      "phase": 2,
+      "timestamp": "2026-06-30T00:37:15Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing fmt_country_latency and rewriting country_summary",
+      "percentage": 20,
+      "phase": 2,
+      "timestamp": "2026-06-30T00:37:18Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 2,
+      "timestamp": "2026-06-30T00:37:59Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 2,
+      "timestamp": "2026-06-30T00:38:29Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "5 fmt_country_latency threshold checks (green < 120ms, yellow 120-200ms, red >= 200ms boundary values). 3 country_summary rendering scenarios (all incomplete, mixed complete+incomplete, direct transit). 2 edge cases (RTT tie → star to first, empty results → no output). All module imports clean. fmt_latency thresholds unchanged. _classify_path Binat case still correct.",
+      "failed": 0,
+      "passed": 10,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-06-30T00:38:44Z",
+      "type": "test_results"
+    },
+    {
+      "description": "Phase 2 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 2,
+      "timestamp": "2026-06-30T00:38:48Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": false,
@@ -300,14 +377,17 @@
     "implementation": "## Phase 1: Path Completeness Classification\n\n**Files changed:** `src/netpath/cli.py`\n\n**What was built:**\n\n- Removed `_extract_last_rtt` helper. Its logic (last responsive hop regardless of ASN) is inlined directly in `_run_test` to preserve `last_rtt_ms` for backward compatibility.\n- Added `_classify_path(hubs, target_asn) -> dict` returning `{complete, rtt_ms, entry_transit_asn}`. Normalizes ASN strings via `normalize_asn` before comparison to handle casing differences.\n- `complete` is `True` only when `target_asn` appears in at least one hub's ASN field.\n- `rtt_ms` is the Avg RTT of the last hub inside the target ASN when complete; `None` otherwise — the Binat fix.\n- `entry_transit_asn` is the last distinct non-AS??? ASN before the target (complete) or the last resolvable ASN seen (incomplete).\n- `_run_test` result dict gains `path_complete`, `verified_rtt_ms`, `entry_transit_asn`. `last_rtt_ms` still populated from inlined loop.\n- The early-continue path in the `country` command (no test IP found) also gets the three new fields defaulted to `False`/`None`/`None`.\n- `summary_rows` entries carry `path_complete`, `verified_rtt_ms`, `entry_transit_asn` via `**r` spread (or explicit defaults on the skip path).\n\n**Deviations from plan:** None. `_extract_last_rtt` logic inlined rather than kept as a named helper — satisfies \"remove _extract_last_rtt\" while preserving `last_rtt_ms` backward compat."
   },
   "stages": {
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-06-30T00:25:42Z"
+    "architecture": {
+      "status": "skipped"
     },
     "design": {
       "status": "skipped"
     },
-    "release": {
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T00:33:23Z"
+    },
+    "review": {
       "status": "not_started"
     },
     "scope": {
@@ -315,14 +395,11 @@
       "approvedAt": "2026-06-30T00:25:41Z",
       "startedAt": "2026-06-29T23:43:20Z"
     },
-    "review": {
+    "release": {
       "status": "not_started"
-    },
-    "architecture": {
-      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-country-as-path-visual-binat-rtt-anomaly-01kwaw3774eb",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-30T00:25:42Z"
+  "worktreeLastSyncedAt": "2026-06-30T00:33:23Z"
 }
