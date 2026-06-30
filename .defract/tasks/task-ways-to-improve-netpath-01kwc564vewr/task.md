@@ -3,7 +3,7 @@ defract:
   id: task-ways-to-improve-netpath-01kwc564vewr
   type: improvement
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
   total_phases: 2
   priority: normal
@@ -141,3 +141,16 @@ The `_measure()` extraction should keep the existing `_run_test()` signature and
 Ruff config can be left unconfigured in `pyproject.toml` for now; a bare `ruff check .` with defaults is sufficient for this task. Adding a `[tool.ruff]` section is out of scope.
 
 The CI workflow should use `actions/setup-python@v5` and `actions/checkout@v4` (latest stable at knowledge cutoff). Pin to `ubuntu-latest` only — macOS runners are slower and the pure-function tests have no platform-specific behavior.
+
+## Implementation Notes
+
+## Phase 1: Test suite and CI workflow
+
+**Files changed:**
+- `pyproject.toml` — added `[project.optional-dependencies]` with `dev = ["pytest>=8", "ruff>=0.4"]`
+- `tests/__init__.py` — empty package marker
+- `tests/test_diagnosis.py` — 6 tests: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, Throughput Cap, malformed-input fallback
+- `tests/test_mtr.py` — 8 tests: normal multi-hop, all-stars, mixed, single-hop, macOS parenthesized-IP format, `_all_stars()` empty/all-filtered/mixed
+- `.github/workflows/ci.yml` — CI matrix over Python 3.9, 3.10, 3.11, 3.12, 3.13 on ubuntu-latest using `pip install -e ".[dev]"` then `pytest`
+
+**Results:** 14/14 tests pass, no deviations from plan.

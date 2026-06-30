@@ -1,11 +1,11 @@
 {
   "id": "task-ways-to-improve-netpath-01kwc564vewr",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 2,
   "createdAt": "2026-06-30T11:38:45Z",
-  "updatedAt": "2026-06-30T11:44:22Z",
+  "updatedAt": "2026-06-30T14:49:51Z",
   "events": [
     {
       "base_branch": "main",
@@ -95,6 +95,164 @@
       "type": "stage_work_complete",
       "worktree_head": "f1e2ac74086c1f36f6452928b0db0a5dc093b247",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-06-30T14:46:10Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-06-30T14:46:09Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "6cb96e7b3e7286678ebb87ba5651db23e2e65898",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "f1e2ac74086c1f36f6452928b0db0a5dc093b247",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T14:46:10Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-06-30T14:46:10Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-06-30T14:46:10Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T14:46:10Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwcfxap86gcmckm85rz4967g",
+      "stage": "implementation",
+      "timestamp": "2026-06-30T14:46:10Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting Phase 1: adding dev extras to pyproject.toml, creating test suite for diagnosis.py and mtr.py, and adding GitHub Actions CI workflow",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T14:46:17Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Test suite and CI workflow",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-06-30T14:47:58Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-06-30T14:48:05Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-06-30T14:48:41Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-06-30T14:49:18Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "14 tests across test_diagnosis.py (6) and test_mtr.py (8), all passing. Covers all 5 verdict paths in diagnose(), 4 traceroute parser scenarios, 3 _all_stars() edge cases, and macOS format with parenthesized IPs.",
+      "failed": 0,
+      "passed": 14,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-06-30T14:49:22Z",
+      "type": "test_results"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-06-30T14:49:27Z",
+      "type": "progress_report"
+    },
+    {
+      "artifacts_created": [
+        "pyproject.toml",
+        "tests/__init__.py",
+        "tests/test_diagnosis.py",
+        "tests/test_mtr.py",
+        ".github/workflows/ci.yml"
+      ],
+      "phase": 0,
+      "summary": "Added dev extras group to pyproject.toml (pytest>=8, ruff>=0.4). Created tests/__init__.py, tests/test_diagnosis.py (6 tests covering all 5 verdict paths plus malformed-input fallback), tests/test_mtr.py (8 tests covering normal/all-stars/mixed/single-hop traceroute output plus macOS format and _all_stars() edge cases). Added .github/workflows/ci.yml with Python 3.9–3.13 matrix. All 14 tests pass.",
+      "timestamp": "2026-06-30T14:49:33Z",
+      "type": "phase_completed"
+    },
+    {
+      "change_summary": "Phase 1 complete: Test suite and CI workflow",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-06-30T14:49:40Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "items": [
+        {
+          "description": "From the worktree root, run `uv pip install -e \".[dev]\"` and confirm it exits 0 with pytest and ruff listed in the output."
+        },
+        {
+          "description": "Run `uv run pytest -v` and confirm all 14 tests pass with exit code 0."
+        },
+        {
+          "description": "Verify `tests/test_diagnosis.py` contains test functions for: `test_healthy_default`, `test_severe_bufferbloat`, `test_mid_path_packet_loss`, `test_last_mile_congestion`, `test_throughput_cap`, `test_exception_input_returns_healthy`."
+        },
+        {
+          "description": "Verify `tests/test_mtr.py` contains tests for normal multi-hop, all-stars, mixed, single-hop traceroute parsing plus `_all_stars()` edge cases."
+        },
+        {
+          "description": "Open `.github/workflows/ci.yml` and confirm the matrix lists `python-version: [\"3.9\", \"3.10\", \"3.11\", \"3.12\", \"3.13\"]` and includes `pip install -e \".[dev]\"` and `pytest` steps."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Test suite and CI workflow",
+      "timestamp": "2026-06-30T14:49:47Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Test suite and CI workflow",
+      "server_phase": 0,
+      "timestamp": "2026-06-30T14:49:51Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Test suite and CI workflow",
+      "timestamp": "2026-06-30T14:49:51Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "6cb96e7b3e7286678ebb87ba5651db23e2e65898",
+      "worktree_status_digest": "744f6511afbecaa7ee7e5f23f32b1db40f2124b1ff3e05e2ae9c0f2bc4822bef"
     }
   ],
   "needsArchitecture": false,
@@ -111,13 +269,24 @@
     "classifiedBy": "scope-agent",
     "rationale": "No UI changes (skip design). Work is well-contained to one Python package with 4-5 files and builds directly on existing patterns — no new system boundaries (skip architecture). Two phases are independently reviewable but neither requires an architecture checkpoint."
   },
+  "stageApprovals": {
+    "scope": "2026-06-30T14:46:09Z"
+  },
+  "stageContent": {
+    "implementation": "## Phase 1: Test suite and CI workflow\n\n**Files changed:**\n- `pyproject.toml` — added `[project.optional-dependencies]` with `dev = [\"pytest>=8\", \"ruff>=0.4\"]`\n- `tests/__init__.py` — empty package marker\n- `tests/test_diagnosis.py` — 6 tests: Healthy, Severe Bufferbloat, Mid-path Packet Loss, Last-mile Congestion, Throughput Cap, malformed-input fallback\n- `tests/test_mtr.py` — 8 tests: normal multi-hop, all-stars, mixed, single-hop, macOS parenthesized-IP format, `_all_stars()` empty/all-filtered/mixed\n- `.github/workflows/ci.yml` — CI matrix over Python 3.9, 3.10, 3.11, 3.12, 3.13 on ubuntu-latest using `pip install -e \".[dev]\"` then `pytest`\n\n**Results:** 14/14 tests pass, no deviations from plan."
+  },
   "stages": {
-    "implementation": {
-      "status": "not_started"
-    },
     "scope": {
-      "status": "awaiting_approval",
+      "status": "approved",
+      "approvedAt": "2026-06-30T14:46:09Z",
       "startedAt": "2026-06-30T11:41:55Z"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T14:46:10Z"
+    },
+    "release": {
+      "status": "not_started"
     },
     "architecture": {
       "status": "skipped"
@@ -127,12 +296,9 @@
     },
     "design": {
       "status": "skipped"
-    },
-    "release": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-ways-to-improve-netpath-01kwc564vewr",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-30T11:41:55Z"
+  "worktreeLastSyncedAt": "2026-06-30T14:46:10Z"
 }
