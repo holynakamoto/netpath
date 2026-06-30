@@ -3,7 +3,7 @@ defract:
   id: task-globe-as-path-latency-viz-pip-uv-install-01kwb0sw8gr0
   type: improvement
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 2
   priority: normal
@@ -250,4 +250,33 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Added a `--globe / -g` flag to both `netpath asn` and `netpath country` subcommands that generates an interactive 3D globe HTML file and opens it in the browser after the probe completes
+- Globe arcs are color-coded by per-hop latency delta (green <20 ms, yellow 20–79 ms, red ≥80 ms) using the same thresholds as the terminal output, extracted to module-level constants in `display.py`
+- Private IPs and `???` hops are silently excluded from geolocation; all ip-api.com calls are batched (up to 100 IPs per request) to stay within the free-tier rate limit
+- Added PyPI-quality metadata to `pyproject.toml` (authors, readme pointer, project URLs, classifiers), plus a `README.md` and `LICENSE` file, making the package publishable with `pip install netpath`, `uvx netpath`, or `uv tool install netpath`
+- Removed previously committed `dist/` build artifacts and added `dist/`, `*.egg-info/`, `__pycache__/`, and `.venv/` to `.gitignore`
+
+### Key decisions
+- ip-api.com batch API chosen for geolocation: free, no API key required, 100 IPs per batch mitigates the 45 req/min rate limit
+- Globe.gl loaded from unpkg CDN to keep generated HTML self-contained as a single file with no Python build-time dependencies
+- `LATENCY_GREEN_MS=20` / `LATENCY_YELLOW_MS=80` extracted from `fmt_latency()` to module level in `display.py` so `globe.py` can import them without duplication
+- `asn` command uses last server's hubs for globe rather than combining all servers' hubs (same ASN — overlapping arcs add no informational value)
+- Development Status :: 4 - Beta classifier used for the 0.1.0 release (functional but pre-1.0)
+
+### Changes by phase
+- **Phase 1: PyPI Packaging** — Created `README.md` (install instructions, usage, prerequisites, CF token docs), `LICENSE` (MIT 2026 Nick Moore), and extended `pyproject.toml` with `authors`, `readme`, `[project.urls]`, and 9 classifiers. Build verified: `python -m build` produced clean wheel and sdist; `pip install` + `netpath --help` succeeded; `pip show` METADATA contains all required fields.
+- **Phase 2: Globe Visualization** — Created `src/netpath/globe.py` (ip-api.com batch geolocation, Globe.gl CDN HTML generation, full edge-case handling). Modified `src/netpath/display.py` to export `LATENCY_GREEN_MS`/`LATENCY_YELLOW_MS`. Modified `src/netpath/cli.py` to add `--globe/-g` to both subcommands with `--globe --json` conflict warning, hub collection, and `globe_mod.render()` call after probes complete.
+
+## Verification
+
+- Production build: `python -m build` produced `netpath-0.1.0.tar.gz` and `netpath-0.1.0-py3-none-any.whl` with no warnings
+- Review approved: 2026-06-30T03:41:11Z — 10/10 acceptance criteria passed, 11/11 automated checks passed
+- Code pushed to `origin/feature/task-globe-as-path-latency-viz-pip-uv-install-01kwb0sw8gr0`
+- `dist/` artifacts removed from git tracking; `.gitignore` updated
 
