@@ -1,11 +1,11 @@
 {
   "id": "task-fixing-incomplete-paths-richer-path-01kwcya418n5",
   "status": "active",
-  "stage": "scope",
+  "stage": "architecture",
   "phase": 0,
   "totalPhases": 3,
   "createdAt": "2026-06-30T18:57:50Z",
-  "updatedAt": "2026-06-30T19:12:57Z",
+  "updatedAt": "2026-06-30T20:28:21Z",
   "events": [
     {
       "base_branch": "main",
@@ -122,6 +122,90 @@
       "type": "stage_work_complete",
       "worktree_head": "b8f37faca1ca686f7bd26af0ad550944d396187d",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 3,
+      "timestamp": "2026-06-30T19:27:43Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-06-30T19:27:42Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "55712749fed83f08cc52960d2a116abbe2bf3930",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "b8f37faca1ca686f7bd26af0ad550944d396187d",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-06-30T19:27:43Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-06-30T19:27:43Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-06-30T19:27:43Z",
+      "to": "architecture",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T19:27:43Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwd00vmfcae12wn1kmzvznv5",
+      "stage": "architecture",
+      "timestamp": "2026-06-30T19:27:43Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwcyqqt76yh1n32x1p4ygwr8",
+      "timed_out": false,
+      "timestamp": "2026-06-30T19:27:43Z",
+      "type": "agent_exited"
+    },
+    {
+      "change_summary": "Surfaced 4 open decisions: PMTU probe mechanism, multi-pass opt-in vs always-on, probe count sourcing for loss calibration, and latency measurement module placement.",
+      "revision": 1,
+      "stage": "architecture",
+      "timestamp": "2026-06-30T19:28:53Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "stage": "architecture",
+      "summary": "Surfaced 4 open decisions covering PMTU probe privilege model, multi-pass tracing opt-in vs always-on, probe count sourcing for loss calibration, and latency module placement. Awaiting builder input before writing the full architecture.",
+      "timestamp": "2026-06-30T19:28:58Z",
+      "type": "stage_work_complete",
+      "worktree_head": "55712749fed83f08cc52960d2a116abbe2bf3930",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-06-30T20:28:21Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwd3fvr88qbzqrg26cwz97et",
+      "stage": "architecture",
+      "timestamp": "2026-06-30T20:28:21Z",
+      "type": "stage_agent_started"
     }
   ],
   "needsArchitecture": true,
@@ -139,28 +223,106 @@
     "classifiedBy": "scope-agent",
     "rationale": "backend-feature: CLI tool — all display changes are terminal output additions following established Rich patterns, no design-stage thinking required. Architecture included: task touches 5+ existing modules (cli.py, diagnosis.py, display.py, mtr.py, country.py) and introduces 2 new modules (pmtu.py, ixp.py), warranting a dedicated architecture pass before implementation. Tier full: 16 requirements across 10+ files, new subsystems, cross-cutting changes."
   },
+  "stageApprovals": {
+    "scope": "2026-06-30T19:27:42Z"
+  },
+  "stageContent": {
+    "architecture": "### Open Decisions\n\n**1. How should PMTU black-hole probing be sent?**\n\nThe approach determines whether the feature works without administrator rights on all supported platforms. Raw socket calls are more precise but require root/elevated privileges on Linux, which most users will not have.\n\n- System ping command (recommended)\n- Raw Python socket\n\n**2. Should multi-pass path tracing (for ECMP and route flapping detection) be user-controlled or always on?**\n\nMulti-pass tracing multiplies total run time by the number of passes. Making it always-on means every `asn` probe takes 3x longer by default, which changes the feel of routine checks.\n\n- User opt-in via a flag (recommended)\n- Always run three passes\n\n**3. How should the system know how many packets were sent when calibrating loss alarms?**\n\nThe loss calibration logic adjusts alarm thresholds based on total probe count. mtr does not expose raw send counts in its output — there is a design choice about where this number comes from.\n\n- Thread mtr cycle count through the measurement pipeline (recommended)\n- Assume a fixed default of 10 probes\n\n**4. Should TCP and TLS latency measurement live in its own module or inline in the main command file?**\n\nThe spec explicitly leaves this open. A separate module follows the project's pattern of single-purpose files (as with the new PMTU and IXP modules in Phase 3), but the measurement itself is roughly 30 lines and could reasonably live inline.\n\n- New dedicated latency module (recommended)\n- Inline helpers in the main command file\n"
+  },
+  "architectureIntel": {
+    "answers": {},
+    "decisions": [
+      {
+        "id": "D1",
+        "options": [
+          {
+            "description": "Use the platform `ping` binary with a payload-size flag — works without root on macOS and most Linux distributions where ping has the setuid bit.",
+            "label": "System ping command",
+            "recommended": true
+          },
+          {
+            "description": "Construct and send ICMP packets directly in Python — more precise RTT timing but requires root or CAP_NET_RAW, consistent with the existing mtr fallback pattern.",
+            "label": "Raw Python socket"
+          }
+        ],
+        "what": "How should PMTU black-hole probing be sent?",
+        "why": "The approach determines whether the feature works without administrator rights on all supported platforms. Raw socket calls are more precise but require root/elevated privileges on Linux, which most users will not have."
+      },
+      {
+        "id": "D2",
+        "options": [
+          {
+            "description": "Add a `--passes N` flag (default 1) so users explicitly request deeper tracing — preserves the current fast single-pass experience for routine use.",
+            "label": "User opt-in via a flag",
+            "recommended": true
+          },
+          {
+            "description": "ECMP and route flapping detection are always active — simpler UX with no flag to remember, but every run takes 3x longer.",
+            "label": "Always run three passes"
+          }
+        ],
+        "what": "Should multi-pass path tracing (for ECMP and route flapping detection) be user-controlled or always on?",
+        "why": "Multi-pass tracing multiplies total run time by the number of passes. Making it always-on means every `asn` probe takes 3x longer by default, which changes the feel of routine checks."
+      },
+      {
+        "id": "D3",
+        "options": [
+          {
+            "description": "Pass mtr's cycle count (the `-c` value, default 10) explicitly from the probe call through to the diagnosis logic — accurate calibration at the cost of one more value flowing through the call chain.",
+            "label": "Thread mtr cycle count through the measurement pipeline",
+            "recommended": true
+          },
+          {
+            "description": "Hard-code the mtr default (10 cycles) as the probe count — simpler implementation with no call-chain changes, but calibration will be wrong for any non-default mtr invocation.",
+            "label": "Assume a fixed default of 10 probes"
+          }
+        ],
+        "what": "How should the system know how many packets were sent when calibrating loss alarms?",
+        "why": "The loss calibration logic adjusts alarm thresholds based on total probe count. mtr does not expose raw send counts in its output — there is a design choice about where this number comes from."
+      },
+      {
+        "id": "D4",
+        "options": [
+          {
+            "description": "Consistent with the project's single-purpose module pattern (matching pmtu.py and ixp.py) — clean separation and independently testable.",
+            "label": "New dedicated latency module",
+            "recommended": true
+          },
+          {
+            "description": "Fewer files to navigate — acceptable given the small code footprint, but breaks the pattern set by the other Phase 3 modules.",
+            "label": "Inline helpers in the main command file"
+          }
+        ],
+        "what": "Should TCP and TLS latency measurement live in its own module or inline in the main command file?",
+        "why": "The spec explicitly leaves this open. A separate module follows the project's pattern of single-purpose files (as with the new PMTU and IXP modules in Phase 3), but the measurement itself is roughly 30 lines and could reasonably live inline."
+      }
+    ],
+    "pass": "decisions"
+  },
   "stages": {
+    "review": {
+      "status": "not_started"
+    },
     "design": {
       "status": "skipped"
     },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-06-30T19:05:16Z"
+    "release": {
+      "status": "not_started"
+    },
+    "architecture": {
+      "status": "in_progress",
+      "startedAt": "2026-06-30T20:28:21Z"
     },
     "implementation": {
       "status": "not_started"
     },
-    "review": {
-      "status": "not_started"
-    },
-    "architecture": {
-      "status": "not_started"
-    },
-    "release": {
-      "status": "not_started"
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T19:27:42Z",
+      "startedAt": "2026-06-30T19:05:16Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-fixing-incomplete-paths-richer-path-01kwcya418n5",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-06-30T19:05:16Z"
+  "worktreeLastSyncedAt": "2026-06-30T20:28:21Z"
 }

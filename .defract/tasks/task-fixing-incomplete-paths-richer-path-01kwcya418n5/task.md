@@ -3,7 +3,7 @@ defract:
   id: task-fixing-incomplete-paths-richer-path-01kwcya418n5
   type: bug
   status: active
-  stage: scope
+  stage: architecture
   phase: 0
   total_phases: 3
   priority: normal
@@ -189,3 +189,36 @@ The `--compare-v6` flag (R16) resolves IPv6 via `socket.getaddrinfo(host, None, 
 ### Dependencies
 
 Phase 3 introduces `src/netpath/pmtu.py` and `src/netpath/ixp.py`. PeeringDB's public IX prefix list is available without authentication. No new PyPI runtime dependencies are introduced in any phase.
+
+## Architecture
+
+### Open Decisions
+
+**1. How should PMTU black-hole probing be sent?**
+
+The approach determines whether the feature works without administrator rights on all supported platforms. Raw socket calls are more precise but require root/elevated privileges on Linux, which most users will not have.
+
+- System ping command (recommended)
+- Raw Python socket
+
+**2. Should multi-pass path tracing (for ECMP and route flapping detection) be user-controlled or always on?**
+
+Multi-pass tracing multiplies total run time by the number of passes. Making it always-on means every `asn` probe takes 3x longer by default, which changes the feel of routine checks.
+
+- User opt-in via a flag (recommended)
+- Always run three passes
+
+**3. How should the system know how many packets were sent when calibrating loss alarms?**
+
+The loss calibration logic adjusts alarm thresholds based on total probe count. mtr does not expose raw send counts in its output — there is a design choice about where this number comes from.
+
+- Thread mtr cycle count through the measurement pipeline (recommended)
+- Assume a fixed default of 10 probes
+
+**4. Should TCP and TLS latency measurement live in its own module or inline in the main command file?**
+
+The spec explicitly leaves this open. A separate module follows the project's pattern of single-purpose files (as with the new PMTU and IXP modules in Phase 3), but the measurement itself is roughly 30 lines and could reasonably live inline.
+
+- New dedicated latency module (recommended)
+- Inline helpers in the main command file
+
