@@ -165,3 +165,26 @@ No new runtime dependencies are introduced: `requests` (already a dependency) ha
 ### Deviations from Plan
 None. hatchling automatically picked up the `LICENSE` file and emitted a `License-File: LICENSE` entry in METADATA without any extra configuration.
 
+## Phase 2: Globe Visualization
+
+### Files Changed
+- `src/netpath/globe.py` (new) — ip-api.com batch geolocation (_geolocate), Globe.gl CDN HTML generation (_build_html), render() entry point, private IP filtering (_is_private), arc color from latency delta (_arc_color), all edge-case handling (empty hubs, all-private IPs, geolocation errors, webbrowser.open() returning False)
+- `src/netpath/display.py` (modified) — added `LATENCY_GREEN_MS = 20` and `LATENCY_YELLOW_MS = 80` as module-level constants; updated `fmt_latency()` to use them instead of inline literals
+- `src/netpath/cli.py` (modified) — added `import sys` and `from netpath import globe as globe_mod`; added `--globe / -g` flag to both `asn` and `country` subcommands; added `--globe --json` conflict warning to `asn`; modified non-json asn loop to capture last_hubs and call globe_mod.render after; added hubs_for_globe dict to country loop and globe_mod.render call after country_summary
+
+### Verification Results
+- All module imports clean; syntax check passes
+- LATENCY_GREEN_MS/LATENCY_YELLOW_MS constants export and are used in fmt_latency boundary tests
+- _is_private correctly classifies RFC1918, 127.x (private), public IPs, and hostnames (not private)
+- _arc_color returns green/yellow/red RGBA strings matching threshold boundaries
+- HTML generation: Globe.gl CDN loaded, points/arcs embedded as inline JSON, auto-rotate enabled, legend present
+- Single geolocated hop: renders point with empty arcs array, no exception
+- All-private/??? hops: shows skip panel without writing HTML
+- Geolocation RuntimeError: shows warning panel, terminal probe output unaffected
+- --globe --json: warning on stderr containing "ignored", no HTML file
+- --globe flag visible in `netpath asn --help` and `netpath country --help`
+- `python -m build` produces wheel and sdist with no warnings; pip install + netpath --help exit 0
+
+### Deviations from Plan
+- asn command uses hubs from the last server tested (not combined from all servers in the ASN) since all servers in the same ASN share nearly identical paths; combining would produce overlapping arcs with no informational value.
+
