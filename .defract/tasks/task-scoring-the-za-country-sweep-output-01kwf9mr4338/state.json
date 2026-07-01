@@ -1,11 +1,11 @@
 {
   "id": "task-scoring-the-za-country-sweep-output-01kwf9mr4338",
   "status": "active",
-  "stage": "implementation",
-  "phase": 0,
+  "stage": "release",
+  "phase": 1,
   "totalPhases": 1,
   "createdAt": "2026-07-01T16:54:21Z",
-  "updatedAt": "2026-07-01T17:40:53Z",
+  "updatedAt": "2026-07-01T17:52:54Z",
   "events": [
     {
       "base_branch": "main",
@@ -288,6 +288,182 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "6d38990be2ecb406f795c12ebafbe810129ca6e6",
       "worktree_status_digest": "daf99ef9ae802c5d70f91318d6e7d3eba8f8175f261d27923e5f84cf622f91ca"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Fix diagnostic accuracy, jitter, name display, and server liveness",
+      "timestamp": "2026-07-01T17:47:11Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 0,
+      "timestamp": "2026-07-01T17:47:11Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "stage": "implementation",
+      "summary": "All phases approved — implementation ready for review.",
+      "timestamp": "2026-07-01T17:47:11Z",
+      "type": "stage_work_complete",
+      "worktree_head": "6aa27f6a870234b5b4414d9a3e4340d554803ffa",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-01T17:47:12Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T17:47:11Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "a31f59539cd24c7fd50ea44f875803dde3407e12",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "implementation",
+      "stale_worktree_head": "6aa27f6a870234b5b4414d9a3e4340d554803ffa",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-01T17:47:12Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "implementation",
+      "timestamp": "2026-07-01T17:47:12Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "implementation",
+      "timestamp": "2026-07-01T17:47:12Z",
+      "to": "review",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T17:47:12Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwfcngk0z69axmneepvytmz0",
+      "stage": "review",
+      "timestamp": "2026-07-01T17:47:12Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "details": "Full suite: 62/62 passed. test_diagnosis.py: 31/31 (26 pre-existing + 5 new). test_display.py: 3/3 (new). test_servers.py: 2/2 (new). test_mtr.py, test_country.py, test_utils.py: all passing. ruff check src tests: clean.",
+      "failed": 0,
+      "passed": 62,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-07-01T17:50:03Z",
+      "type": "test_results"
+    },
+    {
+      "change_summary": "APPROVE: All 12 acceptance criteria pass. Five targeted fixes are correctly implemented across four source modules with 10 new covering tests. Automated checks (62/62 tests, ruff clean) pass with no regressions.",
+      "revision": 1,
+      "stage": "review",
+      "timestamp": "2026-07-01T17:50:53Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Review verdict: APPROVE",
+      "rationale": "12/12 acceptance criteria passed, 2/2 automated checks passed (62 tests, ruff clean). All five fixes verified: ICMP-filtered path reclassification correctly branches on empty hubs / all-stars / trailing-??? / genuine-stall; jitter backward scan picks last responsive hub StDev; routing loop check operates on de-adjacent as_path; clean_asn_name exact-duplicate guard runs before short-code check; _is_alive filters unresponsive iperf3 servers before returning candidates.",
+      "timestamp": "2026-07-01T17:51:00Z",
+      "type": "decision"
+    },
+    {
+      "stage": "review",
+      "summary": "APPROVE — 12/12 ACs pass, 62/62 tests green, ruff clean. All five fixes verified against spec and implementation.",
+      "timestamp": "2026-07-01T17:51:11Z",
+      "type": "stage_work_complete",
+      "worktree_head": "a31f59539cd24c7fd50ea44f875803dde3407e12",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T17:51:14Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "actor": null,
+      "stage": "review",
+      "timestamp": "2026-07-01T17:51:14Z",
+      "type": "stage_approved"
+    },
+    {
+      "from": "review",
+      "timestamp": "2026-07-01T17:51:14Z",
+      "to": "release",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T17:51:14Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwfcwx91acg6275ysfj5b41v",
+      "stage": "release",
+      "timestamp": "2026-07-01T17:51:14Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "from": "review",
+      "timestamp": "2026-07-01T17:51:14Z",
+      "to": "release",
+      "type": "stage_handoff"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwfcngk0z69axmneepvytmz0",
+      "timed_out": false,
+      "timestamp": "2026-07-01T17:51:15Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting release: running production build, then pushing and recording release",
+      "phase": 1,
+      "stage": "release",
+      "timestamp": "2026-07-01T17:51:39Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Release validated — build passes, code pushed",
+      "revision": 1,
+      "stage": "release",
+      "timestamp": "2026-07-01T17:52:34Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Release complete — task done",
+      "rationale": "Production build passes (uv build — sdist and wheel produced), review approved on 2026-07-01 with 12/12 acceptance criteria and 62/62 tests green, code committed (6aa27f6) and pushed to origin/feature/task-scoring-the-za-country-sweep-output-01kwf9mr4338",
+      "timestamp": "2026-07-01T17:52:40Z",
+      "type": "decision"
+    },
+    {
+      "stage": "release",
+      "summary": "Production build passes, code already committed and pushed. Five diagnostic/display/server fixes from the ZA sweep are on the feature branch, review-approved with 12/12 AC and 62/62 tests green. Release notes recorded.",
+      "timestamp": "2026-07-01T17:52:54Z",
+      "type": "stage_work_complete",
+      "worktree_head": "a31f59539cd24c7fd50ea44f875803dde3407e12",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "needsArchitecture": false,
@@ -305,17 +481,32 @@
     "rationale": "Five targeted bug fixes in existing modules — no new UI components (skip design), well-contained to 4 source files all following existing patterns (skip architecture), changes are additive logic fixes not structural refactors."
   },
   "stageApprovals": {
-    "scope": "2026-07-01T17:36:24Z"
+    "scope": "2026-07-01T17:36:24Z",
+    "review": "2026-07-01T17:51:14Z",
+    "implementation": "2026-07-01T17:47:11Z"
   },
   "stageContent": {
+    "release": "## Release Notes\n\n### What was built\n- Fixed ICMP-filtered path false alarms: paths where downstream routers silently drop ICMP probes are now reported as informational (`icmp_filtered_path`, severity `ok`) rather than triggering a `warning`-level \"Incomplete Path\" signal\n- Fixed jitter accuracy: `jitter_ms` now reflects the last responsive hub's `StDev` (single stable endpoint) rather than the mean `StDev` across all path hubs\n- Added routing loop detection: a new check 10 in `diagnose()` identifies repeated ASNs in the de-adjacent AS path and emits a `routing_loop` warning naming the first repeated ASN\n- Fixed operator name deduplication: `clean_asn_name()` now collapses exact-duplicate prefix/rest pairs (e.g., \"Dimension Data - Dimension Data\" → \"Dimension Data\") before the short-code check\n- Added iperf3 server pre-validation: `find_servers_in_asn()` filters candidates through a TCP socket check (`_is_alive`) before returning them, so sweeps only probe confirmed-live endpoints\n\n### Key decisions\n- ICMP-filtered path detection uses trailing-??? hub inspection (stall_hop vs max_count) rather than a TCP connectivity cross-check — preserves `diagnosis.py` as a pure function with no new data dependencies\n- Server liveness validation placed in `find_servers_in_asn()` rather than `_fetch_and_resolve()` — checks only ASN-matched candidates, keeping per-ASN overhead small while leaving the module-level cache unaffected\n- `_extract_as_path()` already de-duplicates adjacent ASNs, so routing loop detection operates on a de-adjacent path — no false positives from consecutive same-AS hops\n\n### Changes by phase\n- **Phase 1: Fix diagnostic accuracy, jitter, name display, and server liveness** — Five targeted fixes shipped across four source modules (`diagnosis.py`, `cli.py`, `display.py`, `servers.py`) with 10 new covering tests (5 in `test_diagnosis.py`, 3 in `test_display.py`, 2 in `test_servers.py`). Full test suite: 62/62 green (up from 52). Lint clean.\n\n## Verification\n\n### Production Build\nPASS — `uv build` produced `netpath-0.7.1.dev9+ga31f59539.tar.gz` and `netpath-0.7.1.dev9+ga31f59539-py3-none-any.whl`\n\n### Review Reference\nApproved on 2026-07-01 — 12/12 acceptance criteria, automated checks passed (62/62 tests, ruff clean)\n\n### Release Checklist\n- [x] Approved review exists (2026-07-01, 12/12 AC)\n- [x] Production build passes (`uv build` — sdist + wheel built)\n- [x] Code committed and pushed (`6aa27f6`, branch pushed to origin)\n- [x] Release notes prepared\n- [x] Stage content updated\n- [x] Completion event logged\n\n### Task Timeline\n- Created: 2026-07-01T16:54:21Z\n- Scope approved: 2026-07-01T17:36:24Z\n- Implementation started: 2026-07-01T17:36:25Z\n- Phase 1 completed: 2026-07-01T17:40:34Z\n- Phase 1 approved: 2026-07-01T17:47:11Z\n- Review started: 2026-07-01T17:47:12Z\n- Review approved (APPROVE): 2026-07-01T17:51:14Z\n- Release validated: 2026-07-01\n\n### Warnings\nNone\n",
+    "review": "## Verdict\n\n**Verdict:** APPROVE\n**Files reviewed:** 7 files changed across 1 phases\n\nAll 12 acceptance criteria pass. Five targeted fixes are correctly implemented across four source modules with 10 new covering tests. Automated checks (62/62 tests, ruff clean) pass with no regressions.\n\n### Automated Checks\n\n| Check | Result | Details |\n|-------|--------|---------|\n| Test suite | PASS | 62/62 tests pass (uv run pytest tests/ -q) |\n| Lint | PASS | ruff check src tests — no errors |\n\n### Acceptance Criteria (12/12 passed)\n\n- [x] AC-1: `pytest tests/test_diagnosis.py` passes with no regressions in the 19 existing tests after the incomplete_path logic change — PASS: 31/31 tests pass in test_diagnosis.py. The AC says 19 but the actual pre-existing count is 26 (previous tasks added more); all pre-existing tests still pass with the updated check-0 logic.\n- [x] AC-2: New test `test_icmp_filtered_path_all_stars`: `path_complete=False` with all-`???` hubs and a non-empty hub list produces condition `icmp_filtered_path`, severity `\"ok\"` — PASS: tests/test_diagnosis.py:221-231 — test present and passes. diagnosis.py:70-81 performs all_stars check and emits icmp_filtered_path severity ok.\n- [x] AC-3: New test `test_icmp_filtered_path_trailing_stars`: `path_complete=False` with some responsive hubs followed by `???` hubs (stall_hop < max hub count) produces condition `icmp_filtered_path`, severity `\"ok\"` — PASS: tests/test_diagnosis.py:234-245 — test passes with stall_hop=2 and max_count=4. diagnosis.py:83-93 checks max_count > stall.\n- [x] AC-4: New test `test_incomplete_path_genuine_stall`: `path_complete=False` where the last hub is responsive and equals the max hub count produces condition `incomplete_path`, severity `\"warning\"` — PASS: tests/test_diagnosis.py:248-258 — test passes with stall_hop=3 and max_count=3. Condition max_count > stall is False (3 > 3 is False), so falls to incomplete_path warning.\n- [x] AC-5: New test `test_routing_loop_detected`: `as_path=[\"AS1\",\"AS2\",\"AS3\",\"AS2\"]` produces condition `routing_loop`, severity `\"warning\"`, verdict `\"Routing Loop\"` — PASS: tests/test_diagnosis.py:261-267 — test passes. diagnosis.py:244-261 (check 10) detects repeated AS2 and emits routing_loop warning. _CONDITION_VERDICT maps to 'Routing Loop'.\n- [x] AC-6: New test `test_routing_loop_no_repeat`: unique AS path produces no `routing_loop` signal — PASS: tests/test_diagnosis.py:270-273 — test passes. as_path=[AS1,AS2,AS3,AS4] has no repeats; len(known)==len(set(known)) so no routing_loop emitted.\n- [x] AC-7: `tests/test_display.py` created; `clean_asn_name(\"Dimension Data - Dimension Data\")` returns `\"Dimension Data\"` — PASS: tests/test_display.py:4-6 — test present and passes. display.py:31 exact-duplicate guard: prefix==rest returns rest.\n- [x] AC-8: `clean_asn_name(\"Acme Corp - Acme Corp\")` returns `\"Acme Corp\"` (multi-word exact duplicate handled) — PASS: tests/test_display.py:9-11 — test present and passes. Same prefix==rest guard handles multi-word case.\n- [x] AC-9: `clean_asn_name(\"PARTNER-AS - Partner Comms\")` still returns `\"Partner Comms\"` (existing behavior preserved) — PASS: tests/test_display.py:14-16 — test present and passes. PARTNER-AS != Partner Comms, falls to short-code check (no spaces, len 10 <= 25), returns Partner Comms.\n- [x] AC-10: `tests/test_servers.py` created; `_is_alive` returns `False` when `socket.create_connection` raises `OSError` (verified via `unittest.mock.patch`) — PASS: tests/test_servers.py:6-9 — patches socket.create_connection with side_effect=OSError; _is_alive returns False. servers.py:68-72 catches OSError.\n- [x] AC-11: `ruff check src tests` passes with no new lint errors — PASS: uv run ruff check src tests — 'All checks passed!'\n- [x] AC-12: `pytest` full suite green — PASS: uv run pytest tests/ -q — 62 passed in 0.09s\n\n### Code Quality (Refactor Review)\n\nNo code quality issues found in changed files.\n\n### Security Assessment (Security Review)\n\nNo security issues found in changed files.\n\n### Decisions Made During Implementation\n\n- ICMP-filtered path detection uses trailing-??? hub inspection (stall_hop vs max_count) rather than a TCP connectivity cross-check — preserves diagnosis.py as a pure function with no new data dependencies\n- Server liveness validation placed in find_servers_in_asn() rather than _fetch_and_resolve() — checks only ASN-matched candidates, keeping per-ASN overhead small while leaving the module-level cache unaffected\n- _extract_as_path() already de-duplicates adjacent ASNs, so check 10's routing loop detection operates on a de-adjacent path — no false positives from consecutive same-AS hops\n\n## Required Changes\n\nNone.\n",
     "implementation": "## Phase 1: Fix diagnostic accuracy, jitter, name display, and server liveness\n\nAll five targeted fixes implemented across four source modules, with covering tests.\n\n### Changes\n\n**`src/netpath/diagnosis.py`**\n- Updated `_CONDITION_VERDICT` with `\"icmp_filtered_path\": \"Healthy\"` and `\"routing_loop\": \"Routing Loop\"`.\n- Rewrote check 0: empty hub list → `incomplete_path` warning (unchanged); all-stars hub list → `icmp_filtered_path` ok; trailing `???` hops (`max_count > stall_hop`) → `icmp_filtered_path` ok; last hub responsive → `incomplete_path` warning.\n- Added check 10: de-adjacent AS path iteration with a `seen` set to find the first repeated known ASN; emits `routing_loop` warning when found.\n\n**`src/netpath/cli.py`**\n- Replaced the mean-StDev averaging loop (lines 254–258) with a backward scan over `hubs` that picks the last responsive hub's `StDev` as `jitter_ms`.\n\n**`src/netpath/display.py`**\n- Added exact-duplicate guard in `clean_asn_name()` before the short-code check: when `prefix.strip() == rest.strip()`, return the cleaned rest.\n\n**`src/netpath/servers.py`**\n- Added `import socket`.\n- Added `_is_alive(ip, port, timeout=3.0)` using `socket.create_connection`, catching `OSError`.\n- Updated `find_servers_in_asn()` to filter candidates through `_is_alive` before returning.\n\n### Tests\n\n- `tests/test_diagnosis.py` — 5 new cases: `test_icmp_filtered_path_all_stars`, `test_icmp_filtered_path_trailing_stars`, `test_incomplete_path_genuine_stall`, `test_routing_loop_detected`, `test_routing_loop_no_repeat`.\n- `tests/test_display.py` — created; 3 `clean_asn_name` cases.\n- `tests/test_servers.py` — created; 2 `_is_alive` mock cases.\n\n### Results\n\n62/62 tests pass (up from 52). `ruff check src tests` clean.\n"
   },
   "stages": {
+    "release": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-07-01T17:51:14Z"
+    },
+    "review": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T17:51:14Z",
+      "startedAt": "2026-07-01T17:47:12Z"
+    },
+    "implementation": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T17:47:11Z",
+      "startedAt": "2026-07-01T17:36:25Z"
+    },
     "architecture": {
       "status": "skipped"
-    },
-    "release": {
-      "status": "not_started"
     },
     "scope": {
       "status": "approved",
@@ -324,16 +515,141 @@
     },
     "design": {
       "status": "skipped"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-01T17:36:25Z"
-    },
-    "review": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-scoring-the-za-country-sweep-output-01kwf9mr4338",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T17:36:25Z"
+  "worktreeLastSyncedAt": "2026-07-01T17:51:14Z",
+  "reviewPayload": {
+    "verdict": "approve",
+    "summary": "All 12 acceptance criteria pass. Five targeted fixes are correctly implemented across four source modules with 10 new covering tests. Automated checks (62/62 tests, ruff clean) pass with no regressions.",
+    "filesReviewedCount": 7,
+    "phasesReviewedCount": 1,
+    "automatedChecks": [
+      {
+        "name": "Test suite",
+        "result": "pass",
+        "detail": "62/62 tests pass (uv run pytest tests/ -q)"
+      },
+      {
+        "name": "Lint",
+        "result": "pass",
+        "detail": "ruff check src tests — no errors"
+      }
+    ],
+    "acceptanceCriteria": [
+      {
+        "acId": "AC-1",
+        "text": "`pytest tests/test_diagnosis.py` passes with no regressions in the 19 existing tests after the incomplete_path logic change",
+        "status": "pass",
+        "evidence": "31/31 tests pass in test_diagnosis.py. The AC says 19 but the actual pre-existing count is 26 (previous tasks added more); all pre-existing tests still pass with the updated check-0 logic."
+      },
+      {
+        "acId": "AC-2",
+        "text": "New test `test_icmp_filtered_path_all_stars`: `path_complete=False` with all-`???` hubs and a non-empty hub list produces condition `icmp_filtered_path`, severity `\"ok\"`",
+        "status": "pass",
+        "evidence": "tests/test_diagnosis.py:221-231 — test present and passes. diagnosis.py:70-81 performs all_stars check and emits icmp_filtered_path severity ok."
+      },
+      {
+        "acId": "AC-3",
+        "text": "New test `test_icmp_filtered_path_trailing_stars`: `path_complete=False` with some responsive hubs followed by `???` hubs (stall_hop < max hub count) produces condition `icmp_filtered_path`, severity `\"ok\"`",
+        "status": "pass",
+        "evidence": "tests/test_diagnosis.py:234-245 — test passes with stall_hop=2 and max_count=4. diagnosis.py:83-93 checks max_count > stall."
+      },
+      {
+        "acId": "AC-4",
+        "text": "New test `test_incomplete_path_genuine_stall`: `path_complete=False` where the last hub is responsive and equals the max hub count produces condition `incomplete_path`, severity `\"warning\"`",
+        "status": "pass",
+        "evidence": "tests/test_diagnosis.py:248-258 — test passes with stall_hop=3 and max_count=3. Condition max_count > stall is False (3 > 3 is False), so falls to incomplete_path warning."
+      },
+      {
+        "acId": "AC-5",
+        "text": "New test `test_routing_loop_detected`: `as_path=[\"AS1\",\"AS2\",\"AS3\",\"AS2\"]` produces condition `routing_loop`, severity `\"warning\"`, verdict `\"Routing Loop\"`",
+        "status": "pass",
+        "evidence": "tests/test_diagnosis.py:261-267 — test passes. diagnosis.py:244-261 (check 10) detects repeated AS2 and emits routing_loop warning. _CONDITION_VERDICT maps to 'Routing Loop'."
+      },
+      {
+        "acId": "AC-6",
+        "text": "New test `test_routing_loop_no_repeat`: unique AS path produces no `routing_loop` signal",
+        "status": "pass",
+        "evidence": "tests/test_diagnosis.py:270-273 — test passes. as_path=[AS1,AS2,AS3,AS4] has no repeats; len(known)==len(set(known)) so no routing_loop emitted."
+      },
+      {
+        "acId": "AC-7",
+        "text": "`tests/test_display.py` created; `clean_asn_name(\"Dimension Data - Dimension Data\")` returns `\"Dimension Data\"`",
+        "status": "pass",
+        "evidence": "tests/test_display.py:4-6 — test present and passes. display.py:31 exact-duplicate guard: prefix==rest returns rest."
+      },
+      {
+        "acId": "AC-8",
+        "text": "`clean_asn_name(\"Acme Corp - Acme Corp\")` returns `\"Acme Corp\"` (multi-word exact duplicate handled)",
+        "status": "pass",
+        "evidence": "tests/test_display.py:9-11 — test present and passes. Same prefix==rest guard handles multi-word case."
+      },
+      {
+        "acId": "AC-9",
+        "text": "`clean_asn_name(\"PARTNER-AS - Partner Comms\")` still returns `\"Partner Comms\"` (existing behavior preserved)",
+        "status": "pass",
+        "evidence": "tests/test_display.py:14-16 — test present and passes. PARTNER-AS != Partner Comms, falls to short-code check (no spaces, len 10 <= 25), returns Partner Comms."
+      },
+      {
+        "acId": "AC-10",
+        "text": "`tests/test_servers.py` created; `_is_alive` returns `False` when `socket.create_connection` raises `OSError` (verified via `unittest.mock.patch`)",
+        "status": "pass",
+        "evidence": "tests/test_servers.py:6-9 — patches socket.create_connection with side_effect=OSError; _is_alive returns False. servers.py:68-72 catches OSError."
+      },
+      {
+        "acId": "AC-11",
+        "text": "`ruff check src tests` passes with no new lint errors",
+        "status": "pass",
+        "evidence": "uv run ruff check src tests — 'All checks passed!'"
+      },
+      {
+        "acId": "AC-12",
+        "text": "`pytest` full suite green",
+        "status": "pass",
+        "evidence": "uv run pytest tests/ -q — 62 passed in 0.09s"
+      }
+    ],
+    "headlineFindings": [],
+    "requiredChanges": [],
+    "codeQualityFindings": [],
+    "securityFindings": [],
+    "decisions": [
+      "ICMP-filtered path detection uses trailing-??? hub inspection (stall_hop vs max_count) rather than a TCP connectivity cross-check — preserves diagnosis.py as a pure function with no new data dependencies",
+      "Server liveness validation placed in find_servers_in_asn() rather than _fetch_and_resolve() — checks only ASN-matched candidates, keeping per-ASN overhead small while leaving the module-level cache unaffected",
+      "_extract_as_path() already de-duplicates adjacent ASNs, so check 10's routing loop detection operates on a de-adjacent path — no false positives from consecutive same-AS hops"
+    ],
+    "revision": 1,
+    "changeAnnotations": [
+      {
+        "file": "src/netpath/diagnosis.py",
+        "note": "Rewrites check 0 to classify trailing-??? paths as ICMP-filtered (severity ok) rather than a genuine incomplete path, and adds check 10 to detect routing loops via repeated ASNs in the de-adjacent AS path"
+      },
+      {
+        "file": "src/netpath/cli.py",
+        "note": "Replaces mean-StDev jitter averaging with a backward scan that picks the last responsive hub's StDev — single stable endpoint rather than a cross-hop average"
+      },
+      {
+        "file": "src/netpath/display.py",
+        "note": "Adds exact-duplicate guard in clean_asn_name() before the short-code check to collapse 'Dimension Data - Dimension Data' patterns"
+      },
+      {
+        "file": "src/netpath/servers.py",
+        "note": "Adds _is_alive() TCP socket probe and integrates it into find_servers_in_asn() to filter out unresponsive iperf3 servers before returning candidates"
+      },
+      {
+        "file": "tests/test_diagnosis.py",
+        "note": "Adds 5 new test cases covering icmp_filtered_path (all-stars and trailing-??? variants), genuine stall, routing loop detected, and routing loop absent"
+      },
+      {
+        "file": "tests/test_display.py",
+        "note": "New file: 3 clean_asn_name() cases covering exact duplicate (single-word), exact duplicate (multi-word), and existing short-code behavior"
+      },
+      {
+        "file": "tests/test_servers.py",
+        "note": "New file: 2 _is_alive() mock tests covering OSError (returns False) and success (returns True)"
+      }
+    ]
+  }
 }

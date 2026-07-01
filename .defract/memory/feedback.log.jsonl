@@ -131,3 +131,9 @@
 {"entryId":"01KWCKQ6JF8GF38HZJKGNBYM6K","taskId":"task-scoring-the-za-country-sweep-output-01kwf9mr4338","stage":"scope","outcome":"noise","timestamp":"2026-07-01T17:08:07.669Z"}
 {"entryId":"01KWCKPP28DBHPG92PJ2YN9QR1","taskId":"task-scoring-the-za-country-sweep-output-01kwf9mr4338","stage":"scope","outcome":"noise","timestamp":"2026-07-01T17:08:07.669Z"}
 {"entryId":"01KWDAPN2565TW8XXMZAM6YVM2","taskId":"task-scoring-the-za-country-sweep-output-01kwf9mr4338","stage":"scope","outcome":"noise","timestamp":"2026-07-01T17:08:07.669Z"}
+{"entryId":"01KWDANDKPYBXAVAWBH73J23KY","taskId":"task-scoring-the-za-country-sweep-output-01kwf9mr4338","stage":"review","outcome":"helpful","timestamp":"2026-07-01T17:51:07.272Z"}
+{"entryId":"01KWF7SR22DVZES7BVA5PGK4HV","taskId":"task-scoring-the-za-country-sweep-output-01kwf9mr4338","stage":"review","outcome":"helpful","timestamp":"2026-07-01T17:51:07.272Z"}
+{"entryId":"01KWCKPTN09VEWAVZ9R4GZGR63","taskId":"task-scoring-the-za-country-sweep-output-01kwf9mr4338","stage":"review","outcome":"helpful","timestamp":"2026-07-01T17:51:07.272Z"}
+{"entryId":"01KWDAP76RH5KQSR4Z3E9TPKGE","taskId":"task-scoring-the-za-country-sweep-output-01kwf9mr4338","stage":"review","outcome":"helpful","timestamp":"2026-07-01T17:51:07.272Z"}
+{"entryId":"01KWCKPP28DBHPG92PJ2YN9QR1","taskId":"task-scoring-the-za-country-sweep-output-01kwf9mr4338","stage":"release","outcome":"noise","timestamp":"2026-07-01T17:52:45.271Z"}
+{"entryId":"01KWCKPTN09VEWAVZ9R4GZGR63","taskId":"task-scoring-the-za-country-sweep-output-01kwf9mr4338","stage":"release","outcome":"noise","timestamp":"2026-07-01T17:52:45.271Z"}
