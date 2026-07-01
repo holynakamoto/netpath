@@ -3,7 +3,7 @@ defract:
   id: task-scoring-the-za-country-sweep-output-01kwf9mr4338
   type: bug
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
   total_phases: 1
   priority: normal
@@ -143,3 +143,38 @@ The five changes touch `diagnosis.py` (check 0 logic and a new check 10), `cli.p
 ### Dependencies
 
 No external dependencies added. `socket` is stdlib.
+
+## Implementation Notes
+
+## Phase 1: Fix diagnostic accuracy, jitter, name display, and server liveness
+
+All five targeted fixes implemented across four source modules, with covering tests.
+
+### Changes
+
+**`src/netpath/diagnosis.py`**
+- Updated `_CONDITION_VERDICT` with `"icmp_filtered_path": "Healthy"` and `"routing_loop": "Routing Loop"`.
+- Rewrote check 0: empty hub list → `incomplete_path` warning (unchanged); all-stars hub list → `icmp_filtered_path` ok; trailing `???` hops (`max_count > stall_hop`) → `icmp_filtered_path` ok; last hub responsive → `incomplete_path` warning.
+- Added check 10: de-adjacent AS path iteration with a `seen` set to find the first repeated known ASN; emits `routing_loop` warning when found.
+
+**`src/netpath/cli.py`**
+- Replaced the mean-StDev averaging loop (lines 254–258) with a backward scan over `hubs` that picks the last responsive hub's `StDev` as `jitter_ms`.
+
+**`src/netpath/display.py`**
+- Added exact-duplicate guard in `clean_asn_name()` before the short-code check: when `prefix.strip() == rest.strip()`, return the cleaned rest.
+
+**`src/netpath/servers.py`**
+- Added `import socket`.
+- Added `_is_alive(ip, port, timeout=3.0)` using `socket.create_connection`, catching `OSError`.
+- Updated `find_servers_in_asn()` to filter candidates through `_is_alive` before returning.
+
+### Tests
+
+- `tests/test_diagnosis.py` — 5 new cases: `test_icmp_filtered_path_all_stars`, `test_icmp_filtered_path_trailing_stars`, `test_incomplete_path_genuine_stall`, `test_routing_loop_detected`, `test_routing_loop_no_repeat`.
+- `tests/test_display.py` — created; 3 `clean_asn_name` cases.
+- `tests/test_servers.py` — created; 2 `_is_alive` mock cases.
+
+### Results
+
+62/62 tests pass (up from 52). `ruff check src tests` clean.
+

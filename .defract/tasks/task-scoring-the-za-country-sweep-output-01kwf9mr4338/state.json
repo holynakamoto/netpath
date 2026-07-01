@@ -1,11 +1,11 @@
 {
   "id": "task-scoring-the-za-country-sweep-output-01kwf9mr4338",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 1,
   "createdAt": "2026-07-01T16:54:21Z",
-  "updatedAt": "2026-07-01T17:08:14Z",
+  "updatedAt": "2026-07-01T17:40:53Z",
   "events": [
     {
       "base_branch": "main",
@@ -115,6 +115,179 @@
       "type": "stage_work_complete",
       "worktree_head": "b716d2f451190ba62c47c1e0c1dc902838f86651",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-01T17:36:25Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-07-01T17:36:24Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "6d38990be2ecb406f795c12ebafbe810129ca6e6",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "b716d2f451190ba62c47c1e0c1dc902838f86651",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-01T17:36:25Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-07-01T17:36:25Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-07-01T17:36:25Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T17:36:25Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwfc1sbr29cen0rgm6th9ysr",
+      "stage": "implementation",
+      "timestamp": "2026-07-01T17:36:25Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwf9y6br5g0167j965mvdkg2",
+      "timed_out": false,
+      "timestamp": "2026-07-01T17:36:26Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting phase 1: reading existing source files before implementing changes",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T17:36:34Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Fix diagnostic accuracy, jitter, name display, and server liveness",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-07-01T17:36:38Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes across diagnosis.py, cli.py, display.py, servers.py",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-07-01T17:37:50Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-07-01T17:39:35Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-07-01T17:39:46Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "Baseline was 52 tests. Added 10 new tests: 5 in test_diagnosis.py (icmp_filtered_path_all_stars, icmp_filtered_path_trailing_stars, incomplete_path_genuine_stall, routing_loop_detected, routing_loop_no_repeat), 3 in test_display.py, 2 in test_servers.py. All 62 pass. ruff check src tests: no errors.",
+      "failed": 0,
+      "passed": 62,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-07-01T17:40:04Z",
+      "type": "test_results"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-07-01T17:40:08Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 1 complete: five diagnostic/display/server fixes with 10 new tests",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T17:40:25Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/diagnosis.py",
+        "src/netpath/cli.py",
+        "src/netpath/display.py",
+        "src/netpath/servers.py",
+        "tests/test_diagnosis.py",
+        "tests/test_display.py",
+        "tests/test_servers.py"
+      ],
+      "phase": 0,
+      "summary": "Five fixes shipped: ICMP-filtered path reclassification in diagnosis.py check 0, routing loop detection as check 10, last-hub StDev jitter in cli.py, exact-duplicate name guard in display.py, and TCP liveness check in servers.py. 10 new tests added; full suite 62/62 green, lint clean.",
+      "timestamp": "2026-07-01T17:40:34Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `uv run pytest tests/test_diagnosis.py -v` and confirm all 31 tests pass (19 original + 5 new ICMP/routing-loop cases)."
+        },
+        {
+          "description": "Run `uv run pytest tests/test_display.py -v` and confirm `clean_asn_name(\"Dimension Data - Dimension Data\")` returns `\"Dimension Data\"` via the passing test."
+        },
+        {
+          "description": "Run `uv run pytest tests/test_servers.py -v` and confirm both `_is_alive` mock tests pass."
+        },
+        {
+          "description": "Run `uv run pytest tests/ -q` and confirm all 62 tests pass with no failures."
+        },
+        {
+          "description": "Run `uv run ruff check src tests` and confirm no lint errors are reported."
+        },
+        {
+          "description": "In a Python REPL with `uv run python3`, import and call `from netpath.diagnosis import diagnose; diagnose({'path_complete': False, 'hubs': [{'count':1,'host':'???','Loss%':100}]})` and confirm `severity` is `'ok'` and `condition` is `'icmp_filtered_path'`."
+        },
+        {
+          "description": "In a Python REPL, call `from netpath.diagnosis import diagnose; diagnose({'as_path': ['AS1','AS2','AS3','AS2']})` and confirm `verdict` is `'Routing Loop'` and `severity` is `'warning'`."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Fix diagnostic accuracy, jitter, name display, and server liveness",
+      "timestamp": "2026-07-01T17:40:48Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Fix diagnostic accuracy, jitter, name display, and server liveness",
+      "server_phase": 0,
+      "timestamp": "2026-07-01T17:40:53Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Fix diagnostic accuracy, jitter, name display, and server liveness",
+      "timestamp": "2026-07-01T17:40:53Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "6d38990be2ecb406f795c12ebafbe810129ca6e6",
+      "worktree_status_digest": "daf99ef9ae802c5d70f91318d6e7d3eba8f8175f261d27923e5f84cf622f91ca"
     }
   ],
   "needsArchitecture": false,
@@ -131,28 +304,36 @@
     "classifiedBy": "scope-agent",
     "rationale": "Five targeted bug fixes in existing modules — no new UI components (skip design), well-contained to 4 source files all following existing patterns (skip architecture), changes are additive logic fixes not structural refactors."
   },
+  "stageApprovals": {
+    "scope": "2026-07-01T17:36:24Z"
+  },
+  "stageContent": {
+    "implementation": "## Phase 1: Fix diagnostic accuracy, jitter, name display, and server liveness\n\nAll five targeted fixes implemented across four source modules, with covering tests.\n\n### Changes\n\n**`src/netpath/diagnosis.py`**\n- Updated `_CONDITION_VERDICT` with `\"icmp_filtered_path\": \"Healthy\"` and `\"routing_loop\": \"Routing Loop\"`.\n- Rewrote check 0: empty hub list → `incomplete_path` warning (unchanged); all-stars hub list → `icmp_filtered_path` ok; trailing `???` hops (`max_count > stall_hop`) → `icmp_filtered_path` ok; last hub responsive → `incomplete_path` warning.\n- Added check 10: de-adjacent AS path iteration with a `seen` set to find the first repeated known ASN; emits `routing_loop` warning when found.\n\n**`src/netpath/cli.py`**\n- Replaced the mean-StDev averaging loop (lines 254–258) with a backward scan over `hubs` that picks the last responsive hub's `StDev` as `jitter_ms`.\n\n**`src/netpath/display.py`**\n- Added exact-duplicate guard in `clean_asn_name()` before the short-code check: when `prefix.strip() == rest.strip()`, return the cleaned rest.\n\n**`src/netpath/servers.py`**\n- Added `import socket`.\n- Added `_is_alive(ip, port, timeout=3.0)` using `socket.create_connection`, catching `OSError`.\n- Updated `find_servers_in_asn()` to filter candidates through `_is_alive` before returning.\n\n### Tests\n\n- `tests/test_diagnosis.py` — 5 new cases: `test_icmp_filtered_path_all_stars`, `test_icmp_filtered_path_trailing_stars`, `test_incomplete_path_genuine_stall`, `test_routing_loop_detected`, `test_routing_loop_no_repeat`.\n- `tests/test_display.py` — created; 3 `clean_asn_name` cases.\n- `tests/test_servers.py` — created; 2 `_is_alive` mock cases.\n\n### Results\n\n62/62 tests pass (up from 52). `ruff check src tests` clean.\n"
+  },
   "stages": {
     "architecture": {
-      "status": "skipped"
-    },
-    "design": {
       "status": "skipped"
     },
     "release": {
       "status": "not_started"
     },
-    "review": {
-      "status": "not_started"
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T17:36:24Z",
+      "startedAt": "2026-07-01T16:59:31Z"
+    },
+    "design": {
+      "status": "skipped"
     },
     "implementation": {
-      "status": "not_started"
+      "status": "in_progress",
+      "startedAt": "2026-07-01T17:36:25Z"
     },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-01T16:59:31Z"
+    "review": {
+      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-scoring-the-za-country-sweep-output-01kwf9mr4338",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T16:59:31Z"
+  "worktreeLastSyncedAt": "2026-07-01T17:36:25Z"
 }
