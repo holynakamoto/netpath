@@ -179,7 +179,7 @@ def _run_traceroute_cmd(host: str, tcp: bool = False) -> list[dict]:
     Parameters tuned for fast failure: 1s wait, 15 hops, 2 probes → 30s worst case.
     tcp=True uses TCP SYN to port 443 (requires pcap — may fail on macOS without privs).
     """
-    cmd = ["/usr/sbin/traceroute", "-n", "-w", "1", "-m", "15", "-q", "2"]
+    cmd = ["/usr/sbin/traceroute", "-n", "-w", "1", "-m", "30", "-q", "2"]
     if tcp:
         cmd += ["-P", "tcp", "-p", "443"]
     cmd.append(host)

@@ -162,3 +162,33 @@ def test_tls_latency_warning():
 def test_tls_latency_below_threshold_is_healthy():
     result = diagnose({"tls_handshake_ms": 400})
     assert result["verdict"] == "Healthy"
+
+
+def test_incomplete_path_with_stall_hop():
+    """path_complete=False fires Incomplete Path warning and includes stall_hop in signals."""
+    result = diagnose({"path_complete": False, "stall_hop": 12, "hubs": []})
+    assert result["verdict"] == "Incomplete Path"
+    assert result["severity"] == "warning"
+    assert any("stall_hop=12" in s for s in result["signals"])
+    assert "hop 12" in result["detail"]
+
+
+def test_incomplete_path_without_stall_hop():
+    """path_complete=False without stall_hop still fires Incomplete Path warning."""
+    result = diagnose({"path_complete": False, "hubs": []})
+    assert result["verdict"] == "Incomplete Path"
+    assert result["severity"] == "warning"
+    assert any("path_complete=False" in s for s in result["signals"])
+    assert "stall_hop" not in result["signals"][0]
+
+
+def test_path_complete_none_is_healthy():
+    """path_complete=None is treated as unknown — no Incomplete Path verdict."""
+    result = diagnose({"path_complete": None, "hubs": []})
+    assert result["verdict"] == "Healthy"
+
+
+def test_path_complete_absent_is_healthy():
+    """Missing path_complete key (asn subcommand) does not trigger Incomplete Path."""
+    result = diagnose({"hubs": []})
+    assert result["verdict"] == "Healthy"

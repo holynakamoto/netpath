@@ -35,6 +35,22 @@ def diagnose(result: dict) -> dict:
         else:
             loss_threshold = LOSS_THRESHOLD_DEFAULT
 
+        # (0) Incomplete path — traceroute never reached the target ASN
+        if result.get("path_complete") is False:
+            stall = result.get("stall_hop")
+            stall_str = f" at hop {stall}" if stall is not None else ""
+            return {
+                "verdict": "Incomplete Path",
+                "severity": "warning",
+                "detail": (
+                    f"Traceroute did not reach the target ASN{stall_str}. "
+                    "The path may be filtered or the target unreachable."
+                ),
+                "signals": [
+                    "path_complete=False" + (f", stall_hop={stall}" if stall is not None else "")
+                ],
+            }
+
         # (1) Severe bufferbloat
         if bufferbloat is not None and bufferbloat > 30:
             return {

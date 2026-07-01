@@ -108,21 +108,29 @@ def get_top_asns(country_code: str, top_n: int = 4) -> list[dict]:
 
 
 def _get_atlas_probe_ip(asn: str) -> str | None:
-    """Return the IPv4 of the first connected RIPE Atlas probe in the ASN, or None."""
+    """Return the IPv4 of a connected RIPE Atlas probe in the ASN.
+
+    Tries anchor probes (is_anchor=true) first; falls back to any connected probe.
+    Returns None if both queries find nothing or either request fails.
+    """
     asn_num = asn.lstrip("ASas")
-    try:
-        r = requests.get(
-            RIPE_ATLAS_PROBES,
-            params={"asn": asn_num, "status": 1, "sort": "id", "page_size": 1},
-            timeout=5,
-        )
-        r.raise_for_status()
-        for probe in r.json().get("results", []):
-            ip = probe.get("address_v4")
-            if ip:
-                return ip
-    except requests.RequestException:
-        pass
+    base_params = {"asn": asn_num, "status": 1, "sort": "id", "page_size": 1}
+
+    for extra in ({"is_anchor": "true"}, {}):
+        try:
+            r = requests.get(
+                RIPE_ATLAS_PROBES,
+                params={**base_params, **extra},
+                timeout=5,
+            )
+            r.raise_for_status()
+            for probe in r.json().get("results", []):
+                ip = probe.get("address_v4")
+                if ip:
+                    return ip
+        except requests.RequestException:
+            pass
+
     return None
 
 
