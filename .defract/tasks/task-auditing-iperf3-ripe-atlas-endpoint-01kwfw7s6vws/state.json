@@ -2,10 +2,10 @@
   "id": "task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws",
   "status": "active",
   "stage": "implementation",
-  "phase": 0,
+  "phase": 1,
   "totalPhases": 2,
   "createdAt": "2026-07-01T22:19:19Z",
-  "updatedAt": "2026-07-01T22:54:00Z",
+  "updatedAt": "2026-07-01T22:58:11Z",
   "events": [
     {
       "base_branch": "main",
@@ -263,6 +263,32 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "719004c5adb9a55c39a7241ada0dd67494e7cac0",
       "worktree_status_digest": "e9bc4b9e6d30b84ac449a3133fd8fe927e77e2d71dc79547396c12f1beb22277"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Fix iperf3 server selection bugs",
+      "timestamp": "2026-07-01T22:58:11Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 0,
+      "timestamp": "2026-07-01T22:58:11Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-01T22:58:11Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwfyeywt8g3qms8epsxszm25",
+      "stage": "implementation",
+      "timestamp": "2026-07-01T22:58:11Z",
+      "type": "stage_agent_started"
     }
   ],
   "needsArchitecture": false,
@@ -286,23 +312,23 @@
     "implementation": "## Phase 1: Fix iperf3 server selection bugs\n\n### Changes\n\n**`src/netpath/servers.py`**\n- Added module-level import of `from . import iperf as _iperf`\n- Added `json` and `subprocess` stdlib imports\n- Renamed `_is_alive` to `_tcp_alive` (TCP-only check, kept for fallback use)\n- Added `_is_iperf3_alive(ip, port)`: runs `iperf3 -c ip -p port -t 1 -J` with 15s timeout; zero exit code + parseable JSON with no `error` field = alive; falls back to `_tcp_alive` when `iperf.available()` returns False\n- `find_servers_in_asn`: moved `[:max_count]` truncation after the liveness filter; liveness now uses `_is_iperf3_alive`\n\n**`tests/test_servers.py`** (rewritten)\n- `test_tcp_alive_returns_false_on_oserror` — TCP fallback behaves correctly on error\n- `test_tcp_alive_returns_true_on_success` — TCP fallback succeeds\n- `test_is_iperf3_alive_true_on_zero_exit_valid_json` — happy path\n- `test_is_iperf3_alive_false_on_nonzero_exit` — rejected on non-zero exit\n- `test_is_iperf3_alive_false_when_json_has_error_field` — rejected when JSON contains `error` key\n- `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` — TCP fallback when iperf3 absent\n- `test_is_iperf3_alive_false_on_timeout` — TimeoutExpired returns False\n- `test_find_servers_in_asn_checks_all_candidates_before_truncating` — 5 candidates, first 3 dead, returns 2 live\n- `test_find_servers_in_asn_respects_max_count_after_filter` — 5 live servers, max_count=3 returns 3\n- `test_find_servers_in_asn_excludes_server_failing_iperf3_protocol` — TCP-only server excluded\n\n### Result\n70/70 tests pass. ruff reports no errors."
   },
   "stages": {
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-07-01T22:50:45Z",
-      "startedAt": "2026-07-01T22:29:19Z"
-    },
-    "design": {
-      "status": "skipped"
-    },
-    "architecture": {
-      "status": "skipped"
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-01T22:58:11Z"
     },
     "review": {
       "status": "not_started"
     },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-01T22:50:46Z"
+    "architecture": {
+      "status": "skipped"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T22:50:45Z",
+      "startedAt": "2026-07-01T22:29:19Z"
     },
     "release": {
       "status": "not_started"
@@ -310,5 +336,5 @@
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T22:50:46Z"
+  "worktreeLastSyncedAt": "2026-07-01T22:58:11Z"
 }
