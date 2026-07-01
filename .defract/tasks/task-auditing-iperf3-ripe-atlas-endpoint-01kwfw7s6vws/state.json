@@ -5,7 +5,7 @@
   "phase": 1,
   "totalPhases": 2,
   "createdAt": "2026-07-01T22:19:19Z",
-  "updatedAt": "2026-07-01T23:10:37Z",
+  "updatedAt": "2026-07-01T23:11:39Z",
   "events": [
     {
       "base_branch": "main",
@@ -368,6 +368,64 @@
       "stage": "implementation",
       "timestamp": "2026-07-01T23:10:37Z",
       "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/atlas.py",
+        "src/netpath/cli.py",
+        "src/netpath/display.py"
+      ],
+      "phase": 1,
+      "summary": "Created atlas.py with all Atlas API logic (probe discovery, credit budget check, measurement scheduling, polling, result parsing). Extended cli.py country command with --atlas-key option, pre-sweep probe discovery + budget check, per-ASN test IP tracking, and post-sweep schedule/poll/merge flow. Extended display.py country_summary to render Atlas RTT and AS-path as optional sub-lines, no-op when atlas key absent.",
+      "timestamp": "2026-07-01T23:10:45Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `uv run netpath country ZA` (no --atlas-key) and confirm output is identical to before — no Atlas lines, no new columns, no errors."
+        },
+        {
+          "description": "Run `uv run pytest --tb=short -q` and confirm all 70 tests pass."
+        },
+        {
+          "description": "Run `uv run ruff check src tests` and confirm `All checks passed!`."
+        },
+        {
+          "description": "Run `uv run netpath country --help` and confirm `--atlas-key` and `NETPATH_ATLAS_KEY` appear in the option list."
+        },
+        {
+          "description": "In a Python REPL (`uv run python3`), run `from netpath.atlas import check_budget, find_probes_in_asn, schedule_measurements, poll_until_done, fetch_results, parse_ping_rtt, parse_traceroute_as_path, get_public_ip` and confirm all import without error."
+        },
+        {
+          "description": "With a valid Atlas key set as `NETPATH_ATLAS_KEY=<key>`, run `uv run netpath country ZA --top 2 --atlas-key $NETPATH_ATLAS_KEY` and confirm: probe discovery runs, credit estimate is printed, measurement IDs (ping # and traceroute #) are printed per ASN, and the summary shows `[Atlas]` RTT sub-lines for ASNs where probes were found."
+        },
+        {
+          "description": "With an Atlas key that has 0 credits available, confirm the command prints an 'Insufficient Atlas credits' error and exits before printing any measurement IDs."
+        },
+        {
+          "description": "Open `src/netpath/atlas.py` and confirm: all `requests.get` / `requests.post` calls are wrapped in `_with_retry(lambda: ...)`, and all pass `Authorization: Key {atlas_key}` via `_hdr(atlas_key)`."
+        }
+      ],
+      "phase": 1,
+      "phase_title": "RIPE Atlas measurement mode",
+      "timestamp": "2026-07-01T23:10:59Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 2,
+      "phase_title": "RIPE Atlas measurement mode",
+      "server_phase": 1,
+      "timestamp": "2026-07-01T23:11:39Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 1,
+      "phase_title": "RIPE Atlas measurement mode",
+      "timestamp": "2026-07-01T23:11:39Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "d4937f1cc3941669c3e3dd55c402f9bb3189d0dc",
+      "worktree_status_digest": "510a49bb39081e6c54c50949bcec956a568a39b852147f9d1f0839129acdcdc5"
     }
   ],
   "needsArchitecture": false,
@@ -391,26 +449,26 @@
     "implementation": "## Phase 1: Fix iperf3 server selection bugs\n\n### Changes\n\n**`src/netpath/servers.py`**\n- Added module-level import of `from . import iperf as _iperf`\n- Added `json` and `subprocess` stdlib imports\n- Renamed `_is_alive` to `_tcp_alive` (TCP-only check, kept for fallback use)\n- Added `_is_iperf3_alive(ip, port)`: runs `iperf3 -c ip -p port -t 1 -J` with 15s timeout; zero exit code + parseable JSON with no `error` field = alive; falls back to `_tcp_alive` when `iperf.available()` returns False\n- `find_servers_in_asn`: moved `[:max_count]` truncation after the liveness filter; liveness now uses `_is_iperf3_alive`\n\n**`tests/test_servers.py`** (rewritten)\n- `test_tcp_alive_returns_false_on_oserror` — TCP fallback behaves correctly on error\n- `test_tcp_alive_returns_true_on_success` — TCP fallback succeeds\n- `test_is_iperf3_alive_true_on_zero_exit_valid_json` — happy path\n- `test_is_iperf3_alive_false_on_nonzero_exit` — rejected on non-zero exit\n- `test_is_iperf3_alive_false_when_json_has_error_field` — rejected when JSON contains `error` key\n- `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` — TCP fallback when iperf3 absent\n- `test_is_iperf3_alive_false_on_timeout` — TimeoutExpired returns False\n- `test_find_servers_in_asn_checks_all_candidates_before_truncating` — 5 candidates, first 3 dead, returns 2 live\n- `test_find_servers_in_asn_respects_max_count_after_filter` — 5 live servers, max_count=3 returns 3\n- `test_find_servers_in_asn_excludes_server_failing_iperf3_protocol` — TCP-only server excluded\n\n### Result\n70/70 tests pass. ruff reports no errors.\n\n## Phase 2: RIPE Atlas measurement mode\n\n### Changes\n\n**`src/netpath/atlas.py`** (new)\n- `get_public_ip()`: fetches caller's IPv4 via ipify, used once per sweep as the traceroute target\n- `find_probes_in_asn(asn, atlas_key)`: queries Atlas v4 probes endpoint with `asn_v4` + `status=1`, returns up to 3 probe IDs; returns `[]` on any failure\n- `check_budget(probes_by_asn, atlas_key)`: sums probe counts × (PING_CREDITS=1 + TRACE_CREDITS=10), queries `/api/v4/credits/`, returns `(sufficient, cost, balance)`\n- `schedule_measurements(probe_ids, target_ip, user_ip, atlas_key)`: two sequential POST requests — ping to `target_ip`, traceroute (TCP/80, paris=6) to `user_ip`; returns `{\"ping\": id, \"traceroute\": id}`; raises on API error\n- `poll_until_done(measurement_ids, atlas_key, timeout=600)`: polls with 30-second sleep intervals; terminal statuses: stopped, forced to stop, no suitable probes, failed, denied; returns `{id: status_name}` with `\"timed_out\"` for stragglers\n- `fetch_results(measurement_id, atlas_key)`: fetches `/api/v4/measurements/{id}/results/`; returns `[]` on failure\n- `parse_ping_rtt(results)`: extracts RTTs from `result[probe].result[pkt].rtt`, returns `{min, avg, max}` or None\n- `parse_traceroute_as_path(results)`: collects unique hop IPs, resolves via `cymru_bulk_lookup`, walks first probe's hop list to build deduplicated AS sequence\n\n**`src/netpath/cli.py`**\n- Added `atlas as atlas_mod` import\n- Added `_set_atlas_error(rows, asn, msg)` module-level helper\n- Added `--atlas-key` / `NETPATH_ATLAS_KEY` option to `country` command\n- Pre-sweep: discovers Atlas probes for all target ASNs, gets user's public IP, checks credit budget (aborts if insufficient)\n- Per-ASN loop: tracks test IP per ASN (`_atlas_test_ips`) as ping target for Atlas measurements\n- Post-sweep: schedules ping + traceroute for each ASN with probes (prints measurement IDs), polls all measurements with 600-second timeout, fetches + parses results, merges `atlas` dict into each summary row\n- No-probe and timed-out ASNs get `probe_errors[\"atlas\"]` set\n\n**`src/netpath/display.py`**\n- Added `_render_atlas_subrow(r, is_last_in_group)`: prints optional indented `[Atlas] RTT X ms avg, AS-path` line beneath each ISP row; no-op when `r.get(\"atlas\")` is absent\n- Called in `country_summary` for both complete and incomplete path rows\n- Non-Atlas layout is pixel-identical (function is a no-op when Atlas key was not used)\n\n### Decisions\n- Probe discovery runs before the regular sweep so the budget check uses exact probe counts\n- All Atlas measurements are scheduled after the regular sweep completes, then polled in one shared 600-second window — faster than per-ASN schedule+poll\n\n### Result\n70/70 tests pass. ruff reports no errors."
   },
   "stages": {
-    "design": {
-      "status": "skipped"
+    "review": {
+      "status": "not_started"
     },
     "release": {
       "status": "not_started"
     },
+    "design": {
+      "status": "skipped"
+    },
     "architecture": {
       "status": "skipped"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-01T22:58:11Z"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-01T22:50:45Z",
       "startedAt": "2026-07-01T22:29:19Z"
-    },
-    "review": {
-      "status": "not_started"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-01T22:58:11Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws",
