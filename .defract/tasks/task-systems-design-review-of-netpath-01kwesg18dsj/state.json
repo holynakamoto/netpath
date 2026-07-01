@@ -2,10 +2,10 @@
   "id": "task-systems-design-review-of-netpath-01kwesg18dsj",
   "status": "active",
   "stage": "implementation",
-  "phase": 0,
+  "phase": 1,
   "totalPhases": 3,
   "createdAt": "2026-07-01T12:12:09Z",
-  "updatedAt": "2026-07-01T15:11:01Z",
+  "updatedAt": "2026-07-01T15:17:04Z",
   "events": [
     {
       "base_branch": "main",
@@ -422,6 +422,60 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "f7f8a07352022ae853a9adbf5e4998de9868c2b2",
       "worktree_status_digest": "ce211c07092ffff343ac70b50429347ec2c01614b061af75cd87fdb7fd3fc6af"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Complete diagnostic reporting and typed contracts",
+      "timestamp": "2026-07-01T15:13:42Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "phase": 0,
+      "timestamp": "2026-07-01T15:13:42Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-01T15:13:44Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwf3wgh4kvarp3ejg5etmmzb",
+      "stage": "implementation",
+      "timestamp": "2026-07-01T15:13:44Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting Phase 2: probe failure tracking, utils.py retry helper, partial results annotation",
+      "phase": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T15:14:04Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 2: Probe failure tracking and external call reliability",
+      "percentage": 0,
+      "phase": 2,
+      "timestamp": "2026-07-01T15:16:58Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes: utils.py, probe_errors dict, retry wrappers, partial results annotation",
+      "percentage": 20,
+      "phase": 2,
+      "timestamp": "2026-07-01T15:17:04Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": true,
@@ -440,12 +494,12 @@
     "rationale": "Cross-cutting structural refactor touching 6+ modules with new user-visible behavior (multi-signal diagnosis, partial results indicator, country-mode parity). Skip design — all output changes are text additions to existing terminal panels, no layout or visual design decisions required. Include architecture — introduces new system boundaries (types.py, utils.py), a new concurrency model, and a refactored diagnostic engine that spans 3+ subsystems."
   },
   "stageApprovals": {
-    "architecture": "2026-07-01T15:01:36Z",
-    "scope": "2026-07-01T14:46:14Z"
+    "scope": "2026-07-01T14:46:14Z",
+    "architecture": "2026-07-01T15:01:36Z"
   },
   "stageContent": {
-    "architecture": "### Architecture Summary\n\nThe six architectural problems in netpath are fixed in three sequential passes. First, the diagnostic engine is taught to collect every network problem it finds instead of stopping at the first one — a path with bufferbloat, packet loss, and high jitter will now report all three, and the worst one sets the overall verdict. TypedDict contracts are added to make the data shapes visible and verifiable. Second, probe failures become first-class data: every probe that fails records its name and reason in a shared dictionary, the diagnostic engine reads that dictionary and sets a 'partial results' flag, and the terminal output shows a visible annotation so a 'Healthy (partial)' result is clearly distinguished from a fully-verified clean pass. External HTTP calls (server list, Cloudflare RUM) get automatic retry with exponential backoff. Third, the background threads that have no structured cleanup are replaced by a single managed thread pool used for all concurrent work: dual-stack traces, PMTU probing, TCP/TLS latency, and RUM fetching all run in parallel through the same executor, and country-mode sweeps gain the same full probe set that single-ASN mode already provides.\n\n### Implementation Phases\n\n### Phase 1: Complete diagnostic reporting and typed contracts\n\n**Verification:**\n- [ ] pytest tests/test_diagnosis.py passes with zero failures after signal format change\n- [ ] python -c \"from netpath.types import Hub, MeasurementResult\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'bufferbloat_ms': 50, 'jitter_ms': 15.0, 'hubs': []}); assert len(r['signals']) >= 2\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'probe_errors': {'iperf3': 'timed out'}}); assert r['partial_results'] is True\" exits 0\n- [ ] ruff check . reports zero errors\n\n**Estimated effort:** Medium\n\n### Phase 2: Probe failure tracking and external call reliability\n\n**Verification:**\n- [ ] pytest tests/test_utils.py passes\n- [ ] grep '_trace_error\\|_iperf_error\\|_speedtest_error' src/netpath/cli.py returns zero matches\n- [ ] python -c \"from netpath.utils import _with_retry\" exits 0\n- [ ] ruff check . reports zero errors\n- [ ] pytest passes with no regressions from Phase 1\n\n**Estimated effort:** Medium\n\n### Phase 3: Structured concurrency and country-mode parity\n\n**Verification:**\n- [ ] grep -n 'threading.Thread' src/netpath/cli.py returns zero results\n- [ ] python -c \"import concurrent.futures; from netpath.cli import _measure\" exits 0\n- [ ] pytest passes with no regressions\n- [ ] ruff check . reports zero errors\n- [ ] manual test: netpath country US --top 2 shows ECMP path count and PMTU in per-ASN output\n\n**Estimated effort:** Medium\n",
-    "implementation": "## Phase 1: Complete diagnostic reporting and typed contracts\n\n**Files changed:** `src/netpath/diagnosis.py`, `src/netpath/display.py`, `src/netpath/cli.py`, `src/netpath/mtr.py`, `tests/test_diagnosis.py`\n**Files created:** `src/netpath/types.py`\n\n### What was built\n\n- `diagnosis.py` rewritten: removed all early-return patterns across 9 checks. Every check runs unconditionally and appends `{condition, severity, detail}` dicts to a `signals` list. At the end, worst severity across all signals sets the top-level severity; the highest-severity non-ok signal's condition/detail sets the verdict string and detail. `partial_results: bool` read from `probe_errors` key in the result dict.\n- `types.py` created: `Hub` TypedDict (functional form for `Loss%` key) with `total=False`; `MeasurementResult` TypedDict (class form) with `total=False`, covering all public and internal keys including `probe_errors`.\n- `display.verdict_panel()` updated: signal rendering changed from `f\"  • {sig}\"` to `f\"  • {sig['detail']}\"` to handle the new dict format (per architecture decision AD-4).\n- `cli.py`: imports `MeasurementResult`, annotates `_measure()` return type.\n- `mtr.py`: imports `Hub`, annotates `run()` and `_parse_traceroute_output()` return types.\n- 6 string-based signal assertions in `test_diagnosis.py` updated to `s[\"condition\"]` / `s[\"detail\"]` checks; 3 new tests added: `test_multiple_simultaneous_signals`, `test_partial_results_set_when_probe_errors`, `test_partial_results_false_when_no_probe_errors`.\n\n### No deviations from plan\n\nRate-limited hop signals use severity \"ok\" so they appear in the signals list without elevating the verdict — consistent with existing test expectations and the architecture intent."
+    "implementation": "## Phase 1: Complete diagnostic reporting and typed contracts\n\n**Files changed:** `src/netpath/diagnosis.py`, `src/netpath/display.py`, `src/netpath/cli.py`, `src/netpath/mtr.py`, `tests/test_diagnosis.py`\n**Files created:** `src/netpath/types.py`\n\n### What was built\n\n- `diagnosis.py` rewritten: removed all early-return patterns across 9 checks. Every check runs unconditionally and appends `{condition, severity, detail}` dicts to a `signals` list. At the end, worst severity across all signals sets the top-level severity; the highest-severity non-ok signal's condition/detail sets the verdict string and detail. `partial_results: bool` read from `probe_errors` key in the result dict.\n- `types.py` created: `Hub` TypedDict (functional form for `Loss%` key) with `total=False`; `MeasurementResult` TypedDict (class form) with `total=False`, covering all public and internal keys including `probe_errors`.\n- `display.verdict_panel()` updated: signal rendering changed from `f\"  • {sig}\"` to `f\"  • {sig['detail']}\"` to handle the new dict format (per architecture decision AD-4).\n- `cli.py`: imports `MeasurementResult`, annotates `_measure()` return type.\n- `mtr.py`: imports `Hub`, annotates `run()` and `_parse_traceroute_output()` return types.\n- 6 string-based signal assertions in `test_diagnosis.py` updated to `s[\"condition\"]` / `s[\"detail\"]` checks; 3 new tests added: `test_multiple_simultaneous_signals`, `test_partial_results_set_when_probe_errors`, `test_partial_results_false_when_no_probe_errors`.\n\n### No deviations from plan\n\nRate-limited hop signals use severity \"ok\" so they appear in the signals list without elevating the verdict — consistent with existing test expectations and the architecture intent.",
+    "architecture": "### Architecture Summary\n\nThe six architectural problems in netpath are fixed in three sequential passes. First, the diagnostic engine is taught to collect every network problem it finds instead of stopping at the first one — a path with bufferbloat, packet loss, and high jitter will now report all three, and the worst one sets the overall verdict. TypedDict contracts are added to make the data shapes visible and verifiable. Second, probe failures become first-class data: every probe that fails records its name and reason in a shared dictionary, the diagnostic engine reads that dictionary and sets a 'partial results' flag, and the terminal output shows a visible annotation so a 'Healthy (partial)' result is clearly distinguished from a fully-verified clean pass. External HTTP calls (server list, Cloudflare RUM) get automatic retry with exponential backoff. Third, the background threads that have no structured cleanup are replaced by a single managed thread pool used for all concurrent work: dual-stack traces, PMTU probing, TCP/TLS latency, and RUM fetching all run in parallel through the same executor, and country-mode sweeps gain the same full probe set that single-ASN mode already provides.\n\n### Implementation Phases\n\n### Phase 1: Complete diagnostic reporting and typed contracts\n\n**Verification:**\n- [ ] pytest tests/test_diagnosis.py passes with zero failures after signal format change\n- [ ] python -c \"from netpath.types import Hub, MeasurementResult\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'bufferbloat_ms': 50, 'jitter_ms': 15.0, 'hubs': []}); assert len(r['signals']) >= 2\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'probe_errors': {'iperf3': 'timed out'}}); assert r['partial_results'] is True\" exits 0\n- [ ] ruff check . reports zero errors\n\n**Estimated effort:** Medium\n\n### Phase 2: Probe failure tracking and external call reliability\n\n**Verification:**\n- [ ] pytest tests/test_utils.py passes\n- [ ] grep '_trace_error\\|_iperf_error\\|_speedtest_error' src/netpath/cli.py returns zero matches\n- [ ] python -c \"from netpath.utils import _with_retry\" exits 0\n- [ ] ruff check . reports zero errors\n- [ ] pytest passes with no regressions from Phase 1\n\n**Estimated effort:** Medium\n\n### Phase 3: Structured concurrency and country-mode parity\n\n**Verification:**\n- [ ] grep -n 'threading.Thread' src/netpath/cli.py returns zero results\n- [ ] python -c \"import concurrent.futures; from netpath.cli import _measure\" exits 0\n- [ ] pytest passes with no regressions\n- [ ] ruff check . reports zero errors\n- [ ] manual test: netpath country US --top 2 shows ECMP path count and PMTU in per-ASN output\n\n**Estimated effort:** Medium\n"
   },
   "architectureIntel": {
     "diagram": "flowchart TD\n    M[\"_measure()\\ncli.py\"] -->|\"probe_errors dict\"| D[\"diagnose()\\ndiagnosis.py\"]\n    D -->|\"signals list\\npartial_results bool\\nverdict/severity/detail\"| VP[\"verdict_panel()\\ndisplay.py\"]\n    M -->|\"concurrent futures\"| EX[\"ThreadPoolExecutor\\nv4 trace · v6 trace\\npmtu · tcp · tls · rum\"]\n    U[\"utils._with_retry()\"] -.->|\"wraps HTTP calls\"| S[\"servers._fetch_and_resolve()\"]\n    U -.->|\"wraps HTTP calls\"| R[\"rum.fetch_asn_quality()\"]\n    M --> U",
@@ -687,22 +741,22 @@
     "summary": "The six architectural problems in netpath are fixed in three sequential passes. First, the diagnostic engine is taught to collect every network problem it finds instead of stopping at the first one — a path with bufferbloat, packet loss, and high jitter will now report all three, and the worst one sets the overall verdict. TypedDict contracts are added to make the data shapes visible and verifiable. Second, probe failures become first-class data: every probe that fails records its name and reason in a shared dictionary, the diagnostic engine reads that dictionary and sets a 'partial results' flag, and the terminal output shows a visible annotation so a 'Healthy (partial)' result is clearly distinguished from a fully-verified clean pass. External HTTP calls (server list, Cloudflare RUM) get automatic retry with exponential backoff. Third, the background threads that have no structured cleanup are replaced by a single managed thread pool used for all concurrent work: dual-stack traces, PMTU probing, TCP/TLS latency, and RUM fetching all run in parallel through the same executor, and country-mode sweeps gain the same full probe set that single-ASN mode already provides."
   },
   "stages": {
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-07-01T14:46:14Z",
-      "startedAt": "2026-07-01T12:16:44Z"
-    },
-    "review": {
-      "status": "not_started"
-    },
     "implementation": {
       "status": "in_progress",
-      "startedAt": "2026-07-01T15:01:43Z"
+      "startedAt": "2026-07-01T15:13:44Z"
     },
     "architecture": {
       "status": "approved",
       "approvedAt": "2026-07-01T15:01:36Z",
       "startedAt": "2026-07-01T14:48:05Z"
+    },
+    "review": {
+      "status": "not_started"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T14:46:14Z",
+      "startedAt": "2026-07-01T12:16:44Z"
     },
     "design": {
       "status": "skipped"
@@ -713,5 +767,5 @@
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-systems-design-review-of-netpath-01kwesg18dsj",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T15:01:42Z"
+  "worktreeLastSyncedAt": "2026-07-01T15:13:44Z"
 }
