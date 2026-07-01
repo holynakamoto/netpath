@@ -1,11 +1,11 @@
 {
   "id": "task-using-the-ripe-atlas-probes-feature-01kwdra83w1d",
   "status": "active",
-  "stage": "implementation",
-  "phase": 0,
+  "stage": "review",
+  "phase": 1,
   "totalPhases": 1,
   "createdAt": "2026-07-01T02:32:18Z",
-  "updatedAt": "2026-07-01T02:57:18Z",
+  "updatedAt": "2026-07-01T03:04:08Z",
   "events": [
     {
       "base_branch": "main",
@@ -269,6 +269,115 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "1990685f960d874c589f7705f738e74c4b6f1f21",
       "worktree_status_digest": "d6fbc03a56bb0cf967c7b13d5fae4a1107d1324fe0c7718bc548f4127e12d65e"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Fix probe selection, hop cap, and incomplete-path verdict",
+      "timestamp": "2026-07-01T03:00:51Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "phase": 0,
+      "timestamp": "2026-07-01T03:00:51Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "stage": "implementation",
+      "summary": "All phases approved — implementation ready for review.",
+      "timestamp": "2026-07-01T03:00:51Z",
+      "type": "stage_work_complete",
+      "worktree_head": "c251cc6bf1f2088533651bf6bd077e142c4fffb7",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-01T03:00:52Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T03:00:52Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "04c00d2ee6a5673c70e823cd0f0fc5a019b9feab",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "implementation",
+      "stale_worktree_head": "c251cc6bf1f2088533651bf6bd077e142c4fffb7",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-01T03:00:52Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "implementation",
+      "timestamp": "2026-07-01T03:00:52Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "implementation",
+      "timestamp": "2026-07-01T03:00:52Z",
+      "to": "review",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T03:00:52Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwdsykjc141za1f1r9rstn8e",
+      "stage": "review",
+      "timestamp": "2026-07-01T03:00:52Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "details": "44/44 passed: test_diagnosis.py (23 tests including 4 new incomplete-path cases), test_country.py (7 tests), test_mtr.py (14 tests). Ruff lint: clean.",
+      "failed": 0,
+      "passed": 44,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-07-01T03:03:13Z",
+      "type": "test_results"
+    },
+    {
+      "change_summary": "REQUEST CHANGES: Three of five acceptance criteria pass cleanly. AC-2 fails: the task specifies that the anchor-empty → regular-probe-returns-IP fallback be verified by a dedicated unit test, but no such test exists in test_country.py. A stale comment also needs a one-word fix.",
+      "revision": 1,
+      "stage": "review",
+      "timestamp": "2026-07-01T03:03:46Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Review verdict: REQUEST CHANGES",
+      "rationale": "4/5 acceptance criteria pass. AC-2 fails: the implementation of the anchor-first fallback is correct, but tests/test_country.py has no test exercising the anchor-empty → regular-probe-returns-IP path. The existing test_get_test_ip_falls_through_to_prefix_when_atlas_empty accidentally makes both Atlas calls return empty (the second returns a RIPE prefix response with no 'results' key), so the regular-probe-succeeds branch is never exercised. A stale comment in mtr.py:179 (still says '15 hops') is flagged as info. Automated checks: 2/2 pass (44 tests, ruff clean).",
+      "timestamp": "2026-07-01T03:03:55Z",
+      "type": "decision"
+    },
+    {
+      "stage": "review",
+      "summary": "REQUEST CHANGES. 4/5 ACs pass. AC-2 fails: no unit test verifies the anchor-empty → regular-probe-returns-IP fallback in _get_atlas_probe_ip. One blocking required change: add the missing test to tests/test_country.py. Also flagged a stale '15 hops' comment in mtr.py as info.",
+      "timestamp": "2026-07-01T03:04:08Z",
+      "type": "stage_work_complete",
+      "worktree_head": "04c00d2ee6a5673c70e823cd0f0fc5a019b9feab",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "needsArchitecture": false,
@@ -286,35 +395,137 @@
     "rationale": "Three targeted correctness fixes in 4 files, no UI changes (skip design), no new subsystems or cross-cutting concerns (skip architecture). Bug-fix template: the work restores correct behavior (anchor selection, hop depth, incomplete-path verdict) rather than adding new features."
   },
   "stageApprovals": {
+    "implementation": "2026-07-01T03:00:52Z",
     "scope": "2026-07-01T02:54:13Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Fix probe selection, hop cap, and incomplete-path verdict\n\n### Files Changed\n\n- `src/netpath/country.py` — `_get_atlas_probe_ip()` rewritten to loop over two param sets: `{\"is_anchor\": \"true\"}` first, then `{}` (any connected probe). A `requests.RequestException` on either attempt is caught and the loop continues, preserving the existing RIPE-prefix fallback chain.\n- `src/netpath/mtr.py` — `_run_traceroute_cmd()`: `\"-m\", \"15\"` changed to `\"-m\", \"30\"`. One-character edit; no other changes.\n- `src/netpath/diagnosis.py` — New check `(0)` inserted after the `loss_threshold` calculation block and before the bufferbloat check. Fires when `result.get(\"path_complete\") is False` (strict identity check, not falsy). Returns `{\"verdict\": \"Incomplete Path\", \"severity\": \"warning\", ...}` with `stall_hop` included in both the detail string and the signals list when present.\n- `tests/test_diagnosis.py` — Four new tests: `test_incomplete_path_with_stall_hop`, `test_incomplete_path_without_stall_hop`, `test_path_complete_none_is_healthy`, `test_path_complete_absent_is_healthy`.\n\n### Deviations from Plan\n\nNone. Implementation matches the spec exactly. The anchor-first loop pattern avoids duplicating the HTTP request boilerplate across two separate try/except blocks.\n\n### Verification\n\n- `pytest`: 44/44 passed (23 diagnosis, 7 country, 14 mtr)\n- `ruff check .`: clean\n- `grep -- '\"-m\"' src/netpath/mtr.py`: shows `\"-m\", \"30\"`\n- `grep is_anchor src/netpath/country.py`: shows anchor filter in loop\n"
+    "implementation": "## Phase 1: Fix probe selection, hop cap, and incomplete-path verdict\n\n### Files Changed\n\n- `src/netpath/country.py` — `_get_atlas_probe_ip()` rewritten to loop over two param sets: `{\"is_anchor\": \"true\"}` first, then `{}` (any connected probe). A `requests.RequestException` on either attempt is caught and the loop continues, preserving the existing RIPE-prefix fallback chain.\n- `src/netpath/mtr.py` — `_run_traceroute_cmd()`: `\"-m\", \"15\"` changed to `\"-m\", \"30\"`. One-character edit; no other changes.\n- `src/netpath/diagnosis.py` — New check `(0)` inserted after the `loss_threshold` calculation block and before the bufferbloat check. Fires when `result.get(\"path_complete\") is False` (strict identity check, not falsy). Returns `{\"verdict\": \"Incomplete Path\", \"severity\": \"warning\", ...}` with `stall_hop` included in both the detail string and the signals list when present.\n- `tests/test_diagnosis.py` — Four new tests: `test_incomplete_path_with_stall_hop`, `test_incomplete_path_without_stall_hop`, `test_path_complete_none_is_healthy`, `test_path_complete_absent_is_healthy`.\n\n### Deviations from Plan\n\nNone. Implementation matches the spec exactly. The anchor-first loop pattern avoids duplicating the HTTP request boilerplate across two separate try/except blocks.\n\n### Verification\n\n- `pytest`: 44/44 passed (23 diagnosis, 7 country, 14 mtr)\n- `ruff check .`: clean\n- `grep -- '\"-m\"' src/netpath/mtr.py`: shows `\"-m\", \"30\"`\n- `grep is_anchor src/netpath/country.py`: shows anchor filter in loop\n",
+    "review": "## Verdict\n\n**Verdict:** REQUEST CHANGES\n**Files reviewed:** 4 files changed across 1 phases\n\nThree of five acceptance criteria pass cleanly. AC-2 fails: the task specifies that the anchor-empty → regular-probe-returns-IP fallback be verified by a dedicated unit test, but no such test exists in test_country.py. A stale comment also needs a one-word fix.\n\n### Automated Checks\n\n| Check | Result | Details |\n|-------|--------|---------|\n| Test suite (uv run pytest) | PASS | 44/44 passed |\n| Lint (ruff check .) | PASS | No issues found |\n\n### Acceptance Criteria (4/5 passed)\n\n- [x] AC-1: Querying `netpath country ZA` selects Atlas anchor IPs when available; verified by adding a temporary `print(atlas_ip)` and inspecting that the returned IP belongs to an Atlas anchor. — PASS: country.py:119 — loop over ({\"is_anchor\": \"true\"}, {}) runs the anchor query first; the function returns the first address_v4 found, which will come from the anchor call when anchors exist in the ASN.\n- [ ] AC-2: `_get_atlas_probe_ip` falls back to a regular probe when no anchor exists for an ASN; verified by unit-testing with a mock that returns an empty anchors result and a non-empty regular-probes result. — FAIL: No test in tests/test_country.py covers anchor-empty → regular-probe-returns-IP. test_get_test_ip_falls_through_to_prefix_when_atlas_empty returns ripe_resp (no 'results' key) on the second Atlas call, so both Atlas calls effectively return empty — the regular-probe-succeeds path is never exercised.\n- [x] AC-3: Running `netpath country US` with mtr unavailable produces a traceroute command with `-m 30`; verified by grepping `_run_traceroute_cmd` subprocess call. — PASS: mtr.py:182 — cmd = [\"/usr/sbin/traceroute\", \"-n\", \"-w\", \"1\", \"-m\", \"30\", \"-q\", \"2\"]\n- [x] AC-4: When `diagnosis.diagnose({\"path_complete\": False, \"stall_hop\": 12, \"hubs\": [...]})` is called, the returned dict has `verdict == \"Incomplete Path\"` and `severity == \"warning\"`; verified by pytest. — PASS: tests/test_diagnosis.py:167 — test_incomplete_path_with_stall_hop asserts verdict == 'Incomplete Path', severity == 'warning', 'stall_hop=12' in signals, 'hop 12' in detail. Passes.\n- [x] AC-5: `diagnosis.diagnose({\"hubs\": []})` (no `path_complete` key) still returns the default \"Healthy\" verdict; verified by existing or new test. — PASS: tests/test_diagnosis.py:191 — test_path_complete_absent_is_healthy asserts verdict == 'Healthy'. Passes.\n\n### Code Quality (Refactor Review)\n\n#### Stale comment\n\n- **INFO:** `src/netpath/mtr.py:179` — Docstring says '1s wait, 15 hops, 2 probes → 30s worst case' but the hop cap was raised to 30. Suggested fix: Update to '1s wait, 30 hops, 2 probes → 60s worst case' to match the new -m 30 value\n\n### Security Assessment (Security Review)\n\nNo security issues found in changed files.\n\n### Decisions Made During Implementation\n\n- Anchor preference uses two sequential API calls (anchor-first, any-probe fallback) rather than a combined sort — the Atlas API does not support anchor-prioritized sorting\n- Incomplete-path check lives in diagnosis.py rather than cli.py to keep it testable as a pure function and correct in both terminal and JSON output paths\n- Anchor-first loop iterates over ({\"is_anchor\": \"true\"}, {}) rather than two separate try/except blocks to avoid duplicating request boilerplate\n\n## Headline Findings\n\n- **critical** — AC-2 is unverified: no test confirms that the anchor-empty → regular-probe-returns-IP fallback actually works, so a regression in that path would go undetected. See `### Acceptance Criteria (AC-2)`.\n\n## Required Changes\n\n**Blocking**\n\n- tests/test_country.py — add a test (e.g. test_get_test_ip_falls_back_to_regular_probe_when_no_anchor) that mocks the first Atlas call (is_anchor=true) returning empty results and the second Atlas call returning a probe with address_v4, then asserts the function returns that probe IP (not falling through to the RIPE prefix path)\n\n"
   },
   "stages": {
-    "architecture": {
-      "status": "skipped"
-    },
-    "release": {
-      "status": "not_started"
-    },
-    "review": {
-      "status": "not_started"
-    },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-01T02:54:13Z",
       "startedAt": "2026-07-01T02:47:43Z"
     },
     "implementation": {
-      "status": "in_progress",
+      "status": "approved",
+      "approvedAt": "2026-07-01T03:00:52Z",
       "startedAt": "2026-07-01T02:54:13Z"
+    },
+    "architecture": {
+      "status": "skipped"
+    },
+    "release": {
+      "status": "not_started"
     },
     "design": {
       "status": "skipped"
+    },
+    "review": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-07-01T03:00:52Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-using-the-ripe-atlas-probes-feature-01kwdra83w1d",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T02:54:13Z"
+  "worktreeLastSyncedAt": "2026-07-01T03:00:52Z",
+  "reviewPayload": {
+    "verdict": "request_changes",
+    "summary": "Three of five acceptance criteria pass cleanly. AC-2 fails: the task specifies that the anchor-empty → regular-probe-returns-IP fallback be verified by a dedicated unit test, but no such test exists in test_country.py. A stale comment also needs a one-word fix.",
+    "filesReviewedCount": 4,
+    "phasesReviewedCount": 1,
+    "automatedChecks": [
+      {
+        "name": "Test suite (uv run pytest)",
+        "result": "pass",
+        "detail": "44/44 passed"
+      },
+      {
+        "name": "Lint (ruff check .)",
+        "result": "pass",
+        "detail": "No issues found"
+      }
+    ],
+    "acceptanceCriteria": [
+      {
+        "acId": "AC-1",
+        "text": "Querying `netpath country ZA` selects Atlas anchor IPs when available; verified by adding a temporary `print(atlas_ip)` and inspecting that the returned IP belongs to an Atlas anchor.",
+        "status": "pass",
+        "evidence": "country.py:119 — loop over ({\"is_anchor\": \"true\"}, {}) runs the anchor query first; the function returns the first address_v4 found, which will come from the anchor call when anchors exist in the ASN."
+      },
+      {
+        "acId": "AC-2",
+        "text": "`_get_atlas_probe_ip` falls back to a regular probe when no anchor exists for an ASN; verified by unit-testing with a mock that returns an empty anchors result and a non-empty regular-probes result.",
+        "status": "fail",
+        "evidence": "No test in tests/test_country.py covers anchor-empty → regular-probe-returns-IP. test_get_test_ip_falls_through_to_prefix_when_atlas_empty returns ripe_resp (no 'results' key) on the second Atlas call, so both Atlas calls effectively return empty — the regular-probe-succeeds path is never exercised."
+      },
+      {
+        "acId": "AC-3",
+        "text": "Running `netpath country US` with mtr unavailable produces a traceroute command with `-m 30`; verified by grepping `_run_traceroute_cmd` subprocess call.",
+        "status": "pass",
+        "evidence": "mtr.py:182 — cmd = [\"/usr/sbin/traceroute\", \"-n\", \"-w\", \"1\", \"-m\", \"30\", \"-q\", \"2\"]"
+      },
+      {
+        "acId": "AC-4",
+        "text": "When `diagnosis.diagnose({\"path_complete\": False, \"stall_hop\": 12, \"hubs\": [...]})` is called, the returned dict has `verdict == \"Incomplete Path\"` and `severity == \"warning\"`; verified by pytest.",
+        "status": "pass",
+        "evidence": "tests/test_diagnosis.py:167 — test_incomplete_path_with_stall_hop asserts verdict == 'Incomplete Path', severity == 'warning', 'stall_hop=12' in signals, 'hop 12' in detail. Passes."
+      },
+      {
+        "acId": "AC-5",
+        "text": "`diagnosis.diagnose({\"hubs\": []})` (no `path_complete` key) still returns the default \"Healthy\" verdict; verified by existing or new test.",
+        "status": "pass",
+        "evidence": "tests/test_diagnosis.py:191 — test_path_complete_absent_is_healthy asserts verdict == 'Healthy'. Passes."
+      }
+    ],
+    "headlineFindings": [
+      {
+        "severity": "critical",
+        "impact": "AC-2 is unverified: no test confirms that the anchor-empty → regular-probe-returns-IP fallback actually works, so a regression in that path would go undetected",
+        "sourceRef": "### Acceptance Criteria (AC-2)"
+      }
+    ],
+    "requiredChanges": [
+      {
+        "text": "tests/test_country.py — add a test (e.g. test_get_test_ip_falls_back_to_regular_probe_when_no_anchor) that mocks the first Atlas call (is_anchor=true) returning empty results and the second Atlas call returning a probe with address_v4, then asserts the function returns that probe IP (not falling through to the RIPE prefix path)",
+        "severityGroup": "blocking"
+      }
+    ],
+    "codeQualityFindings": [
+      {
+        "category": "Stale comment",
+        "severity": "info",
+        "file": "src/netpath/mtr.py",
+        "line": 179,
+        "description": "Docstring says '1s wait, 15 hops, 2 probes → 30s worst case' but the hop cap was raised to 30",
+        "fixOrRemediation": "Update to '1s wait, 30 hops, 2 probes → 60s worst case' to match the new -m 30 value"
+      }
+    ],
+    "securityFindings": [],
+    "decisions": [
+      "Anchor preference uses two sequential API calls (anchor-first, any-probe fallback) rather than a combined sort — the Atlas API does not support anchor-prioritized sorting",
+      "Incomplete-path check lives in diagnosis.py rather than cli.py to keep it testable as a pure function and correct in both terminal and JSON output paths",
+      "Anchor-first loop iterates over ({\"is_anchor\": \"true\"}, {}) rather than two separate try/except blocks to avoid duplicating request boilerplate"
+    ],
+    "revision": 1,
+    "changeAnnotations": [
+      {
+        "file": "src/netpath/country.py",
+        "note": "Rewrites _get_atlas_probe_ip() to query anchors first (is_anchor=true), then fall back to any connected probe — improves probe quality for country sweeps"
+      },
+      {
+        "file": "src/netpath/mtr.py",
+        "note": "Raises traceroute hop cap from -m 15 to -m 30, matching mtr's default TTL ceiling so intercontinental paths are no longer clipped"
+      },
+      {
+        "file": "src/netpath/diagnosis.py",
+        "note": "Inserts an early-return for path_complete=False before the mid-path loss checks, so incomplete traces get an Incomplete Path warning instead of a false Healthy verdict"
+      },
+      {
+        "file": "tests/test_diagnosis.py",
+        "note": "Adds four tests covering the new incomplete-path branch: with stall_hop, without stall_hop, path_complete=None, and absent path_complete key"
+      }
+    ]
+  }
 }

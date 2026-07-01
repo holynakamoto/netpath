@@ -3,7 +3,7 @@ defract:
   id: task-using-the-ripe-atlas-probes-feature-01kwdra83w1d
   type: bug
   status: active
-  stage: implementation
+  stage: review
   phase: 0
   total_phases: 1
   priority: normal
@@ -151,4 +151,55 @@ None. Implementation matches the spec exactly. The anchor-first loop pattern avo
 - `ruff check .`: clean
 - `grep -- '"-m"' src/netpath/mtr.py`: shows `"-m", "30"`
 - `grep is_anchor src/netpath/country.py`: shows anchor filter in loop
+
+## Review
+
+## Verdict
+
+**Verdict:** REQUEST CHANGES
+**Files reviewed:** 4 files changed across 1 phases
+
+Three of five acceptance criteria pass cleanly. AC-2 fails: the task specifies that the anchor-empty → regular-probe-returns-IP fallback be verified by a dedicated unit test, but no such test exists in test_country.py. A stale comment also needs a one-word fix.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Test suite (uv run pytest) | PASS | 44/44 passed |
+| Lint (ruff check .) | PASS | No issues found |
+
+### Acceptance Criteria (4/5 passed)
+
+- [x] AC-1: Querying `netpath country ZA` selects Atlas anchor IPs when available; verified by adding a temporary `print(atlas_ip)` and inspecting that the returned IP belongs to an Atlas anchor. — PASS: country.py:119 — loop over ({"is_anchor": "true"}, {}) runs the anchor query first; the function returns the first address_v4 found, which will come from the anchor call when anchors exist in the ASN.
+- [ ] AC-2: `_get_atlas_probe_ip` falls back to a regular probe when no anchor exists for an ASN; verified by unit-testing with a mock that returns an empty anchors result and a non-empty regular-probes result. — FAIL: No test in tests/test_country.py covers anchor-empty → regular-probe-returns-IP. test_get_test_ip_falls_through_to_prefix_when_atlas_empty returns ripe_resp (no 'results' key) on the second Atlas call, so both Atlas calls effectively return empty — the regular-probe-succeeds path is never exercised.
+- [x] AC-3: Running `netpath country US` with mtr unavailable produces a traceroute command with `-m 30`; verified by grepping `_run_traceroute_cmd` subprocess call. — PASS: mtr.py:182 — cmd = ["/usr/sbin/traceroute", "-n", "-w", "1", "-m", "30", "-q", "2"]
+- [x] AC-4: When `diagnosis.diagnose({"path_complete": False, "stall_hop": 12, "hubs": [...]})` is called, the returned dict has `verdict == "Incomplete Path"` and `severity == "warning"`; verified by pytest. — PASS: tests/test_diagnosis.py:167 — test_incomplete_path_with_stall_hop asserts verdict == 'Incomplete Path', severity == 'warning', 'stall_hop=12' in signals, 'hop 12' in detail. Passes.
+- [x] AC-5: `diagnosis.diagnose({"hubs": []})` (no `path_complete` key) still returns the default "Healthy" verdict; verified by existing or new test. — PASS: tests/test_diagnosis.py:191 — test_path_complete_absent_is_healthy asserts verdict == 'Healthy'. Passes.
+
+### Code Quality (Refactor Review)
+
+#### Stale comment
+
+- **INFO:** `src/netpath/mtr.py:179` — Docstring says '1s wait, 15 hops, 2 probes → 30s worst case' but the hop cap was raised to 30. Suggested fix: Update to '1s wait, 30 hops, 2 probes → 60s worst case' to match the new -m 30 value
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- Anchor preference uses two sequential API calls (anchor-first, any-probe fallback) rather than a combined sort — the Atlas API does not support anchor-prioritized sorting
+- Incomplete-path check lives in diagnosis.py rather than cli.py to keep it testable as a pure function and correct in both terminal and JSON output paths
+- Anchor-first loop iterates over ({"is_anchor": "true"}, {}) rather than two separate try/except blocks to avoid duplicating request boilerplate
+
+## Headline Findings
+
+- **critical** — AC-2 is unverified: no test confirms that the anchor-empty → regular-probe-returns-IP fallback actually works, so a regression in that path would go undetected. See `### Acceptance Criteria (AC-2)`.
+
+## Required Changes
+
+**Blocking**
+
+- tests/test_country.py — add a test (e.g. test_get_test_ip_falls_back_to_regular_probe_when_no_anchor) that mocks the first Atlas call (is_anchor=true) returning empty results and the second Atlas call returning a probe with address_v4, then asserts the function returns that probe IP (not falling through to the RIPE prefix path)
+
 
