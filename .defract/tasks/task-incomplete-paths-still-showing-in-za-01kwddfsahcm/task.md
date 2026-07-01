@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 # Incomplete paths still showing in ZA country sweep
@@ -208,4 +207,30 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Added RIPE Atlas probe lookup as the primary IP-selection strategy in `get_test_ip_for_asn()` in `country.py`, so country sweeps trace to known-live probe endpoints instead of arbitrary dark prefix addresses
+- Added `RIPE_ATLAS_PROBES` constant and `_get_atlas_probe_ip(asn: str) -> str | None` helper that queries the Atlas probes API (`status=1`, `sort=id`, `page_size=1`) and returns the first connected probe's `address_v4`
+- Existing RIPE-prefix-based IP selection retained unchanged as fallback for ASNs with no registered Atlas probes
+- Four new unit tests cover all error paths: Atlas hit, empty-results fallback, `RequestException` fallback, and null `address_v4` skip
+
+### Key decisions
+- Use RIPE Atlas probe registry as primary target IP source, with existing prefix-based selection as fallback — probe IPs are known-live hardware devices inside ISP networks, eliminating the root cause of stalled traces
+- `_get_atlas_probe_ip()` uses `raise_for_status()` for non-200 responses and catches `requests.RequestException` broadly to silently fall through on any network error
+- `page_size=1` and `sort=id` minimize data transfer and ensure deterministic results across calls
+
+### Changes by phase
+- **Phase 1: Use RIPE Atlas probe IPs as traceroute targets** — Added `RIPE_ATLAS_PROBES` constant and `_get_atlas_probe_ip()` helper to `country.py`; prepended Atlas lookup to `get_test_ip_for_asn()` with prefix-based selection as fallback. Added 4 unit tests to `tests/test_country.py`. All 40 tests pass, ruff clean.
+
+## Verification
+
+| Check | Result |
+|-------|--------|
+| Production build (`uv build`) | PASS — `netpath-0.3.1.dev7+gd6f4c30d5-py3-none-any.whl` built successfully |
+| Code committed | PASS — `feat(task-incomplete-paths-still-showing-in-za-01kwddfsahcm): phase 1 — Use RIPE Atlas probe IPs as traceroute targets` (7d6871a) |
+| Branch pushed | PASS — `feature/task-incomplete-paths-still-showing-in-za-01kwddfsahcm` pushed to origin |
 
