@@ -16,14 +16,14 @@
       "timestamp": "2026-06-30T22:34:41.037236+00:00"
     }
   ],
-  "usage_sweep_cursor": "2026-06-30T23:58:17Z",
+  "usage_sweep_cursor": "2026-07-01T02:32:18Z",
   "feedback_sweep_cursor": "2026-06-30T23:28:29.825Z",
   "last_emit_hashes": {
-    "decisions.md": "427820288636fbf484b86e4c36c5b6df527c0b3c7471796bde50798bbb2ee50b",
     "workflows.md": "fe0ef018bba98248fd8036982868181bf6c6217c27c709c6f40fcab54c519cdb",
     "mistakes.md": "2f695dfc5e32bf8b84eba01240d608b6b1c41c0b2e35e6cfc3707ad6b34da400",
     "project-facts.md": "b9ba247c138e5572e9f23ba95f70b34ff71fa87bf38df081a7f7e75835bc86bf",
-    "builder-preferences.md": "647af80def437a14311602b3132b0a098e5f941da229b4a94f60a4103de40517"
+    "builder-preferences.md": "647af80def437a14311602b3132b0a098e5f941da229b4a94f60a4103de40517",
+    "decisions.md": "427820288636fbf484b86e4c36c5b6df527c0b3c7471796bde50798bbb2ee50b"
   },
   "pending_external_edits": []
 }
