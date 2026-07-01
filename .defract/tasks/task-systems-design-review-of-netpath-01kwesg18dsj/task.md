@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 # Systems-design review of netpath
@@ -183,3 +182,22 @@ The six architectural problems in netpath are fixed in three sequential passes. 
 
 **Estimated effort:** Medium
 
+## Implementation Notes
+
+## Phase 1: Complete diagnostic reporting and typed contracts
+
+**Files changed:** `src/netpath/diagnosis.py`, `src/netpath/display.py`, `src/netpath/cli.py`, `src/netpath/mtr.py`, `tests/test_diagnosis.py`
+**Files created:** `src/netpath/types.py`
+
+### What was built
+
+- `diagnosis.py` rewritten: removed all early-return patterns across 9 checks. Every check runs unconditionally and appends `{condition, severity, detail}` dicts to a `signals` list. At the end, worst severity across all signals sets the top-level severity; the highest-severity non-ok signal's condition/detail sets the verdict string and detail. `partial_results: bool` read from `probe_errors` key in the result dict.
+- `types.py` created: `Hub` TypedDict (functional form for `Loss%` key) with `total=False`; `MeasurementResult` TypedDict (class form) with `total=False`, covering all public and internal keys including `probe_errors`.
+- `display.verdict_panel()` updated: signal rendering changed from `f"  • {sig}"` to `f"  • {sig['detail']}"` to handle the new dict format (per architecture decision AD-4).
+- `cli.py`: imports `MeasurementResult`, annotates `_measure()` return type.
+- `mtr.py`: imports `Hub`, annotates `run()` and `_parse_traceroute_output()` return types.
+- 6 string-based signal assertions in `test_diagnosis.py` updated to `s["condition"]` / `s["detail"]` checks; 3 new tests added: `test_multiple_simultaneous_signals`, `test_partial_results_set_when_probe_errors`, `test_partial_results_false_when_no_probe_errors`.
+
+### No deviations from plan
+
+Rate-limited hop signals use severity "ok" so they appear in the signals list without elevating the verdict — consistent with existing test expectations and the architecture intent.
