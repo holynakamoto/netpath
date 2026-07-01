@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 3,
   "createdAt": "2026-07-01T12:12:09Z",
-  "updatedAt": "2026-07-01T14:48:05Z",
+  "updatedAt": "2026-07-01T14:54:38Z",
   "events": [
     {
       "base_branch": "main",
@@ -203,6 +203,49 @@
       "timed_out": false,
       "timestamp": "2026-07-01T14:48:05Z",
       "type": "agent_exited"
+    },
+    {
+      "change_summary": "Full architecture: accumulate-all diagnostics, probe_errors dict, TypedDict contracts, ThreadPoolExecutor concurrency, _with_retry helper, country-mode parity — 3 phases, 3 new files, 8 modified modules",
+      "revision": 2,
+      "stage": "architecture",
+      "timestamp": "2026-07-01T14:53:55Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-1: Signals format changed from plain strings to {condition, severity, detail} dicts",
+      "rationale": "Structured dicts enable the multi-signal accumulation pattern — the display layer can render sig[\"detail\"] for human output and sig[\"condition\"] for programmatic filtering. Plain strings cannot carry severity metadata needed for worst-severity rollup. test_diagnosis.py assertions updated in Phase 1 alongside the format change to keep the test suite green throughout.",
+      "timestamp": "2026-07-01T14:54:06Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-2: No gate on path_complete in the accumulate-all diagnostic loop",
+      "rationale": "R1 requires all nine checks to run. In practice, with an incomplete path and no throughput data, only the incomplete-path check fires because bufferbloat/jitter/throughput-cap checks gate on non-None values that won't be present. The existing tests that craft minimal result dicts continue to pass without modification.",
+      "timestamp": "2026-07-01T14:54:10Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-3: Single ThreadPoolExecutor instance per _measure() call used for all concurrent work",
+      "rationale": "One executor eliminates the coordination overhead of multiple thread pools and ensures all futures are joined when the context manager exits — the structured teardown guarantee that the current bare daemon threads lack. max_workers=8 provides headroom for 4 concurrent independent probes (PMTU, TCP, TLS, RUM) plus the dual-stack pair plus the ping future.",
+      "timestamp": "2026-07-01T14:54:16Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "AD-4: verdict_panel() signal rendering update moved to Phase 1 alongside the signal format change",
+      "rationale": "Phase 1 changes signals from strings to dicts. Without updating verdict_panel() in the same phase, the terminal display would show raw dict reprs between Phase 1 and Phase 2 completion — a visible regression during development. Scope says Phase 2 adds the partial_results annotation; moving only the signal rendering fix (one line) to Phase 1 keeps each phase's output coherent without expanding Phase 2.",
+      "timestamp": "2026-07-01T14:54:18Z",
+      "type": "decision"
+    },
+    {
+      "stage": "architecture",
+      "summary": "Full architecture complete: 3 phases, 3 new files (types.py, utils.py, tests/test_utils.py), 8 modified modules. Key decisions: signals become structured dicts enabling multi-problem accumulation; probe_errors dict replaces scattered _-prefixed error keys; one ThreadPoolExecutor per _measure() call replaces bare daemon threads; verdict_panel signal rendering fix moved into Phase 1 to avoid mid-development display regression.",
+      "timestamp": "2026-07-01T14:54:38Z",
+      "type": "stage_work_complete",
+      "worktree_head": "32d5a1e7a22e4d6e6859029eacb376025a097000",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "needsArchitecture": true,
@@ -224,19 +267,258 @@
     "scope": "2026-07-01T14:46:14Z"
   },
   "stageContent": {
-    "architecture": "### Open Decisions\n\n_No open architecture decisions._\n"
+    "architecture": "### Architecture Summary\n\nThe six architectural problems in netpath are fixed in three sequential passes. First, the diagnostic engine is taught to collect every network problem it finds instead of stopping at the first one — a path with bufferbloat, packet loss, and high jitter will now report all three, and the worst one sets the overall verdict. TypedDict contracts are added to make the data shapes visible and verifiable. Second, probe failures become first-class data: every probe that fails records its name and reason in a shared dictionary, the diagnostic engine reads that dictionary and sets a 'partial results' flag, and the terminal output shows a visible annotation so a 'Healthy (partial)' result is clearly distinguished from a fully-verified clean pass. External HTTP calls (server list, Cloudflare RUM) get automatic retry with exponential backoff. Third, the background threads that have no structured cleanup are replaced by a single managed thread pool used for all concurrent work: dual-stack traces, PMTU probing, TCP/TLS latency, and RUM fetching all run in parallel through the same executor, and country-mode sweeps gain the same full probe set that single-ASN mode already provides.\n\n### Implementation Phases\n\n### Phase 1: Complete diagnostic reporting and typed contracts\n\n**Verification:**\n- [ ] pytest tests/test_diagnosis.py passes with zero failures after signal format change\n- [ ] python -c \"from netpath.types import Hub, MeasurementResult\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'bufferbloat_ms': 50, 'jitter_ms': 15.0, 'hubs': []}); assert len(r['signals']) >= 2\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'probe_errors': {'iperf3': 'timed out'}}); assert r['partial_results'] is True\" exits 0\n- [ ] ruff check . reports zero errors\n\n**Estimated effort:** Medium\n\n### Phase 2: Probe failure tracking and external call reliability\n\n**Verification:**\n- [ ] pytest tests/test_utils.py passes\n- [ ] grep '_trace_error\\|_iperf_error\\|_speedtest_error' src/netpath/cli.py returns zero matches\n- [ ] python -c \"from netpath.utils import _with_retry\" exits 0\n- [ ] ruff check . reports zero errors\n- [ ] pytest passes with no regressions from Phase 1\n\n**Estimated effort:** Medium\n\n### Phase 3: Structured concurrency and country-mode parity\n\n**Verification:**\n- [ ] grep -n 'threading.Thread' src/netpath/cli.py returns zero results\n- [ ] python -c \"import concurrent.futures; from netpath.cli import _measure\" exits 0\n- [ ] pytest passes with no regressions\n- [ ] ruff check . reports zero errors\n- [ ] manual test: netpath country US --top 2 shows ECMP path count and PMTU in per-ASN output\n\n**Estimated effort:** Medium\n"
   },
   "architectureIntel": {
-    "answers": {},
-    "decisions": [],
-    "pass": "decisions"
+    "diagram": "flowchart TD\n    M[\"_measure()\\ncli.py\"] -->|\"probe_errors dict\"| D[\"diagnose()\\ndiagnosis.py\"]\n    D -->|\"signals list\\npartial_results bool\\nverdict/severity/detail\"| VP[\"verdict_panel()\\ndisplay.py\"]\n    M -->|\"concurrent futures\"| EX[\"ThreadPoolExecutor\\nv4 trace · v6 trace\\npmtu · tcp · tls · rum\"]\n    U[\"utils._with_retry()\"] -.->|\"wraps HTTP calls\"| S[\"servers._fetch_and_resolve()\"]\n    U -.->|\"wraps HTTP calls\"| R[\"rum.fetch_asn_quality()\"]\n    M --> U",
+    "pass": "full",
+    "phases": [
+      {
+        "effort": "Medium",
+        "files": [
+          {
+            "action": "modify",
+            "description": "Remove early-return pattern from all 9 checks. Run every check unconditionally; append matched conditions to a local signals list as {condition, severity, detail} dicts. Derive top-level verdict string and severity from the highest-severity signal. Keep outer try/except Exception safety net; move probe_errors read and partial_results assignment inside the try block. Short-circuit to Healthy only when signals is empty.",
+            "path": "src/netpath/diagnosis.py"
+          },
+          {
+            "action": "create",
+            "description": "Hub TypedDict with fields: count, host, ASN, Loss%, Avg, Best, Wrst, StDev, p50, p95, p99, and optional type. MeasurementResult TypedDict with total=False capturing all public keys returned by _measure() including the new probe_errors key.",
+            "path": "src/netpath/types.py"
+          },
+          {
+            "action": "modify",
+            "description": "In verdict_panel(), change signal rendering from f'  • {sig}' to f'  • {sig[\"detail\"]}' to handle the new dict signal format.",
+            "path": "src/netpath/display.py"
+          },
+          {
+            "action": "modify",
+            "description": "Import MeasurementResult from netpath.types. Annotate _measure() return type as MeasurementResult.",
+            "path": "src/netpath/cli.py"
+          },
+          {
+            "action": "modify",
+            "description": "Import Hub from netpath.types. Annotate run() and _parse_traceroute_output() return types.",
+            "path": "src/netpath/mtr.py"
+          },
+          {
+            "action": "modify",
+            "description": "Update all assertions that check signal list entries as strings to check the dict fields (s['condition'] or s['detail']). Add test_multiple_simultaneous_signals() and test_partial_results_set_when_probe_errors().",
+            "path": "tests/test_diagnosis.py"
+          }
+        ],
+        "number": 1,
+        "scope": "Rewrite diagnosis.py to evaluate all nine checks and accumulate every matched condition into a signals list rather than returning on the first match. Each signal becomes a structured dict with condition, severity, and detail fields. Add partial_results to the diagnose() return value. Define Hub and MeasurementResult TypedDicts in a new types.py. Annotate return types in cli.py and mtr.py. Update verdict_panel() signal rendering and test_diagnosis.py assertions to match the new signal format.",
+        "title": "Complete diagnostic reporting and typed contracts",
+        "verification": [
+          "pytest tests/test_diagnosis.py passes with zero failures after signal format change",
+          "python -c \"from netpath.types import Hub, MeasurementResult\" exits 0",
+          "python -c \"from netpath.diagnosis import diagnose; r = diagnose({'bufferbloat_ms': 50, 'jitter_ms': 15.0, 'hubs': []}); assert len(r['signals']) >= 2\" exits 0",
+          "python -c \"from netpath.diagnosis import diagnose; r = diagnose({'probe_errors': {'iperf3': 'timed out'}}); assert r['partial_results'] is True\" exits 0",
+          "ruff check . reports zero errors"
+        ]
+      },
+      {
+        "effort": "Medium",
+        "files": [
+          {
+            "action": "create",
+            "description": "_with_retry(fn: Callable[[], T], attempts: int = 3, base_delay: float = 1.0) -> T. Retries on requests.ConnectionError, requests.Timeout, and HTTP 5xx. Delay sequence: 1s, 2s, 4s. Re-raises last exception on final failure.",
+            "path": "src/netpath/utils.py"
+          },
+          {
+            "action": "modify",
+            "description": "Add probe_errors: dict[str, str] = {} to the initial result dict in _measure(). Replace each bare except block that stored a _-prefixed error key with probe_errors['probe_name'] = str(e). Remove _trace_error, _iperf_error, _speedtest_error from initial dict and all assignment sites. In _run_test(), change result.get('_trace_error') to result.get('probe_errors', {}).get('v4_trace').",
+            "path": "src/netpath/cli.py"
+          },
+          {
+            "action": "modify",
+            "description": "Import _with_retry from netpath.utils. Wrap the requests.get(SERVERS_URL, ...) call in _fetch_and_resolve() with _with_retry.",
+            "path": "src/netpath/servers.py"
+          },
+          {
+            "action": "modify",
+            "description": "Import _with_retry from netpath.utils. Wrap requests.get(...) inside fetch_asn_quality() with _with_retry. Keep the existing ValueError re-raise for 401 outside the retry wrapper.",
+            "path": "src/netpath/rum.py"
+          },
+          {
+            "action": "modify",
+            "description": "In cymru_bulk_lookup() and cymru_bulk_lookup_rich(), on OSError retry _cymru_query() once after 1 second. If retry also fails, emit warnings.warn() and return empty dict. Import warnings.",
+            "path": "src/netpath/asn.py"
+          },
+          {
+            "action": "modify",
+            "description": "In verdict_panel(), check if verdict dict has partial_results=True and append ' (partial results: {comma-joined probe names from probe_errors keys})' to the label line.",
+            "path": "src/netpath/display.py"
+          },
+          {
+            "action": "create",
+            "description": "Tests: test_succeeds_on_first_try, test_retries_on_connection_error_then_succeeds, test_retries_on_timeout_then_succeeds, test_raises_after_max_attempts, test_retries_on_5xx_response.",
+            "path": "tests/test_utils.py"
+          }
+        ],
+        "number": 2,
+        "scope": "Replace the scattered _-prefixed error keys in _measure() with a unified probe_errors: dict[str, str] populated on failure for each of the six probe types. Introduce _with_retry in a new utils.py and wrap servers._fetch_and_resolve() and rum.fetch_asn_quality() requests.get calls with it. Add single retry plus warnings.warn to the Cymru socket calls in asn.py. Update _run_test() to check probe_errors instead of the removed _trace_error key. Add the partial results annotation to verdict_panel().",
+        "title": "Probe failure tracking and external call reliability",
+        "verification": [
+          "pytest tests/test_utils.py passes",
+          "grep '_trace_error\\|_iperf_error\\|_speedtest_error' src/netpath/cli.py returns zero matches",
+          "python -c \"from netpath.utils import _with_retry\" exits 0",
+          "ruff check . reports zero errors",
+          "pytest passes with no regressions from Phase 1"
+        ]
+      },
+      {
+        "effort": "Medium",
+        "files": [
+          {
+            "action": "modify",
+            "description": "Add 'import concurrent.futures' at the top. In _measure(), create one ThreadPoolExecutor via context manager wrapping the entire measurement body. In the compare_v6 branch, replace threading.Thread(daemon=True) for v4/v6 with executor.submit(). Collect results via future.result(timeout=...) and populate probe_errors['v4_trace'] or probe_errors['v6_trace'] on TimeoutError. After the trace section, submit pmtu_mod.probe, latency_mod.measure_tcp_connect, latency_mod.measure_tls_handshake, and _fetch_rum as concurrent futures; collect results. Add _run_ping_probe_sync() returning float | None directly; submit it via executor.submit() and cancel after iperf3 completes. In country(), add ecmp_passes=2 and compare_v6=True to both _run_test() call sites.",
+            "path": "src/netpath/cli.py"
+          }
+        ],
+        "number": 3,
+        "scope": "Replace the two bare daemon threads for dual-stack traces in _measure() with concurrent.futures.ThreadPoolExecutor managed futures. Replace the background ping daemon thread during iperf3 with a Future submitted to the same executor. Submit PMTU, TCP/TLS latency, and RUM fetch as concurrent futures rather than sequential calls. Add a synchronous _run_ping_probe_sync() for Future use. Update country-mode _run_test() calls to pass ecmp_passes=2 and compare_v6=True.",
+        "title": "Structured concurrency and country-mode parity",
+        "verification": [
+          "grep -n 'threading.Thread' src/netpath/cli.py returns zero results",
+          "python -c \"import concurrent.futures; from netpath.cli import _measure\" exits 0",
+          "pytest passes with no regressions",
+          "ruff check . reports zero errors",
+          "manual test: netpath country US --top 2 shows ECMP path count and PMTU in per-ASN output"
+        ]
+      }
+    ],
+    "scorecard": [
+      {
+        "category": "files",
+        "count": 3,
+        "items": [
+          {
+            "name": "src/netpath/types.py",
+            "note": "Hub and MeasurementResult TypedDicts"
+          },
+          {
+            "name": "src/netpath/utils.py",
+            "note": "_with_retry helper for HTTP calls"
+          },
+          {
+            "name": "tests/test_utils.py",
+            "note": "unit tests for retry helper"
+          }
+        ],
+        "label": "new files"
+      },
+      {
+        "category": "modules",
+        "count": 8,
+        "items": [
+          {
+            "name": "src/netpath/diagnosis.py",
+            "note": "accumulate-all signals, partial_results flag"
+          },
+          {
+            "name": "src/netpath/display.py",
+            "note": "structured signal rendering + partial results annotation"
+          },
+          {
+            "name": "src/netpath/cli.py",
+            "note": "type annotations, probe_errors dict, executor concurrency, country parity"
+          },
+          {
+            "name": "src/netpath/mtr.py",
+            "note": "Hub type annotations on return values"
+          },
+          {
+            "name": "src/netpath/servers.py",
+            "note": "wrap requests.get with _with_retry"
+          },
+          {
+            "name": "src/netpath/rum.py",
+            "note": "wrap requests.get with _with_retry"
+          },
+          {
+            "name": "src/netpath/asn.py",
+            "note": "single retry + warnings.warn on Cymru socket error"
+          },
+          {
+            "name": "tests/test_diagnosis.py",
+            "note": "update signal assertions to dict field checks, add multi-signal and partial_results tests"
+          }
+        ],
+        "label": "modified modules"
+      },
+      {
+        "category": "functions",
+        "count": 2,
+        "items": [
+          {
+            "name": "_with_retry(fn, attempts, base_delay)",
+            "note": "in utils.py — retries callable on ConnectionError, Timeout, HTTP 5xx"
+          },
+          {
+            "name": "_run_ping_probe_sync(host, duration)",
+            "note": "in cli.py — synchronous return value version of ping probe for Future submission"
+          }
+        ],
+        "label": "new functions"
+      },
+      {
+        "category": "reusable",
+        "count": 3,
+        "items": [
+          {
+            "name": "_with_retry",
+            "note": "general-purpose retry utility — wraps any Callable[[], T]; callers use functools.partial for args"
+          },
+          {
+            "name": "Hub TypedDict",
+            "note": "exported from types.py — usable by any caller that builds or consumes hub dicts"
+          },
+          {
+            "name": "MeasurementResult TypedDict",
+            "note": "total=False — optional fields remain accessible via .get() with no call-site changes"
+          }
+        ],
+        "label": "reusable components"
+      },
+      {
+        "category": "changes",
+        "count": 4,
+        "items": [
+          {
+            "name": "signals format: str → dict",
+            "note": "each signal becomes {condition, severity, detail}; display and test assertions updated"
+          },
+          {
+            "name": "error tracking: _-prefixed keys → probe_errors dict",
+            "note": "_trace_error, _iperf_error, _speedtest_error removed; probe_errors: dict[str, str] added"
+          },
+          {
+            "name": "concurrency: bare daemon threads → ThreadPoolExecutor",
+            "note": "single executor per _measure() call, torn down via context manager"
+          },
+          {
+            "name": "country mode probe parity",
+            "note": "ecmp_passes=2 and compare_v6=True added to country-mode _run_test() calls"
+          }
+        ],
+        "label": "structural changes"
+      }
+    ],
+    "summary": "The six architectural problems in netpath are fixed in three sequential passes. First, the diagnostic engine is taught to collect every network problem it finds instead of stopping at the first one — a path with bufferbloat, packet loss, and high jitter will now report all three, and the worst one sets the overall verdict. TypedDict contracts are added to make the data shapes visible and verifiable. Second, probe failures become first-class data: every probe that fails records its name and reason in a shared dictionary, the diagnostic engine reads that dictionary and sets a 'partial results' flag, and the terminal output shows a visible annotation so a 'Healthy (partial)' result is clearly distinguished from a fully-verified clean pass. External HTTP calls (server list, Cloudflare RUM) get automatic retry with exponential backoff. Third, the background threads that have no structured cleanup are replaced by a single managed thread pool used for all concurrent work: dual-stack traces, PMTU probing, TCP/TLS latency, and RUM fetching all run in parallel through the same executor, and country-mode sweeps gain the same full probe set that single-ASN mode already provides."
   },
   "stages": {
-    "review": {
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T14:46:14Z",
+      "startedAt": "2026-07-01T12:16:44Z"
+    },
+    "release": {
       "status": "not_started"
     },
     "architecture": {
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "startedAt": "2026-07-01T14:48:05Z"
     },
     "implementation": {
@@ -245,12 +527,7 @@
     "design": {
       "status": "skipped"
     },
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-07-01T14:46:14Z",
-      "startedAt": "2026-07-01T12:16:44Z"
-    },
-    "release": {
+    "review": {
       "status": "not_started"
     }
   },

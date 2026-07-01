@@ -143,7 +143,42 @@ Phase 2 depends on the `probe_errors` key structure and `MeasurementResult` Type
 
 ## Architecture
 
-### Open Decisions
+### Architecture Summary
 
-_No open architecture decisions._
+The six architectural problems in netpath are fixed in three sequential passes. First, the diagnostic engine is taught to collect every network problem it finds instead of stopping at the first one — a path with bufferbloat, packet loss, and high jitter will now report all three, and the worst one sets the overall verdict. TypedDict contracts are added to make the data shapes visible and verifiable. Second, probe failures become first-class data: every probe that fails records its name and reason in a shared dictionary, the diagnostic engine reads that dictionary and sets a 'partial results' flag, and the terminal output shows a visible annotation so a 'Healthy (partial)' result is clearly distinguished from a fully-verified clean pass. External HTTP calls (server list, Cloudflare RUM) get automatic retry with exponential backoff. Third, the background threads that have no structured cleanup are replaced by a single managed thread pool used for all concurrent work: dual-stack traces, PMTU probing, TCP/TLS latency, and RUM fetching all run in parallel through the same executor, and country-mode sweeps gain the same full probe set that single-ASN mode already provides.
+
+### Implementation Phases
+
+### Phase 1: Complete diagnostic reporting and typed contracts
+
+**Verification:**
+- [ ] pytest tests/test_diagnosis.py passes with zero failures after signal format change
+- [ ] python -c "from netpath.types import Hub, MeasurementResult" exits 0
+- [ ] python -c "from netpath.diagnosis import diagnose; r = diagnose({'bufferbloat_ms': 50, 'jitter_ms': 15.0, 'hubs': []}); assert len(r['signals']) >= 2" exits 0
+- [ ] python -c "from netpath.diagnosis import diagnose; r = diagnose({'probe_errors': {'iperf3': 'timed out'}}); assert r['partial_results'] is True" exits 0
+- [ ] ruff check . reports zero errors
+
+**Estimated effort:** Medium
+
+### Phase 2: Probe failure tracking and external call reliability
+
+**Verification:**
+- [ ] pytest tests/test_utils.py passes
+- [ ] grep '_trace_error\|_iperf_error\|_speedtest_error' src/netpath/cli.py returns zero matches
+- [ ] python -c "from netpath.utils import _with_retry" exits 0
+- [ ] ruff check . reports zero errors
+- [ ] pytest passes with no regressions from Phase 1
+
+**Estimated effort:** Medium
+
+### Phase 3: Structured concurrency and country-mode parity
+
+**Verification:**
+- [ ] grep -n 'threading.Thread' src/netpath/cli.py returns zero results
+- [ ] python -c "import concurrent.futures; from netpath.cli import _measure" exits 0
+- [ ] pytest passes with no regressions
+- [ ] ruff check . reports zero errors
+- [ ] manual test: netpath country US --top 2 shows ECMP path count and PMTU in per-ASN output
+
+**Estimated effort:** Medium
 
