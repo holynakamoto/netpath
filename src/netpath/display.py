@@ -26,9 +26,13 @@ def clean_asn_name(name: str) -> str:
         return name
     prefix, _, rest = name.partition(' - ')
     prefix = prefix.strip()
+    rest = rest.strip()
+    # Exact duplicate: "Dimension Data - Dimension Data" → "Dimension Data"
+    if prefix == rest:
+        return rest.replace('_', ' ').strip()
     # Short code: no spaces, ≤25 chars (handles PARTNER-AS, NV-ASN, Internet_Binat, Tehila-AS…)
     if ' ' not in prefix and 1 <= len(prefix) <= 25:
-        return rest.strip().replace('_', ' ').strip()
+        return rest.replace('_', ' ').strip()
     return name
 
 

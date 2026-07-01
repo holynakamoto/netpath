@@ -251,11 +251,10 @@ def _measure(host: str, port: int, target_asn: str,
         result["as_path"] = _extract_as_path(hubs)
         result["hubs"] = hubs
 
-        responsive = [h for h in hubs if h.get("host") not in ("???", None, "")]
-        if responsive:
-            result["jitter_ms"] = round(
-                sum(h.get("StDev", 0.0) or 0.0 for h in responsive) / len(responsive), 2
-            )
+        for _h in reversed(hubs):
+            if _h.get("host") not in ("???", None, "") and _h.get("StDev") is not None:
+                result["jitter_ms"] = round(_h["StDev"] or 0.0, 2)
+                break
 
         for _h in reversed(hubs):
             if _h.get("host") not in ("???", None, "") and _h.get("Avg", 0) > 0:

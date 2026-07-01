@@ -216,3 +216,58 @@ def test_partial_results_false_when_no_probe_errors():
     """partial_results is False when probe_errors is absent or empty."""
     assert diagnose({})["partial_results"] is False
     assert diagnose({"probe_errors": {}})["partial_results"] is False
+
+
+def test_icmp_filtered_path_all_stars():
+    """path_complete=False with all-??? hubs produces icmp_filtered_path, severity ok."""
+    hubs = [
+        {"count": 1, "host": "???", "Loss%": 100.0},
+        {"count": 2, "host": "???", "Loss%": 100.0},
+        {"count": 3, "host": "???", "Loss%": 100.0},
+    ]
+    result = diagnose({"path_complete": False, "hubs": hubs})
+    assert any(s["condition"] == "icmp_filtered_path" for s in result["signals"])
+    icmp_signal = next(s for s in result["signals"] if s["condition"] == "icmp_filtered_path")
+    assert icmp_signal["severity"] == "ok"
+
+
+def test_icmp_filtered_path_trailing_stars():
+    """path_complete=False with responsive hubs followed by ??? produces icmp_filtered_path, severity ok."""
+    hubs = [
+        {"count": 1, "host": "192.168.1.1", "Loss%": 0.0},
+        {"count": 2, "host": "10.0.0.1",   "Loss%": 0.0},
+        {"count": 3, "host": "???",         "Loss%": 100.0},
+        {"count": 4, "host": "???",         "Loss%": 100.0},
+    ]
+    result = diagnose({"path_complete": False, "hubs": hubs, "stall_hop": 2})
+    assert any(s["condition"] == "icmp_filtered_path" for s in result["signals"])
+    icmp_signal = next(s for s in result["signals"] if s["condition"] == "icmp_filtered_path")
+    assert icmp_signal["severity"] == "ok"
+
+
+def test_incomplete_path_genuine_stall():
+    """path_complete=False where last hub is responsive (stall_hop == max count) is still incomplete_path warning."""
+    hubs = [
+        {"count": 1, "host": "192.168.1.1", "Loss%": 0.0},
+        {"count": 2, "host": "10.0.0.1",   "Loss%": 0.0},
+        {"count": 3, "host": "10.0.0.2",   "Loss%": 0.0},
+    ]
+    result = diagnose({"path_complete": False, "hubs": hubs, "stall_hop": 3})
+    assert any(s["condition"] == "incomplete_path" for s in result["signals"])
+    inc_signal = next(s for s in result["signals"] if s["condition"] == "incomplete_path")
+    assert inc_signal["severity"] == "warning"
+
+
+def test_routing_loop_detected():
+    """as_path with a repeated known ASN produces routing_loop warning."""
+    result = diagnose({"as_path": ["AS1", "AS2", "AS3", "AS2"]})
+    assert any(s["condition"] == "routing_loop" for s in result["signals"])
+    loop_signal = next(s for s in result["signals"] if s["condition"] == "routing_loop")
+    assert loop_signal["severity"] == "warning"
+    assert result["verdict"] == "Routing Loop"
+
+
+def test_routing_loop_no_repeat():
+    """Unique AS path produces no routing_loop signal."""
+    result = diagnose({"as_path": ["AS1", "AS2", "AS3", "AS4"]})
+    assert not any(s["condition"] == "routing_loop" for s in result["signals"])

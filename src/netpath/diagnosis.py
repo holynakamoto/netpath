@@ -9,6 +9,7 @@ _SEVERITY_ORDER = {"ok": 0, "warning": 1, "critical": 2}
 
 _CONDITION_VERDICT = {
     "incomplete_path": "Incomplete Path",
+    "icmp_filtered_path": "Healthy",
     "severe_bufferbloat": "Severe Bufferbloat",
     "mid_path_packet_loss": "Mid-path Packet Loss",
     "rate_limited_hop": "Healthy",
@@ -19,6 +20,7 @@ _CONDITION_VERDICT = {
     "route_flapping": "Route Flapping",
     "tcp_latency": "TCP Latency",
     "tls_latency": "TLS Latency",
+    "routing_loop": "Routing Loop",
 }
 
 
@@ -51,16 +53,55 @@ def diagnose(result: dict) -> dict:
 
         # (0) Incomplete path — traceroute never reached the target ASN
         if result.get("path_complete") is False:
+            hubs_local = result.get("hubs") or []
             stall = result.get("stall_hop")
-            stall_str = f" at hop {stall}" if stall is not None else ""
-            signals.append({
-                "condition": "incomplete_path",
-                "severity": "warning",
-                "detail": (
-                    f"Traceroute did not reach the target ASN{stall_str}. "
-                    "The path may be filtered or the target unreachable."
-                ),
-            })
+            if not hubs_local:
+                # No trace data at all — genuine problem
+                stall_str = f" at hop {stall}" if stall is not None else ""
+                signals.append({
+                    "condition": "incomplete_path",
+                    "severity": "warning",
+                    "detail": (
+                        f"Traceroute did not reach the target ASN{stall_str}. "
+                        "The path may be filtered or the target unreachable."
+                    ),
+                })
+            else:
+                all_stars = all(
+                    h.get("host") in ("???", None, "") for h in hubs_local
+                )
+                if all_stars:
+                    signals.append({
+                        "condition": "icmp_filtered_path",
+                        "severity": "ok",
+                        "detail": (
+                            "The entire path filtered ICMP probes. "
+                            "The destination may still be reachable."
+                        ),
+                    })
+                else:
+                    max_count = max(h.get("count", 0) for h in hubs_local)
+                    if stall is not None and max_count > stall:
+                        # Trailing ??? hops — downstream routers filter ICMP
+                        signals.append({
+                            "condition": "icmp_filtered_path",
+                            "severity": "ok",
+                            "detail": (
+                                "Downstream routers inside the target ISP filter ICMP "
+                                "TTL-exceeded responses. The route is likely healthy."
+                            ),
+                        })
+                    else:
+                        # Last hub is responsive — genuine stall
+                        stall_str = f" at hop {stall}" if stall is not None else ""
+                        signals.append({
+                            "condition": "incomplete_path",
+                            "severity": "warning",
+                            "detail": (
+                                f"Traceroute did not reach the target ASN{stall_str}. "
+                                "The path may be filtered or the target unreachable."
+                            ),
+                        })
 
         # (1) Severe bufferbloat
         if bufferbloat is not None and bufferbloat > 30:
@@ -196,6 +237,26 @@ def diagnose(result: dict) -> dict:
                 "detail": (
                     f"TLS handshake latency of {tls_handshake_ms:.0f} ms exceeds the "
                     f"{TLS_LATENCY_WARNING_MS:.0f} ms threshold."
+                ),
+            })
+
+        # (10) Routing loop — a known ASN appears more than once in the de-adjacent path
+        as_path = result.get("as_path") or []
+        known = [a for a in as_path if a and a != "AS???"]
+        if len(known) != len(set(known)):
+            seen_asns: set = set()
+            first_repeat = None
+            for asn_entry in known:
+                if asn_entry in seen_asns:
+                    first_repeat = asn_entry
+                    break
+                seen_asns.add(asn_entry)
+            signals.append({
+                "condition": "routing_loop",
+                "severity": "warning",
+                "detail": (
+                    f"Routing loop detected: {first_repeat} appears more than once "
+                    "in the AS path."
                 ),
             })
 
