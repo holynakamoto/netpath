@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 2,
   "createdAt": "2026-07-01T22:19:19Z",
-  "updatedAt": "2026-07-01T22:19:48Z",
+  "updatedAt": "2026-07-01T22:34:38Z",
   "events": [
     {
       "base_branch": "main",
@@ -34,18 +34,92 @@
       "type": "stage_work_complete",
       "worktree_head": "94ed5fa95b3c6f7a91f397873d0205e4a8e5cd69",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-01T22:29:19Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwfwt2w2jpgepgfk5182z7cr",
+      "stage": "scope",
+      "timestamp": "2026-07-01T22:29:19Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Full scope: two server-selection bug fixes + RIPE Atlas opt-in measurement mode for country sweeps",
+      "revision": 2,
+      "timestamp": "2026-07-01T22:33:51Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Backend-only changes: no new UI flows or visual design decisions (display.py changes are additive column conditionals, not new components). Architecture skipped — both phases follow established patterns (single-purpose module in atlas.py, _with_retry from utils.py, ThreadPoolExecutor in _measure) and touch well-understood subsystems. Standard tier: 4–5 files across 2 phases, bounded scope, no new system boundaries.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "backend-feature",
+      "tier": "standard",
+      "timestamp": "2026-07-01T22:33:59Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [
+        "Extend TCP liveness check to read the iperf3 greeting banner — fragile, requires parsing undocumented wire protocol",
+        "Use iperf3 --connect-timeout and t=0 — iperf3 does not support zero-duration tests reliably across versions",
+        "Keep TCP check and let run_bidirectional catch failures — defers the error to sweep time, wastes a full 5-second measurement slot before discovering the server is broken"
+      ],
+      "decision": "iperf3 protocol validation uses a 1-second live test measurement rather than a deeper TCP handshake inspection",
+      "rationale": "A TCP connect only tests reachability, not whether the iperf3 daemon can service a test. Running `iperf3 -c host -t 1 -J` confirms the full protocol handshake. One second is long enough to succeed on a healthy server and short enough not to dominate sweep time across many candidates. The bandwidth numbers produced are discarded — the only useful output is the exit code and JSON validity.",
+      "timestamp": "2026-07-01T22:34:09Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Extend country.py with Atlas functions — mixes ASN ranking logic with Atlas API concerns, harder to test in isolation",
+        "Inline Atlas calls in cli.py's per-ASN loop — violates the convention that cli.py contains no measurement logic"
+      ],
+      "decision": "Atlas integration lives in a new atlas.py module rather than being added to country.py or cli.py",
+      "rationale": "The project's established convention is one measurement concern per file (iperf.py, speedtest.py, rum.py, latency.py, etc.). Atlas involves five distinct operations (budget check, probe discovery, scheduling, polling, parsing) that are independently testable. Putting these in cli.py would violate the display-free _measure() contract; putting them in country.py would couple ISP ranking logic with Atlas API details.",
+      "timestamp": "2026-07-01T22:34:16Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2: 12 requirements across two phases — Phase 1 fixes the truncation-before-liveness bug in find_servers_in_asn() and replaces the TCP-only _is_alive() with an iperf3 protocol-level check; Phase 2 adds --atlas-key to the country subcommand and a new atlas.py module covering budget check, probe discovery, measurement scheduling, polling, and result display. Workflow classified as backend-feature / standard (scope → implementation → review → release). Two decisions logged.",
+      "timestamp": "2026-07-01T22:34:38Z",
+      "type": "stage_work_complete",
+      "worktree_head": "a2550f3d1a9f2ed7425b1f77397430033a62968b",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "backend-feature",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Backend-only changes: no new UI flows or visual design decisions (display.py changes are additive column conditionals, not new components). Architecture skipped — both phases follow established patterns (single-purpose module in atlas.py, _with_retry from utils.py, ThreadPoolExecutor in _measure) and touch well-understood subsystems. Standard tier: 4–5 files across 2 phases, bounded scope, no new system boundaries."
+  },
   "stages": {
+    "design": {
+      "status": "skipped"
+    },
+    "architecture": {
+      "status": "skipped"
+    },
     "review": {
       "status": "not_started"
-    },
-    "design": {
-      "status": "not_started"
-    },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-01T22:19:20Z"
     },
     "implementation": {
       "status": "not_started"
@@ -53,10 +127,12 @@
     "release": {
       "status": "not_started"
     },
-    "architecture": {
-      "status": "not_started"
+    "scope": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-07-01T22:29:19Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-07-01T22:29:19Z"
 }
