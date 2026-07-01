@@ -1,0 +1,62 @@
+{
+  "id": "task-using-the-ripe-atlas-probes-feature-01kwdra83w1d",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 1,
+  "createdAt": "2026-07-01T02:32:18Z",
+  "updatedAt": "2026-07-01T02:33:13Z",
+  "events": [
+    {
+      "base_branch": "main",
+      "branch": "feature/task-using-the-ripe-atlas-probes-feature-01kwdra83w1d",
+      "path": "/Users/nickmoore/netpath/.defract-worktrees/task-using-the-ripe-atlas-probes-feature-01kwdra83w1d",
+      "timestamp": "2026-07-01T02:32:18Z",
+      "type": "worktree_created"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwdra9r694rnyazsr1jwv631",
+      "stage": "scope",
+      "timestamp": "2026-07-01T02:32:18Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Intent check: smarter Atlas probe selection, raise traceroute hop cap, flag incomplete paths",
+      "revision": 1,
+      "timestamp": "2026-07-01T02:33:09Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Intent check pushed as revision 1 — three improvements: anchor-first probe selection, traceroute hop cap raised to 30, incomplete paths flagged as unhealthy rather than scored Healthy.",
+      "timestamp": "2026-07-01T02:33:13Z",
+      "type": "stage_work_complete",
+      "worktree_head": "9f294051e1e99ca2171cf610e8f2f89e6c125977",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "stages": {
+    "review": {
+      "status": "not_started"
+    },
+    "scope": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-07-01T02:32:18Z"
+    },
+    "release": {
+      "status": "not_started"
+    },
+    "implementation": {
+      "status": "not_started"
+    },
+    "architecture": {
+      "status": "not_started"
+    },
+    "design": {
+      "status": "not_started"
+    }
+  },
+  "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-using-the-ripe-atlas-probes-feature-01kwdra83w1d",
+  "worktreeBaseBranch": "main"
+}
