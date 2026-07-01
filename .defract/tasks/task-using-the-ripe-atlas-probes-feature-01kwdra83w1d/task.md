@@ -3,7 +3,7 @@ defract:
   id: task-using-the-ripe-atlas-probes-feature-01kwdra83w1d
   type: bug
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
   total_phases: 1
   priority: normal
@@ -129,3 +129,26 @@ if result.get("path_complete") is False:
 The RIPE Atlas probes API supports `is_anchor=true` as a documented query parameter. The endpoint and response shape are the same as the current call — `results[].address_v4`. No new dependency is needed; the existing `requests` call pattern in `_get_atlas_probe_ip` is reused verbatim with only the params dict changing.
 
 The `"-m", "15"` change in `mtr.py:196` is a one-character edit. The `timeout=60` ceiling on the subprocess call is already generous for a 30-hop trace (worst case ~30s with 1s wait per hop).
+
+## Implementation Notes
+
+## Phase 1: Fix probe selection, hop cap, and incomplete-path verdict
+
+### Files Changed
+
+- `src/netpath/country.py` — `_get_atlas_probe_ip()` rewritten to loop over two param sets: `{"is_anchor": "true"}` first, then `{}` (any connected probe). A `requests.RequestException` on either attempt is caught and the loop continues, preserving the existing RIPE-prefix fallback chain.
+- `src/netpath/mtr.py` — `_run_traceroute_cmd()`: `"-m", "15"` changed to `"-m", "30"`. One-character edit; no other changes.
+- `src/netpath/diagnosis.py` — New check `(0)` inserted after the `loss_threshold` calculation block and before the bufferbloat check. Fires when `result.get("path_complete") is False` (strict identity check, not falsy). Returns `{"verdict": "Incomplete Path", "severity": "warning", ...}` with `stall_hop` included in both the detail string and the signals list when present.
+- `tests/test_diagnosis.py` — Four new tests: `test_incomplete_path_with_stall_hop`, `test_incomplete_path_without_stall_hop`, `test_path_complete_none_is_healthy`, `test_path_complete_absent_is_healthy`.
+
+### Deviations from Plan
+
+None. Implementation matches the spec exactly. The anchor-first loop pattern avoids duplicating the HTTP request boilerplate across two separate try/except blocks.
+
+### Verification
+
+- `pytest`: 44/44 passed (23 diagnosis, 7 country, 14 mtr)
+- `ruff check .`: clean
+- `grep -- '"-m"' src/netpath/mtr.py`: shows `"-m", "30"`
+- `grep is_anchor src/netpath/country.py`: shows anchor filter in loop
+

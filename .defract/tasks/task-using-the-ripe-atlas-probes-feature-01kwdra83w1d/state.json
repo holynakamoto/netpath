@@ -1,11 +1,11 @@
 {
   "id": "task-using-the-ripe-atlas-probes-feature-01kwdra83w1d",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 1,
   "createdAt": "2026-07-01T02:32:18Z",
-  "updatedAt": "2026-07-01T02:52:03Z",
+  "updatedAt": "2026-07-01T02:57:18Z",
   "events": [
     {
       "base_branch": "main",
@@ -94,6 +94,181 @@
       "type": "stage_work_complete",
       "worktree_head": "ae327c297d07ed28e281a280775dc3dba1f34957",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-01T02:54:13Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-07-01T02:54:13Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "1990685f960d874c589f7705f738e74c4b6f1f21",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "ae327c297d07ed28e281a280775dc3dba1f34957",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-01T02:54:13Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-07-01T02:54:13Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-07-01T02:54:13Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T02:54:13Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwdsjdycf7m4gyjkckh0m102",
+      "stage": "implementation",
+      "timestamp": "2026-07-01T02:54:13Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwds6gnxyszq3vhpckdv8a6c",
+      "timed_out": false,
+      "timestamp": "2026-07-01T02:54:14Z",
+      "type": "agent_exited"
+    },
+    {
+      "description": "Starting phase 1: Fix probe selection, hop cap, and incomplete-path verdict",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-07-01T02:54:22Z",
+      "type": "progress_report"
+    },
+    {
+      "note": "Starting phase 1 implementation: anchor-first probe selection, traceroute hop cap 15→30, incomplete-path diagnosis",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T02:54:57Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-07-01T02:55:00Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-07-01T02:55:38Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-07-01T02:56:20Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "44 passed across test_diagnosis.py (23), test_country.py (7), test_mtr.py (14). All 4 new incomplete-path tests pass. Ruff reports no lint errors.",
+      "failed": 0,
+      "passed": 44,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-07-01T02:56:32Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Implementation: anchor-first query uses a loop over two param dicts rather than two duplicated try/except blocks",
+      "phase": 1,
+      "rationale": "Iterating `for extra in ({\"is_anchor\": \"true\"}, {})` avoids repeating the request/raise_for_status/results parsing code. The anchor query runs first; only when its result list is empty does the loop continue to the any-probe fallback. A RequestException on either iteration is caught and the loop continues to the next, matching the required degradation behavior.",
+      "timestamp": "2026-07-01T02:56:39Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-07-01T02:56:42Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 1 complete: anchor probe selection, hop cap 15→30, incomplete-path diagnosis",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T02:56:57Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/country.py",
+        "src/netpath/mtr.py",
+        "src/netpath/diagnosis.py",
+        "tests/test_diagnosis.py"
+      ],
+      "phase": 0,
+      "summary": "Applied three targeted fixes: (1) _get_atlas_probe_ip() now tries is_anchor=true first then falls back to any connected probe via a two-iteration loop; (2) traceroute -m flag raised from 15 to 30; (3) diagnose() returns Incomplete Path warning when path_complete is False. Four new tests cover the incomplete-path branch variants.",
+      "timestamp": "2026-07-01T02:57:02Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `uv run python -m pytest tests/test_diagnosis.py -v` and confirm all 23 tests pass, including the four new `test_incomplete_path_*` and `test_path_complete_*` cases."
+        },
+        {
+          "description": "Run `grep -- '\"-m\"' src/netpath/mtr.py` and confirm the output shows `\"-m\", \"30\"` (not 15)."
+        },
+        {
+          "description": "Run `grep is_anchor src/netpath/country.py` and confirm the anchor filter appears in `_get_atlas_probe_ip()`."
+        },
+        {
+          "description": "In a Python shell, run `from netpath.diagnosis import diagnose; r = diagnose({'path_complete': False, 'stall_hop': 12, 'hubs': []}); print(r['verdict'], r['severity'])` and confirm the output is `Incomplete Path warning`."
+        },
+        {
+          "description": "In a Python shell, run `from netpath.diagnosis import diagnose; r = diagnose({'hubs': []}); print(r['verdict'])` and confirm the output is `Healthy` (absent `path_complete` key must not trigger the new check)."
+        },
+        {
+          "description": "Open `src/netpath/country.py` and inspect `_get_atlas_probe_ip()`: confirm the loop iterates `{\"is_anchor\": \"true\"}` first, then `{}`, and that both iterations share the same `requests.RequestException` catch."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Fix probe selection, hop cap, and incomplete-path verdict",
+      "timestamp": "2026-07-01T02:57:13Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Fix probe selection, hop cap, and incomplete-path verdict",
+      "server_phase": 0,
+      "timestamp": "2026-07-01T02:57:18Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Fix probe selection, hop cap, and incomplete-path verdict",
+      "timestamp": "2026-07-01T02:57:18Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "1990685f960d874c589f7705f738e74c4b6f1f21",
+      "worktree_status_digest": "d6fbc03a56bb0cf967c7b13d5fae4a1107d1324fe0c7718bc548f4127e12d65e"
     }
   ],
   "needsArchitecture": false,
@@ -110,28 +285,36 @@
     "classifiedBy": "scope-agent",
     "rationale": "Three targeted correctness fixes in 4 files, no UI changes (skip design), no new subsystems or cross-cutting concerns (skip architecture). Bug-fix template: the work restores correct behavior (anchor selection, hop depth, incomplete-path verdict) rather than adding new features."
   },
+  "stageApprovals": {
+    "scope": "2026-07-01T02:54:13Z"
+  },
+  "stageContent": {
+    "implementation": "## Phase 1: Fix probe selection, hop cap, and incomplete-path verdict\n\n### Files Changed\n\n- `src/netpath/country.py` — `_get_atlas_probe_ip()` rewritten to loop over two param sets: `{\"is_anchor\": \"true\"}` first, then `{}` (any connected probe). A `requests.RequestException` on either attempt is caught and the loop continues, preserving the existing RIPE-prefix fallback chain.\n- `src/netpath/mtr.py` — `_run_traceroute_cmd()`: `\"-m\", \"15\"` changed to `\"-m\", \"30\"`. One-character edit; no other changes.\n- `src/netpath/diagnosis.py` — New check `(0)` inserted after the `loss_threshold` calculation block and before the bufferbloat check. Fires when `result.get(\"path_complete\") is False` (strict identity check, not falsy). Returns `{\"verdict\": \"Incomplete Path\", \"severity\": \"warning\", ...}` with `stall_hop` included in both the detail string and the signals list when present.\n- `tests/test_diagnosis.py` — Four new tests: `test_incomplete_path_with_stall_hop`, `test_incomplete_path_without_stall_hop`, `test_path_complete_none_is_healthy`, `test_path_complete_absent_is_healthy`.\n\n### Deviations from Plan\n\nNone. Implementation matches the spec exactly. The anchor-first loop pattern avoids duplicating the HTTP request boilerplate across two separate try/except blocks.\n\n### Verification\n\n- `pytest`: 44/44 passed (23 diagnosis, 7 country, 14 mtr)\n- `ruff check .`: clean\n- `grep -- '\"-m\"' src/netpath/mtr.py`: shows `\"-m\", \"30\"`\n- `grep is_anchor src/netpath/country.py`: shows anchor filter in loop\n"
+  },
   "stages": {
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-01T02:47:43Z"
-    },
-    "design": {
-      "status": "skipped"
-    },
     "architecture": {
       "status": "skipped"
     },
     "release": {
       "status": "not_started"
     },
-    "implementation": {
-      "status": "not_started"
-    },
     "review": {
       "status": "not_started"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T02:54:13Z",
+      "startedAt": "2026-07-01T02:47:43Z"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-01T02:54:13Z"
+    },
+    "design": {
+      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-using-the-ripe-atlas-probes-feature-01kwdra83w1d",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T02:47:43Z"
+  "worktreeLastSyncedAt": "2026-07-01T02:54:13Z"
 }
