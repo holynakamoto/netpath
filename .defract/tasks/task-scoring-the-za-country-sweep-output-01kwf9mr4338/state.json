@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 1,
   "createdAt": "2026-07-01T16:54:21Z",
-  "updatedAt": "2026-07-01T16:59:31Z",
+  "updatedAt": "2026-07-01T17:08:14Z",
   "events": [
     {
       "base_branch": "main",
@@ -68,27 +68,88 @@
       "stage": "scope",
       "timestamp": "2026-07-01T16:59:31Z",
       "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Full scope: five targeted fixes across diagnosis, measurement, display, and server modules",
+      "revision": 2,
+      "timestamp": "2026-07-01T17:07:25Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Five targeted bug fixes in existing modules — no new UI components (skip design), well-contained to 4 source files all following existing patterns (skip architecture), changes are additive logic fixes not structural refactors.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "bug-fix",
+      "tier": "standard",
+      "timestamp": "2026-07-01T17:07:32Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [
+        "Check tcp_connect_ms in diagnose() to confirm destination reachability before reclassifying incomplete_path as ok",
+        "Add a new boolean field (icmp_filtered) set in cli.py and checked in diagnose() — more explicit but requires a data contract change"
+      ],
+      "decision": "ICMP-filtered path detection uses trailing-??? hub inspection, not a TCP connectivity cross-check",
+      "rationale": "Keeping diagnosis.py a pure function is a project invariant. A TCP connectivity check (tcp_connect_ms) would require diagnosis.py to reason about a different probe's result to classify the trace — coupling that doesn't exist today. The trailing-??? inference is self-contained: if stall_hop < max_hub_count, downstream hops are silent, which is sufficient evidence of ICMP filtering without a separate probe.",
+      "timestamp": "2026-07-01T17:07:42Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Validate all servers in _fetch_and_resolve() with a thread pool — once upfront but validates the whole list regardless of how many ASNs are actually tested",
+        "Validate asynchronously in a background thread — more complex, no clear benefit for a CLI tool that exits after one run"
+      ],
+      "decision": "Server liveness validation placed in find_servers_in_asn(), not _fetch_and_resolve()",
+      "rationale": "Validating in _fetch_and_resolve() would check every server in the global list at cache-warm time — potentially hundreds of servers — adding significant latency before the first ASN is even tested. Validating in find_servers_in_asn() checks only the few candidates matched to a specific ASN, keeping per-ASN overhead small (≤3 servers × 3s timeout = ≤9s worst case). The module-level cache still works correctly since it stores the full unfiltered list; liveness is ephemeral and rechecked per use.",
+      "timestamp": "2026-07-01T17:07:52Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2. Single implementation phase covering five fixes: (1) ICMP-filtered path reclassification from warning to ok in diagnosis.py, (2) jitter calculation using last-hub StDev in cli.py, (3) routing loop detection as a new check in diagnosis.py, (4) exact-duplicate name deduplication in display.py, (5) TCP liveness check in servers.find_servers_in_asn(). Bug-fix workflow, no design or architecture stage needed.",
+      "timestamp": "2026-07-01T17:08:14Z",
+      "type": "stage_work_complete",
+      "worktree_head": "b716d2f451190ba62c47c1e0c1dc902838f86651",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "bug-fix",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Five targeted bug fixes in existing modules — no new UI components (skip design), well-contained to 4 source files all following existing patterns (skip architecture), changes are additive logic fixes not structural refactors."
+  },
   "stages": {
-    "implementation": {
-      "status": "not_started"
-    },
     "architecture": {
+      "status": "skipped"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "release": {
       "status": "not_started"
     },
     "review": {
       "status": "not_started"
     },
+    "implementation": {
+      "status": "not_started"
+    },
     "scope": {
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "startedAt": "2026-07-01T16:59:31Z"
-    },
-    "design": {
-      "status": "not_started"
-    },
-    "release": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-scoring-the-za-country-sweep-output-01kwf9mr4338",
