@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 3,
   "createdAt": "2026-07-01T12:12:09Z",
-  "updatedAt": "2026-07-01T12:16:44Z",
+  "updatedAt": "2026-07-01T12:23:25Z",
   "events": [
     {
       "base_branch": "main",
@@ -54,26 +54,99 @@
       "timed_out": false,
       "timestamp": "2026-07-01T12:16:44Z",
       "type": "agent_exited"
+    },
+    {
+      "change_summary": "Full scope: 16 requirements across 3 phases covering all six architectural problems — diagnostic engine, probe failure visibility, typed contracts, structured concurrency, retry reliability, and country-mode parity",
+      "revision": 2,
+      "timestamp": "2026-07-01T12:22:36Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Cross-cutting structural refactor touching 6+ modules with new user-visible behavior (multi-signal diagnosis, partial results indicator, country-mode parity). Skip design — all output changes are text additions to existing terminal panels, no layout or visual design decisions required. Include architecture — introduces new system boundaries (types.py, utils.py), a new concurrency model, and a refactored diagnostic engine that spans 3+ subsystems.",
+      "stages": [
+        "scope",
+        "architecture",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "backend-feature",
+      "tier": "full",
+      "timestamp": "2026-07-01T12:22:44Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [
+        "dataclasses with asdict() serialization — breaks .get() patterns and requires callers to be updated",
+        "attrs/pydantic — adds a dependency for no gain over stdlib TypedDict"
+      ],
+      "decision": "TypedDict over dataclasses for typed data contracts",
+      "rationale": "Hub dicts and MeasurementResult are passed through json.dumps() in --json mode and accessed via .get() throughout callers. Dataclasses would require serialization shims and break existing dict-access patterns across cli.py, mtr.py, and display.py. TypedDict with total=False preserves full backward compatibility while adding mypy/pyright annotation coverage.",
+      "timestamp": "2026-07-01T12:22:50Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "asyncio with run_in_executor — more complex, no semantic advantage for blocking I/O",
+        "multiprocessing.Pool — excessive overhead for short-lived probe calls"
+      ],
+      "decision": "concurrent.futures.ThreadPoolExecutor over asyncio for structured concurrency",
+      "rationale": "All I/O in _measure() is blocking: subprocess.Popen (mtr, traceroute, iperf3, ping), socket operations (Cymru bulk lookup, PMTU ICMP), and requests.get() (RUM, server list). Asyncio would require run_in_executor() wrapping throughout plus an event loop on every call, adding complexity without improving throughput or cancellation semantics. ThreadPoolExecutor context manager provides structured teardown and future cancellation with stdlib only.",
+      "timestamp": "2026-07-01T12:22:57Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "tenacity — adds a production dependency for functionality achievable in stdlib",
+        "urllib3 Retry adapter — couples retry logic to transport layer, harder to apply to non-requests callers (Cymru socket)"
+      ],
+      "decision": "Local _with_retry helper in utils.py over adding tenacity or urllib3 dependency",
+      "rationale": "The retry requirements are narrow: 3 attempts, exponential backoff, specific exception types (ConnectionError, Timeout, 5xx). A stdlib implementation is ~15 lines, fully testable without mocking third-party internals, and avoids adding a production dependency to a tool that currently has only requests, rich, and typer as runtime deps.",
+      "timestamp": "2026-07-01T12:23:04Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2: 16 requirements across 3 implementation phases covering all six architectural problems (diagnostic engine, probe failure visibility, typed contracts, structured concurrency, retry reliability, country-mode parity). Workflow classified as backend-feature / full with architecture stage. Three key decisions logged (TypedDict, ThreadPoolExecutor, local retry helper).",
+      "timestamp": "2026-07-01T12:23:25Z",
+      "type": "stage_work_complete",
+      "worktree_head": "4f8b697e27730f5deffe2681995c259a67182c1a",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": true,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "full",
+    "template": "backend-feature",
+    "stages": [
+      "scope",
+      "architecture",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Cross-cutting structural refactor touching 6+ modules with new user-visible behavior (multi-signal diagnosis, partial results indicator, country-mode parity). Skip design — all output changes are text additions to existing terminal panels, no layout or visual design decisions required. Include architecture — introduces new system boundaries (types.py, utils.py), a new concurrency model, and a refactored diagnostic engine that spans 3+ subsystems."
+  },
   "stages": {
     "implementation": {
       "status": "not_started"
     },
-    "design": {
-      "status": "not_started"
-    },
     "scope": {
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "startedAt": "2026-07-01T12:16:44Z"
     },
     "release": {
       "status": "not_started"
     },
-    "review": {
-      "status": "not_started"
+    "design": {
+      "status": "skipped"
     },
     "architecture": {
+      "status": "not_started"
+    },
+    "review": {
       "status": "not_started"
     }
   },
