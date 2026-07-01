@@ -3,7 +3,7 @@ defract:
   id: task-systems-design-review-of-netpath-01kwesg18dsj
   type: improvement
   status: active
-  stage: scope
+  stage: architecture
   phase: 0
   total_phases: 3
   priority: normal
@@ -140,3 +140,10 @@ The country-mode parity change (R16) is the highest end-user impact requirement 
 ### Dependencies
 
 Phase 2 depends on the `probe_errors` key structure and `MeasurementResult` TypedDict established in Phase 1. Phase 3 has no hard dependency on Phase 2 output but must preserve the `probe_errors` dict contract when futures time out.
+
+## Architecture
+
+### Open Decisions
+
+_No open architecture decisions._
+

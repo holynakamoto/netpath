@@ -1,11 +1,11 @@
 {
   "id": "task-systems-design-review-of-netpath-01kwesg18dsj",
   "status": "active",
-  "stage": "scope",
+  "stage": "architecture",
   "phase": 0,
   "totalPhases": 3,
   "createdAt": "2026-07-01T12:12:09Z",
-  "updatedAt": "2026-07-01T12:23:25Z",
+  "updatedAt": "2026-07-01T14:48:05Z",
   "events": [
     {
       "base_branch": "main",
@@ -112,6 +112,97 @@
       "type": "stage_work_complete",
       "worktree_head": "4f8b697e27730f5deffe2681995c259a67182c1a",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 3,
+      "timestamp": "2026-07-01T14:46:14Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-07-01T14:46:14Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "32d5a1e7a22e4d6e6859029eacb376025a097000",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "4f8b697e27730f5deffe2681995c259a67182c1a",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-01T14:46:14Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-07-01T14:46:14Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-07-01T14:46:15Z",
+      "to": "architecture",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T14:46:15Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwf2a5zdg871z6h8bwy63st8",
+      "stage": "architecture",
+      "timestamp": "2026-07-01T14:46:15Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwesrd8hge110wp0rkdc25c7",
+      "timed_out": false,
+      "timestamp": "2026-07-01T14:46:15Z",
+      "type": "agent_exited"
+    },
+    {
+      "change_summary": "No open decisions — all major architecture choices settled in scope spec",
+      "revision": 1,
+      "stage": "architecture",
+      "timestamp": "2026-07-01T14:47:42Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "stage": "architecture",
+      "summary": "Decisions pass complete — architecture is unambiguous, all major choices (TypedDict contracts, accumulate-all signals, ThreadPoolExecutor) already settled in scope spec; no open decisions require builder input",
+      "timestamp": "2026-07-01T14:47:53Z",
+      "type": "stage_work_complete",
+      "worktree_head": "32d5a1e7a22e4d6e6859029eacb376025a097000",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T14:48:05Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwf2dh6vf05axyb34bgwsh4v",
+      "stage": "architecture",
+      "timestamp": "2026-07-01T14:48:05Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwf2a5zdg871z6h8bwy63st8",
+      "timed_out": false,
+      "timestamp": "2026-07-01T14:48:05Z",
+      "type": "agent_exited"
     }
   ],
   "needsArchitecture": true,
@@ -129,28 +220,41 @@
     "classifiedBy": "scope-agent",
     "rationale": "Cross-cutting structural refactor touching 6+ modules with new user-visible behavior (multi-signal diagnosis, partial results indicator, country-mode parity). Skip design — all output changes are text additions to existing terminal panels, no layout or visual design decisions required. Include architecture — introduces new system boundaries (types.py, utils.py), a new concurrency model, and a refactored diagnostic engine that spans 3+ subsystems."
   },
+  "stageApprovals": {
+    "scope": "2026-07-01T14:46:14Z"
+  },
+  "stageContent": {
+    "architecture": "### Open Decisions\n\n_No open architecture decisions._\n"
+  },
+  "architectureIntel": {
+    "answers": {},
+    "decisions": [],
+    "pass": "decisions"
+  },
   "stages": {
-    "implementation": {
+    "review": {
       "status": "not_started"
     },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-01T12:16:44Z"
+    "architecture": {
+      "status": "in_progress",
+      "startedAt": "2026-07-01T14:48:05Z"
     },
-    "release": {
+    "implementation": {
       "status": "not_started"
     },
     "design": {
       "status": "skipped"
     },
-    "architecture": {
-      "status": "not_started"
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T14:46:14Z",
+      "startedAt": "2026-07-01T12:16:44Z"
     },
-    "review": {
+    "release": {
       "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-systems-design-review-of-netpath-01kwesg18dsj",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T12:16:44Z"
+  "worktreeLastSyncedAt": "2026-07-01T14:48:05Z"
 }
