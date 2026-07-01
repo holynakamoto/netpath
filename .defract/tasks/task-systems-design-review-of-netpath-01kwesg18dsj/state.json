@@ -2,10 +2,10 @@
   "id": "task-systems-design-review-of-netpath-01kwesg18dsj",
   "status": "active",
   "stage": "implementation",
-  "phase": 1,
+  "phase": 2,
   "totalPhases": 3,
   "createdAt": "2026-07-01T12:12:09Z",
-  "updatedAt": "2026-07-01T15:17:04Z",
+  "updatedAt": "2026-07-01T15:22:50Z",
   "events": [
     {
       "base_branch": "main",
@@ -476,6 +476,134 @@
       "phase": 2,
       "timestamp": "2026-07-01T15:17:04Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Running phase verification checks",
+      "percentage": 60,
+      "phase": 2,
+      "timestamp": "2026-07-01T15:19:45Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 2,
+      "timestamp": "2026-07-01T15:20:01Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "Phase 1 baseline was 47 passing. Phase 2 added 5 new tests in test_utils.py (test_succeeds_on_first_try, test_retries_on_connection_error_then_succeeds, test_retries_on_timeout_then_succeeds, test_raises_after_max_attempts, test_retries_on_5xx_response). All 52 pass; ruff reports zero errors.",
+      "failed": 0,
+      "passed": 52,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-07-01T15:20:24Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Implementation: probe_errors dict included in diagnose() return value to supply probe names to verdict_panel()",
+      "phase": 2,
+      "rationale": "verdict_panel() only receives the verdict dict (the diagnose() return value). R6 requires \"(partial results: {comma-separated probe list})\" in the annotation. The probe names live in probe_errors keys. Adding probe_errors to the diagnose() return makes them available at the display layer without changing the verdict_panel() call signature or requiring callers to pass a second argument. The full dict is preserved for JSON output consumers who may want the detail.",
+      "timestamp": "2026-07-01T15:20:34Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 2 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 2,
+      "timestamp": "2026-07-01T15:20:45Z",
+      "type": "progress_report"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/utils.py",
+        "tests/test_utils.py",
+        "src/netpath/cli.py",
+        "src/netpath/diagnosis.py",
+        "src/netpath/servers.py",
+        "src/netpath/rum.py",
+        "src/netpath/asn.py",
+        "src/netpath/display.py"
+      ],
+      "phase": 1,
+      "summary": "Replaced scattered _-prefixed error keys with unified probe_errors dict in _measure(). Created utils.py with _with_retry helper (3 attempts, exponential backoff, retries on ConnectionError/Timeout/5xx). Wrapped requests.get in servers.py and rum.py with _with_retry. Added single retry + warnings.warn to both Cymru lookup functions in asn.py. Updated verdict_panel() in display.py to show partial results annotation with probe names. Added probe_errors to diagnose() return value so verdict_panel can access probe names. 5 new tests in test_utils.py. 52/52 tests pass, ruff clean.",
+      "timestamp": "2026-07-01T15:20:53Z",
+      "type": "phase_completed"
+    },
+    {
+      "change_summary": "Phase 2 complete: Probe failure tracking and external call reliability",
+      "revision": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T15:21:22Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `uv run python -m pytest tests/test_utils.py -v` and confirm all 5 tests pass."
+        },
+        {
+          "description": "Run `grep '_trace_error\\|_iperf_error\\|_speedtest_error' src/netpath/cli.py` and confirm zero matches are returned."
+        },
+        {
+          "description": "Run `uv run python -c \"from netpath.utils import _with_retry; print('OK')\"` and confirm it prints `OK`."
+        },
+        {
+          "description": "Run `uv run python -c \"from netpath.diagnosis import diagnose; r = diagnose({'probe_errors': {'iperf3': 'timed out'}}); assert r['partial_results'] is True; assert 'iperf3' in r['probe_errors']; print('probe_errors OK')\"` and confirm it prints `probe_errors OK`."
+        },
+        {
+          "description": "Run `uv run python -m ruff check .` and confirm zero errors are reported."
+        },
+        {
+          "description": "Run `uv run python -m pytest -q` and confirm all 52 tests pass with no failures."
+        }
+      ],
+      "phase": 1,
+      "phase_title": "Probe failure tracking and external call reliability",
+      "timestamp": "2026-07-01T15:21:29Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 2,
+      "phase_title": "Probe failure tracking and external call reliability",
+      "server_phase": 1,
+      "timestamp": "2026-07-01T15:21:35Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 1,
+      "phase_title": "Probe failure tracking and external call reliability",
+      "timestamp": "2026-07-01T15:21:35Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "6e3ef7ad04dfad6f486e58feb6c60c9a07135bc2",
+      "worktree_status_digest": "fdab81e66e358283a02a95bf43efd66a31c724b3a3c0235a1133dd0aaeaead4a"
+    },
+    {
+      "approved_by": "user",
+      "phase": 1,
+      "phase_title": "Probe failure tracking and external call reliability",
+      "timestamp": "2026-07-01T15:22:49Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 1,
+      "timestamp": "2026-07-01T15:22:49Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-01T15:22:50Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwf4d5bf24nkmd07pp3vrgn3",
+      "stage": "implementation",
+      "timestamp": "2026-07-01T15:22:50Z",
+      "type": "stage_agent_started"
     }
   ],
   "needsArchitecture": true,
@@ -494,12 +622,12 @@
     "rationale": "Cross-cutting structural refactor touching 6+ modules with new user-visible behavior (multi-signal diagnosis, partial results indicator, country-mode parity). Skip design — all output changes are text additions to existing terminal panels, no layout or visual design decisions required. Include architecture — introduces new system boundaries (types.py, utils.py), a new concurrency model, and a refactored diagnostic engine that spans 3+ subsystems."
   },
   "stageApprovals": {
-    "scope": "2026-07-01T14:46:14Z",
-    "architecture": "2026-07-01T15:01:36Z"
+    "architecture": "2026-07-01T15:01:36Z",
+    "scope": "2026-07-01T14:46:14Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Complete diagnostic reporting and typed contracts\n\n**Files changed:** `src/netpath/diagnosis.py`, `src/netpath/display.py`, `src/netpath/cli.py`, `src/netpath/mtr.py`, `tests/test_diagnosis.py`\n**Files created:** `src/netpath/types.py`\n\n### What was built\n\n- `diagnosis.py` rewritten: removed all early-return patterns across 9 checks. Every check runs unconditionally and appends `{condition, severity, detail}` dicts to a `signals` list. At the end, worst severity across all signals sets the top-level severity; the highest-severity non-ok signal's condition/detail sets the verdict string and detail. `partial_results: bool` read from `probe_errors` key in the result dict.\n- `types.py` created: `Hub` TypedDict (functional form for `Loss%` key) with `total=False`; `MeasurementResult` TypedDict (class form) with `total=False`, covering all public and internal keys including `probe_errors`.\n- `display.verdict_panel()` updated: signal rendering changed from `f\"  • {sig}\"` to `f\"  • {sig['detail']}\"` to handle the new dict format (per architecture decision AD-4).\n- `cli.py`: imports `MeasurementResult`, annotates `_measure()` return type.\n- `mtr.py`: imports `Hub`, annotates `run()` and `_parse_traceroute_output()` return types.\n- 6 string-based signal assertions in `test_diagnosis.py` updated to `s[\"condition\"]` / `s[\"detail\"]` checks; 3 new tests added: `test_multiple_simultaneous_signals`, `test_partial_results_set_when_probe_errors`, `test_partial_results_false_when_no_probe_errors`.\n\n### No deviations from plan\n\nRate-limited hop signals use severity \"ok\" so they appear in the signals list without elevating the verdict — consistent with existing test expectations and the architecture intent.",
-    "architecture": "### Architecture Summary\n\nThe six architectural problems in netpath are fixed in three sequential passes. First, the diagnostic engine is taught to collect every network problem it finds instead of stopping at the first one — a path with bufferbloat, packet loss, and high jitter will now report all three, and the worst one sets the overall verdict. TypedDict contracts are added to make the data shapes visible and verifiable. Second, probe failures become first-class data: every probe that fails records its name and reason in a shared dictionary, the diagnostic engine reads that dictionary and sets a 'partial results' flag, and the terminal output shows a visible annotation so a 'Healthy (partial)' result is clearly distinguished from a fully-verified clean pass. External HTTP calls (server list, Cloudflare RUM) get automatic retry with exponential backoff. Third, the background threads that have no structured cleanup are replaced by a single managed thread pool used for all concurrent work: dual-stack traces, PMTU probing, TCP/TLS latency, and RUM fetching all run in parallel through the same executor, and country-mode sweeps gain the same full probe set that single-ASN mode already provides.\n\n### Implementation Phases\n\n### Phase 1: Complete diagnostic reporting and typed contracts\n\n**Verification:**\n- [ ] pytest tests/test_diagnosis.py passes with zero failures after signal format change\n- [ ] python -c \"from netpath.types import Hub, MeasurementResult\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'bufferbloat_ms': 50, 'jitter_ms': 15.0, 'hubs': []}); assert len(r['signals']) >= 2\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'probe_errors': {'iperf3': 'timed out'}}); assert r['partial_results'] is True\" exits 0\n- [ ] ruff check . reports zero errors\n\n**Estimated effort:** Medium\n\n### Phase 2: Probe failure tracking and external call reliability\n\n**Verification:**\n- [ ] pytest tests/test_utils.py passes\n- [ ] grep '_trace_error\\|_iperf_error\\|_speedtest_error' src/netpath/cli.py returns zero matches\n- [ ] python -c \"from netpath.utils import _with_retry\" exits 0\n- [ ] ruff check . reports zero errors\n- [ ] pytest passes with no regressions from Phase 1\n\n**Estimated effort:** Medium\n\n### Phase 3: Structured concurrency and country-mode parity\n\n**Verification:**\n- [ ] grep -n 'threading.Thread' src/netpath/cli.py returns zero results\n- [ ] python -c \"import concurrent.futures; from netpath.cli import _measure\" exits 0\n- [ ] pytest passes with no regressions\n- [ ] ruff check . reports zero errors\n- [ ] manual test: netpath country US --top 2 shows ECMP path count and PMTU in per-ASN output\n\n**Estimated effort:** Medium\n"
+    "architecture": "### Architecture Summary\n\nThe six architectural problems in netpath are fixed in three sequential passes. First, the diagnostic engine is taught to collect every network problem it finds instead of stopping at the first one — a path with bufferbloat, packet loss, and high jitter will now report all three, and the worst one sets the overall verdict. TypedDict contracts are added to make the data shapes visible and verifiable. Second, probe failures become first-class data: every probe that fails records its name and reason in a shared dictionary, the diagnostic engine reads that dictionary and sets a 'partial results' flag, and the terminal output shows a visible annotation so a 'Healthy (partial)' result is clearly distinguished from a fully-verified clean pass. External HTTP calls (server list, Cloudflare RUM) get automatic retry with exponential backoff. Third, the background threads that have no structured cleanup are replaced by a single managed thread pool used for all concurrent work: dual-stack traces, PMTU probing, TCP/TLS latency, and RUM fetching all run in parallel through the same executor, and country-mode sweeps gain the same full probe set that single-ASN mode already provides.\n\n### Implementation Phases\n\n### Phase 1: Complete diagnostic reporting and typed contracts\n\n**Verification:**\n- [ ] pytest tests/test_diagnosis.py passes with zero failures after signal format change\n- [ ] python -c \"from netpath.types import Hub, MeasurementResult\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'bufferbloat_ms': 50, 'jitter_ms': 15.0, 'hubs': []}); assert len(r['signals']) >= 2\" exits 0\n- [ ] python -c \"from netpath.diagnosis import diagnose; r = diagnose({'probe_errors': {'iperf3': 'timed out'}}); assert r['partial_results'] is True\" exits 0\n- [ ] ruff check . reports zero errors\n\n**Estimated effort:** Medium\n\n### Phase 2: Probe failure tracking and external call reliability\n\n**Verification:**\n- [ ] pytest tests/test_utils.py passes\n- [ ] grep '_trace_error\\|_iperf_error\\|_speedtest_error' src/netpath/cli.py returns zero matches\n- [ ] python -c \"from netpath.utils import _with_retry\" exits 0\n- [ ] ruff check . reports zero errors\n- [ ] pytest passes with no regressions from Phase 1\n\n**Estimated effort:** Medium\n\n### Phase 3: Structured concurrency and country-mode parity\n\n**Verification:**\n- [ ] grep -n 'threading.Thread' src/netpath/cli.py returns zero results\n- [ ] python -c \"import concurrent.futures; from netpath.cli import _measure\" exits 0\n- [ ] pytest passes with no regressions\n- [ ] ruff check . reports zero errors\n- [ ] manual test: netpath country US --top 2 shows ECMP path count and PMTU in per-ASN output\n\n**Estimated effort:** Medium\n",
+    "implementation": "## Phase 1: Complete diagnostic reporting and typed contracts\n\n**Files changed:** `src/netpath/diagnosis.py`, `src/netpath/display.py`, `src/netpath/cli.py`, `src/netpath/mtr.py`, `tests/test_diagnosis.py`\n**Files created:** `src/netpath/types.py`\n\n### What was built\n\n- `diagnosis.py` rewritten: removed all early-return patterns across 9 checks. Every check runs unconditionally and appends `{condition, severity, detail}` dicts to a `signals` list. At the end, worst severity across all signals sets the top-level severity; the highest-severity non-ok signal's condition/detail sets the verdict string and detail. `partial_results: bool` read from `probe_errors` key in the result dict.\n- `types.py` created: `Hub` TypedDict (functional form for `Loss%` key) with `total=False`; `MeasurementResult` TypedDict (class form) with `total=False`, covering all public and internal keys including `probe_errors`.\n- `display.verdict_panel()` updated: signal rendering changed from `f\"  • {sig}\"` to `f\"  • {sig['detail']}\"` to handle the new dict format (per architecture decision AD-4).\n- `cli.py`: imports `MeasurementResult`, annotates `_measure()` return type.\n- `mtr.py`: imports `Hub`, annotates `run()` and `_parse_traceroute_output()` return types.\n- 6 string-based signal assertions in `test_diagnosis.py` updated to `s[\"condition\"]` / `s[\"detail\"]` checks; 3 new tests added: `test_multiple_simultaneous_signals`, `test_partial_results_set_when_probe_errors`, `test_partial_results_false_when_no_probe_errors`.\n\n### No deviations from plan\n\nRate-limited hop signals use severity \"ok\" so they appear in the signals list without elevating the verdict — consistent with existing test expectations and the architecture intent.\n\n## Phase 2: Probe failure tracking and external call reliability\n\n**Files changed:** `src/netpath/cli.py`, `src/netpath/diagnosis.py`, `src/netpath/servers.py`, `src/netpath/rum.py`, `src/netpath/asn.py`, `src/netpath/display.py`\n**Files created:** `src/netpath/utils.py`, `tests/test_utils.py`\n\n### What was built\n\n- `utils.py` created: `_with_retry(fn, attempts=3, base_delay=1.0)` retries on `requests.ConnectionError`, `requests.Timeout`, and HTTP 5xx responses (detected by duck-typing `status_code` on the return value). Exponential backoff: 1s, 2s, 4s. Re-raises last exception on exhaustion.\n- `cli.py` updated: replaced `_trace_error`, `_iperf_error`, `_speedtest_error` initial dict keys and all assignment sites with a single `probe_errors: {}` dict. Error keys: `v4_trace`, `iperf3`, `speedtest`. `_run_test()` reads from `probe_errors` dict instead of the removed keys.\n- `servers.py` updated: `_fetch_and_resolve()` wraps `requests.get(SERVERS_URL, ...)` with `_with_retry`.\n- `rum.py` updated: `fetch_asn_quality()` wraps the `requests.get(...)` call with `_with_retry`; the 401 check and `ValueError` raise remain outside the retry wrapper.\n- `asn.py` updated: both `cymru_bulk_lookup()` and `cymru_bulk_lookup_rich()` retry `_cymru_query()` once on `OSError` after a 1s sleep; second failure emits `warnings.warn()` and returns empty dict.\n- `diagnosis.py` updated: `probe_errors` dict included in both return paths so `verdict_panel()` can access the probe names for the partial results annotation.\n- `display.verdict_panel()` updated: when `partial_results=True`, appends `(partial results: {comma-joined probe names})` to the verdict label.\n\n### One deviation from plan\n\n`probe_errors` was added to the `diagnose()` return dict (in addition to the `partial_results` bool) so that `verdict_panel()` has access to the failed probe names for the annotation. Without this, `verdict_panel()` would only know a partial result occurred, not which probes failed."
   },
   "architectureIntel": {
     "diagram": "flowchart TD\n    M[\"_measure()\\ncli.py\"] -->|\"probe_errors dict\"| D[\"diagnose()\\ndiagnosis.py\"]\n    D -->|\"signals list\\npartial_results bool\\nverdict/severity/detail\"| VP[\"verdict_panel()\\ndisplay.py\"]\n    M -->|\"concurrent futures\"| EX[\"ThreadPoolExecutor\\nv4 trace · v6 trace\\npmtu · tcp · tls · rum\"]\n    U[\"utils._with_retry()\"] -.->|\"wraps HTTP calls\"| S[\"servers._fetch_and_resolve()\"]\n    U -.->|\"wraps HTTP calls\"| R[\"rum.fetch_asn_quality()\"]\n    M --> U",
@@ -743,29 +871,29 @@
   "stages": {
     "implementation": {
       "status": "in_progress",
-      "startedAt": "2026-07-01T15:13:44Z"
+      "startedAt": "2026-07-01T15:22:50Z"
     },
     "architecture": {
       "status": "approved",
       "approvedAt": "2026-07-01T15:01:36Z",
       "startedAt": "2026-07-01T14:48:05Z"
     },
+    "release": {
+      "status": "not_started"
+    },
     "review": {
       "status": "not_started"
+    },
+    "design": {
+      "status": "skipped"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-01T14:46:14Z",
       "startedAt": "2026-07-01T12:16:44Z"
-    },
-    "design": {
-      "status": "skipped"
-    },
-    "release": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-systems-design-review-of-netpath-01kwesg18dsj",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T15:13:44Z"
+  "worktreeLastSyncedAt": "2026-07-01T15:22:50Z"
 }

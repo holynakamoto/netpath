@@ -201,3 +201,22 @@ The six architectural problems in netpath are fixed in three sequential passes. 
 ### No deviations from plan
 
 Rate-limited hop signals use severity "ok" so they appear in the signals list without elevating the verdict — consistent with existing test expectations and the architecture intent.
+
+## Phase 2: Probe failure tracking and external call reliability
+
+**Files changed:** `src/netpath/cli.py`, `src/netpath/diagnosis.py`, `src/netpath/servers.py`, `src/netpath/rum.py`, `src/netpath/asn.py`, `src/netpath/display.py`
+**Files created:** `src/netpath/utils.py`, `tests/test_utils.py`
+
+### What was built
+
+- `utils.py` created: `_with_retry(fn, attempts=3, base_delay=1.0)` retries on `requests.ConnectionError`, `requests.Timeout`, and HTTP 5xx responses (detected by duck-typing `status_code` on the return value). Exponential backoff: 1s, 2s, 4s. Re-raises last exception on exhaustion.
+- `cli.py` updated: replaced `_trace_error`, `_iperf_error`, `_speedtest_error` initial dict keys and all assignment sites with a single `probe_errors: {}` dict. Error keys: `v4_trace`, `iperf3`, `speedtest`. `_run_test()` reads from `probe_errors` dict instead of the removed keys.
+- `servers.py` updated: `_fetch_and_resolve()` wraps `requests.get(SERVERS_URL, ...)` with `_with_retry`.
+- `rum.py` updated: `fetch_asn_quality()` wraps the `requests.get(...)` call with `_with_retry`; the 401 check and `ValueError` raise remain outside the retry wrapper.
+- `asn.py` updated: both `cymru_bulk_lookup()` and `cymru_bulk_lookup_rich()` retry `_cymru_query()` once on `OSError` after a 1s sleep; second failure emits `warnings.warn()` and returns empty dict.
+- `diagnosis.py` updated: `probe_errors` dict included in both return paths so `verdict_panel()` can access the probe names for the partial results annotation.
+- `display.verdict_panel()` updated: when `partial_results=True`, appends `(partial results: {comma-joined probe names})` to the verdict label.
+
+### One deviation from plan
+
+`probe_errors` was added to the `diagnose()` return dict (in addition to the `partial_results` bool) so that `verdict_panel()` has access to the failed probe names for the annotation. Without this, `verdict_panel()` would only know a partial result occurred, not which probes failed.
