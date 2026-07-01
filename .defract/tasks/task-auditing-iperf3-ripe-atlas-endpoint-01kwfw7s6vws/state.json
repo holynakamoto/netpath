@@ -1,11 +1,11 @@
 {
   "id": "task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws",
   "status": "active",
-  "stage": "implementation",
-  "phase": 1,
+  "stage": "review",
+  "phase": 2,
   "totalPhases": 2,
   "createdAt": "2026-07-01T22:19:19Z",
-  "updatedAt": "2026-07-01T23:11:39Z",
+  "updatedAt": "2026-07-01T23:51:09Z",
   "events": [
     {
       "base_branch": "main",
@@ -426,6 +426,126 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "d4937f1cc3941669c3e3dd55c402f9bb3189d0dc",
       "worktree_status_digest": "510a49bb39081e6c54c50949bcec956a568a39b852147f9d1f0839129acdcdc5"
+    },
+    {
+      "approved_by": "user",
+      "phase": 1,
+      "phase_title": "RIPE Atlas measurement mode",
+      "timestamp": "2026-07-01T23:45:18Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "phase": 1,
+      "timestamp": "2026-07-01T23:45:18Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "stage": "implementation",
+      "summary": "All phases approved — implementation ready for review.",
+      "timestamp": "2026-07-01T23:45:18Z",
+      "type": "stage_work_complete",
+      "worktree_head": "153ad54f3fd70aef1948ecefd51e2423a2c00506",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 3,
+      "timestamp": "2026-07-01T23:45:19Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T23:45:19Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "d582e7ef109a50b3cfdd902da8381d06597b2b44",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "implementation",
+      "stale_worktree_head": "153ad54f3fd70aef1948ecefd51e2423a2c00506",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-01T23:45:19Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "implementation",
+      "timestamp": "2026-07-01T23:45:19Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "implementation",
+      "timestamp": "2026-07-01T23:45:19Z",
+      "to": "review",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T23:45:19Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwg158sbvy2s7zbaak6j6ng2",
+      "stage": "review",
+      "timestamp": "2026-07-01T23:45:20Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Scoped self-fix: adding 'outbound:' label to Atlas traceroute path in display.py (AC-10 failure)",
+      "phase": 2,
+      "stage": "review",
+      "timestamp": "2026-07-01T23:47:54Z",
+      "type": "work_resumed"
+    },
+    {
+      "details": "70/70 passed (pytest). ruff reports All checks passed. Re-verified after scoped self-fix to display.py.",
+      "failed": 0,
+      "passed": 70,
+      "phase": 2,
+      "skipped": 0,
+      "timestamp": "2026-07-01T23:50:03Z",
+      "type": "test_results"
+    },
+    {
+      "change_summary": "APPROVE: All 14 acceptance criteria pass after a scoped self-fix that added the missing \"outbound:\" label to the Atlas traceroute path display (display.py:385). Both automated checks pass: pytest 70/70 and ruff clean. Phase 1 correctly fixes server selection and Phase 2 implements the full Atlas flow with correct authorization headers and retry wrapping throughout.",
+      "revision": 1,
+      "stage": "review",
+      "timestamp": "2026-07-01T23:50:47Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [
+        "Request changes for the AC-10 labeling gap — rejected because the fix is a one-word addition to a file already changed by this task, well within the small-fix heuristic"
+      ],
+      "decision": "Review verdict: APPROVE (revision 1, with one scoped self-fix)",
+      "rationale": "14/14 acceptance criteria passed, 2/2 automated checks passed. One scoped self-fix applied: display.py:385 added 'outbound:' prefix to Atlas traceroute path to satisfy AC-10's labeling requirement. Fix is localized to a file already in the task's changed set, verified with ruff and 70/70 tests.",
+      "timestamp": "2026-07-01T23:50:54Z",
+      "type": "decision"
+    },
+    {
+      "stage": "review",
+      "summary": "APPROVE — 14/14 ACs pass, 70/70 tests, ruff clean. One scoped self-fix applied: added 'outbound:' label to Atlas traceroute path display (display.py:385) to satisfy AC-10. Ready to advance to release.",
+      "timestamp": "2026-07-01T23:51:09Z",
+      "type": "stage_work_complete",
+      "worktree_head": "2f54b79993a0b80cdcb69c2242199e618c52fc34",
+      "worktree_status_digest": "a988ccf2e31d5a09ec070446bea61e2d6d940c483ccc8f9e709b239490588be6"
     }
   ],
   "needsArchitecture": false,
@@ -443,35 +563,176 @@
     "rationale": "Backend-only changes: no new UI flows or visual design decisions (display.py changes are additive column conditionals, not new components). Architecture skipped — both phases follow established patterns (single-purpose module in atlas.py, _with_retry from utils.py, ThreadPoolExecutor in _measure) and touch well-understood subsystems. Standard tier: 4–5 files across 2 phases, bounded scope, no new system boundaries."
   },
   "stageApprovals": {
-    "scope": "2026-07-01T22:50:45Z"
+    "scope": "2026-07-01T22:50:45Z",
+    "implementation": "2026-07-01T23:45:19Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Fix iperf3 server selection bugs\n\n### Changes\n\n**`src/netpath/servers.py`**\n- Added module-level import of `from . import iperf as _iperf`\n- Added `json` and `subprocess` stdlib imports\n- Renamed `_is_alive` to `_tcp_alive` (TCP-only check, kept for fallback use)\n- Added `_is_iperf3_alive(ip, port)`: runs `iperf3 -c ip -p port -t 1 -J` with 15s timeout; zero exit code + parseable JSON with no `error` field = alive; falls back to `_tcp_alive` when `iperf.available()` returns False\n- `find_servers_in_asn`: moved `[:max_count]` truncation after the liveness filter; liveness now uses `_is_iperf3_alive`\n\n**`tests/test_servers.py`** (rewritten)\n- `test_tcp_alive_returns_false_on_oserror` — TCP fallback behaves correctly on error\n- `test_tcp_alive_returns_true_on_success` — TCP fallback succeeds\n- `test_is_iperf3_alive_true_on_zero_exit_valid_json` — happy path\n- `test_is_iperf3_alive_false_on_nonzero_exit` — rejected on non-zero exit\n- `test_is_iperf3_alive_false_when_json_has_error_field` — rejected when JSON contains `error` key\n- `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` — TCP fallback when iperf3 absent\n- `test_is_iperf3_alive_false_on_timeout` — TimeoutExpired returns False\n- `test_find_servers_in_asn_checks_all_candidates_before_truncating` — 5 candidates, first 3 dead, returns 2 live\n- `test_find_servers_in_asn_respects_max_count_after_filter` — 5 live servers, max_count=3 returns 3\n- `test_find_servers_in_asn_excludes_server_failing_iperf3_protocol` — TCP-only server excluded\n\n### Result\n70/70 tests pass. ruff reports no errors.\n\n## Phase 2: RIPE Atlas measurement mode\n\n### Changes\n\n**`src/netpath/atlas.py`** (new)\n- `get_public_ip()`: fetches caller's IPv4 via ipify, used once per sweep as the traceroute target\n- `find_probes_in_asn(asn, atlas_key)`: queries Atlas v4 probes endpoint with `asn_v4` + `status=1`, returns up to 3 probe IDs; returns `[]` on any failure\n- `check_budget(probes_by_asn, atlas_key)`: sums probe counts × (PING_CREDITS=1 + TRACE_CREDITS=10), queries `/api/v4/credits/`, returns `(sufficient, cost, balance)`\n- `schedule_measurements(probe_ids, target_ip, user_ip, atlas_key)`: two sequential POST requests — ping to `target_ip`, traceroute (TCP/80, paris=6) to `user_ip`; returns `{\"ping\": id, \"traceroute\": id}`; raises on API error\n- `poll_until_done(measurement_ids, atlas_key, timeout=600)`: polls with 30-second sleep intervals; terminal statuses: stopped, forced to stop, no suitable probes, failed, denied; returns `{id: status_name}` with `\"timed_out\"` for stragglers\n- `fetch_results(measurement_id, atlas_key)`: fetches `/api/v4/measurements/{id}/results/`; returns `[]` on failure\n- `parse_ping_rtt(results)`: extracts RTTs from `result[probe].result[pkt].rtt`, returns `{min, avg, max}` or None\n- `parse_traceroute_as_path(results)`: collects unique hop IPs, resolves via `cymru_bulk_lookup`, walks first probe's hop list to build deduplicated AS sequence\n\n**`src/netpath/cli.py`**\n- Added `atlas as atlas_mod` import\n- Added `_set_atlas_error(rows, asn, msg)` module-level helper\n- Added `--atlas-key` / `NETPATH_ATLAS_KEY` option to `country` command\n- Pre-sweep: discovers Atlas probes for all target ASNs, gets user's public IP, checks credit budget (aborts if insufficient)\n- Per-ASN loop: tracks test IP per ASN (`_atlas_test_ips`) as ping target for Atlas measurements\n- Post-sweep: schedules ping + traceroute for each ASN with probes (prints measurement IDs), polls all measurements with 600-second timeout, fetches + parses results, merges `atlas` dict into each summary row\n- No-probe and timed-out ASNs get `probe_errors[\"atlas\"]` set\n\n**`src/netpath/display.py`**\n- Added `_render_atlas_subrow(r, is_last_in_group)`: prints optional indented `[Atlas] RTT X ms avg, AS-path` line beneath each ISP row; no-op when `r.get(\"atlas\")` is absent\n- Called in `country_summary` for both complete and incomplete path rows\n- Non-Atlas layout is pixel-identical (function is a no-op when Atlas key was not used)\n\n### Decisions\n- Probe discovery runs before the regular sweep so the budget check uses exact probe counts\n- All Atlas measurements are scheduled after the regular sweep completes, then polled in one shared 600-second window — faster than per-ASN schedule+poll\n\n### Result\n70/70 tests pass. ruff reports no errors."
+    "implementation": "## Phase 1: Fix iperf3 server selection bugs\n\n### Changes\n\n**`src/netpath/servers.py`**\n- Added module-level import of `from . import iperf as _iperf`\n- Added `json` and `subprocess` stdlib imports\n- Renamed `_is_alive` to `_tcp_alive` (TCP-only check, kept for fallback use)\n- Added `_is_iperf3_alive(ip, port)`: runs `iperf3 -c ip -p port -t 1 -J` with 15s timeout; zero exit code + parseable JSON with no `error` field = alive; falls back to `_tcp_alive` when `iperf.available()` returns False\n- `find_servers_in_asn`: moved `[:max_count]` truncation after the liveness filter; liveness now uses `_is_iperf3_alive`\n\n**`tests/test_servers.py`** (rewritten)\n- `test_tcp_alive_returns_false_on_oserror` — TCP fallback behaves correctly on error\n- `test_tcp_alive_returns_true_on_success` — TCP fallback succeeds\n- `test_is_iperf3_alive_true_on_zero_exit_valid_json` — happy path\n- `test_is_iperf3_alive_false_on_nonzero_exit` — rejected on non-zero exit\n- `test_is_iperf3_alive_false_when_json_has_error_field` — rejected when JSON contains `error` key\n- `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` — TCP fallback when iperf3 absent\n- `test_is_iperf3_alive_false_on_timeout` — TimeoutExpired returns False\n- `test_find_servers_in_asn_checks_all_candidates_before_truncating` — 5 candidates, first 3 dead, returns 2 live\n- `test_find_servers_in_asn_respects_max_count_after_filter` — 5 live servers, max_count=3 returns 3\n- `test_find_servers_in_asn_excludes_server_failing_iperf3_protocol` — TCP-only server excluded\n\n### Result\n70/70 tests pass. ruff reports no errors.\n\n## Phase 2: RIPE Atlas measurement mode\n\n### Changes\n\n**`src/netpath/atlas.py`** (new)\n- `get_public_ip()`: fetches caller's IPv4 via ipify, used once per sweep as the traceroute target\n- `find_probes_in_asn(asn, atlas_key)`: queries Atlas v4 probes endpoint with `asn_v4` + `status=1`, returns up to 3 probe IDs; returns `[]` on any failure\n- `check_budget(probes_by_asn, atlas_key)`: sums probe counts × (PING_CREDITS=1 + TRACE_CREDITS=10), queries `/api/v4/credits/`, returns `(sufficient, cost, balance)`\n- `schedule_measurements(probe_ids, target_ip, user_ip, atlas_key)`: two sequential POST requests — ping to `target_ip`, traceroute (TCP/80, paris=6) to `user_ip`; returns `{\"ping\": id, \"traceroute\": id}`; raises on API error\n- `poll_until_done(measurement_ids, atlas_key, timeout=600)`: polls with 30-second sleep intervals; terminal statuses: stopped, forced to stop, no suitable probes, failed, denied; returns `{id: status_name}` with `\"timed_out\"` for stragglers\n- `fetch_results(measurement_id, atlas_key)`: fetches `/api/v4/measurements/{id}/results/`; returns `[]` on failure\n- `parse_ping_rtt(results)`: extracts RTTs from `result[probe].result[pkt].rtt`, returns `{min, avg, max}` or None\n- `parse_traceroute_as_path(results)`: collects unique hop IPs, resolves via `cymru_bulk_lookup`, walks first probe's hop list to build deduplicated AS sequence\n\n**`src/netpath/cli.py`**\n- Added `atlas as atlas_mod` import\n- Added `_set_atlas_error(rows, asn, msg)` module-level helper\n- Added `--atlas-key` / `NETPATH_ATLAS_KEY` option to `country` command\n- Pre-sweep: discovers Atlas probes for all target ASNs, gets user's public IP, checks credit budget (aborts if insufficient)\n- Per-ASN loop: tracks test IP per ASN (`_atlas_test_ips`) as ping target for Atlas measurements\n- Post-sweep: schedules ping + traceroute for each ASN with probes (prints measurement IDs), polls all measurements with 600-second timeout, fetches + parses results, merges `atlas` dict into each summary row\n- No-probe and timed-out ASNs get `probe_errors[\"atlas\"]` set\n\n**`src/netpath/display.py`**\n- Added `_render_atlas_subrow(r, is_last_in_group)`: prints optional indented `[Atlas] RTT X ms avg, AS-path` line beneath each ISP row; no-op when `r.get(\"atlas\")` is absent\n- Called in `country_summary` for both complete and incomplete path rows\n- Non-Atlas layout is pixel-identical (function is a no-op when Atlas key was not used)\n\n### Decisions\n- Probe discovery runs before the regular sweep so the budget check uses exact probe counts\n- All Atlas measurements are scheduled after the regular sweep completes, then polled in one shared 600-second window — faster than per-ASN schedule+poll\n\n### Result\n70/70 tests pass. ruff reports no errors.",
+    "review": "## Verdict\n\n**Verdict:** APPROVE\n**Files reviewed:** 5 files changed across 2 phases\n\nAll 14 acceptance criteria pass after a scoped self-fix that added the missing \"outbound:\" label to the Atlas traceroute path display (display.py:385). Both automated checks pass: pytest 70/70 and ruff clean. Phase 1 correctly fixes server selection and Phase 2 implements the full Atlas flow with correct authorization headers and retry wrapping throughout.\n\n### Automated Checks\n\n| Check | Result | Details |\n|-------|--------|---------|\n| Test suite (pytest) | PASS | 70/70 passed, 0 failed |\n| Lint (ruff check src tests) | PASS | All checks passed! |\n\n### Acceptance Criteria (14/14 passed)\n\n- [x] AC-1: Given an ASN with 5 candidates where the first 3 are dead and the last 2 are live, `find_servers_in_asn(asn, max_count=3)` returns the 2 live servers rather than an empty list. (Verified by unit test in `tests/test_servers.py` mocking `_is_iperf3_alive`.) — PASS: servers.py:99-107: liveness filter runs across all candidates before `live = live[:max_count]`; test_servers.py:69-86 `test_find_servers_in_asn_checks_all_candidates_before_truncating` confirms 2 live servers returned.\n- [x] AC-2: A server that passes TCP connect but whose `iperf3 -t 1` returns a non-zero exit code is excluded from `find_servers_in_asn()` results. (Verified by unit test mocking `subprocess.run`.) — PASS: servers.py:90: `if r.returncode != 0: return False`; test_servers.py:29-35 `test_is_iperf3_alive_false_on_nonzero_exit` mocks subprocess.run with returncode=1 and asserts False.\n- [x] AC-3: The iperf3 validation probe uses a 1-second duration and does not appear in the function's return value or any side effects. — PASS: servers.py:83: command is `[\"iperf3\", \"-c\", ip, \"-p\", str(port), \"-t\", \"1\", \"-J\"]`. `_is_iperf3_alive` returns bool only; no bandwidth data surfaces in callers or return values.\n- [x] AC-4: When `iperf3` is not in PATH, `_is_iperf3_alive()` falls back to TCP connect and `find_servers_in_asn()` returns live servers as before. — PASS: servers.py:79-80: `if not _iperf.available(): return _tcp_alive(ip, port)`; test_servers.py:47-54 `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` mocks `_iperf.available()` to return False and asserts `_tcp_alive` called.\n- [x] AC-5: Running `netpath country ZA` without `--atlas-key` produces identical output to today's behavior (no regression). — PASS: cli.py:633: entire Atlas block is guarded by `if atlas_key:`; display.py:374-389 `_render_atlas_subrow` returns immediately when `r.get('atlas', {})` is falsy — no output emitted.\n- [x] AC-6: Running `netpath country ZA --atlas-key <key>` with insufficient credits prints a clear error and exits before creating any Atlas measurements. — PASS: cli.py:649-661: `check_budget` is called before the scheduling loop at cli.py:746; if `not _ok`, prints error message with cost/balance and raises `typer.Exit(1)` before any `schedule_measurements` call.\n- [x] AC-7: Running `netpath country ZA --atlas-key <key>` for an ASN with no Atlas probes records `\"atlas\": \"no probes available\"` in that ASN's probe errors and continues to the next ASN. — PASS: cli.py:763-766: after the scheduling loop, iterates `top_asns` and calls `_set_atlas_error(summary_rows, _ai['asn'], 'no probes available')` for any ASN not in `_atlas_probes`.\n- [x] AC-8: Atlas measurement IDs are printed or logged so a user can look them up on the Atlas web interface. — PASS: cli.py:757-759: prints `{_asn_str}: ping #{_mids['ping']}  traceroute #{_mids['traceroute']}` to console for each ASN after scheduling.\n- [x] AC-9: Atlas ping RTT statistics (min/avg/max) appear in the per-ASN summary when `--atlas-key` is provided, labeled to distinguish them from locally-measured latency. — PASS: display.py:382-383: renders `RTT {avg} ms avg ({min}–{max})` prefixed with `[Atlas]` label (display.py:389), distinguishing it from the locally-measured latency in the main row.\n- [x] AC-10: Atlas traceroute AS-hop sequences appear in the per-ASN summary when `--atlas-key` is provided, labeled as inbound or outbound path. — PASS: Self-fix applied: display.py:385 changed from `'→'.join(path[:6])` to `'outbound: ' + '→'.join(path[:6])`; output now reads `[Atlas] outbound: AS1→AS2→...`. Verified with ruff and 70/70 tests.\n- [x] AC-11: Measurements not completing within 600 seconds are recorded as timed-out errors without hanging the sweep indefinitely. — PASS: atlas.py:144: `deadline = time.monotonic() + timeout`; atlas.py:166-167: remaining items in `pending` set after the while loop get `final[mid] = 'timed_out'`; cli.py:790-800: timed-out ping or trace sets `probe_errors['atlas'] = 'timed out'`.\n- [x] AC-12: All Atlas API calls pass the key as `Authorization: Key {key}` and go through `_with_retry()`. — PASS: atlas.py:17-18: `_hdr(atlas_key)` → `{'Authorization': f'Key {atlas_key}'}`. All five API-touching functions — `find_probes_in_asn` (line 37), `check_budget` (line 60), `schedule_measurements` (lines 89, 108), `poll_until_done` (line 151), `fetch_results` (line 174) — wrap requests calls in `_with_retry(lambda: ...)` and pass `headers=_hdr(atlas_key)`.\n- [x] AC-13: `src/netpath/atlas.py` contains all Atlas API interaction; `cli.py` and `country.py` contain no direct Atlas API calls. — PASS: atlas.py contains all new Phase 2 Atlas API calls. cli.py delegates entirely via `atlas_mod.*`. country.py was not modified by this task (git diff main..HEAD -- src/netpath/country.py is empty); its pre-existing `_get_atlas_probe_ip` (v2 API, unauthenticated, for test-IP fallback) predates this task and is explicitly acknowledged in the task context as existing infrastructure.\n- [x] AC-14: `ruff check src tests` reports no errors after both phases. — PASS: Ran `uv run ruff check src tests` after the self-fix; output: `All checks passed!`\n\n### Code Quality (Refactor Review)\n\nNo code quality issues found in changed files.\n\n### Security Assessment (Security Review)\n\nNo security issues found in changed files.\n\n### Decisions Made During Implementation\n\n- iperf3 protocol validation uses a 1-second live test measurement (iperf3 -t 1 -J) rather than TCP banner inspection or a zero-duration test\n- Atlas integration lives in a new atlas.py module following the single-purpose measurement module convention, not in country.py or cli.py\n- Atlas probe discovery runs before the regular sweep so the budget check uses exact per-ASN probe counts, not worst-case estimates\n- All Atlas measurements are scheduled after the regular sweep completes, then polled in one shared 600-second window rather than inline per-ASN\n\n## Required Changes\n\nNone.\n"
   },
   "stages": {
-    "review": {
-      "status": "not_started"
-    },
-    "release": {
-      "status": "not_started"
+    "architecture": {
+      "status": "skipped"
     },
     "design": {
       "status": "skipped"
     },
-    "architecture": {
-      "status": "skipped"
-    },
     "implementation": {
-      "status": "in_progress",
+      "status": "approved",
+      "approvedAt": "2026-07-01T23:45:19Z",
       "startedAt": "2026-07-01T22:58:11Z"
+    },
+    "release": {
+      "status": "not_started"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-01T22:50:45Z",
       "startedAt": "2026-07-01T22:29:19Z"
+    },
+    "review": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-07-01T23:45:20Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T22:58:11Z"
+  "worktreeLastSyncedAt": "2026-07-01T23:45:19Z",
+  "reviewPayload": {
+    "verdict": "approve",
+    "summary": "All 14 acceptance criteria pass after a scoped self-fix that added the missing \"outbound:\" label to the Atlas traceroute path display (display.py:385). Both automated checks pass: pytest 70/70 and ruff clean. Phase 1 correctly fixes server selection and Phase 2 implements the full Atlas flow with correct authorization headers and retry wrapping throughout.",
+    "filesReviewedCount": 5,
+    "phasesReviewedCount": 2,
+    "automatedChecks": [
+      {
+        "name": "Test suite (pytest)",
+        "result": "pass",
+        "detail": "70/70 passed, 0 failed"
+      },
+      {
+        "name": "Lint (ruff check src tests)",
+        "result": "pass",
+        "detail": "All checks passed!"
+      }
+    ],
+    "acceptanceCriteria": [
+      {
+        "acId": "AC-1",
+        "text": "Given an ASN with 5 candidates where the first 3 are dead and the last 2 are live, `find_servers_in_asn(asn, max_count=3)` returns the 2 live servers rather than an empty list. (Verified by unit test in `tests/test_servers.py` mocking `_is_iperf3_alive`.)",
+        "status": "pass",
+        "evidence": "servers.py:99-107: liveness filter runs across all candidates before `live = live[:max_count]`; test_servers.py:69-86 `test_find_servers_in_asn_checks_all_candidates_before_truncating` confirms 2 live servers returned."
+      },
+      {
+        "acId": "AC-2",
+        "text": "A server that passes TCP connect but whose `iperf3 -t 1` returns a non-zero exit code is excluded from `find_servers_in_asn()` results. (Verified by unit test mocking `subprocess.run`.)",
+        "status": "pass",
+        "evidence": "servers.py:90: `if r.returncode != 0: return False`; test_servers.py:29-35 `test_is_iperf3_alive_false_on_nonzero_exit` mocks subprocess.run with returncode=1 and asserts False."
+      },
+      {
+        "acId": "AC-3",
+        "text": "The iperf3 validation probe uses a 1-second duration and does not appear in the function's return value or any side effects.",
+        "status": "pass",
+        "evidence": "servers.py:83: command is `[\"iperf3\", \"-c\", ip, \"-p\", str(port), \"-t\", \"1\", \"-J\"]`. `_is_iperf3_alive` returns bool only; no bandwidth data surfaces in callers or return values."
+      },
+      {
+        "acId": "AC-4",
+        "text": "When `iperf3` is not in PATH, `_is_iperf3_alive()` falls back to TCP connect and `find_servers_in_asn()` returns live servers as before.",
+        "status": "pass",
+        "evidence": "servers.py:79-80: `if not _iperf.available(): return _tcp_alive(ip, port)`; test_servers.py:47-54 `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` mocks `_iperf.available()` to return False and asserts `_tcp_alive` called."
+      },
+      {
+        "acId": "AC-5",
+        "text": "Running `netpath country ZA` without `--atlas-key` produces identical output to today's behavior (no regression).",
+        "status": "pass",
+        "evidence": "cli.py:633: entire Atlas block is guarded by `if atlas_key:`; display.py:374-389 `_render_atlas_subrow` returns immediately when `r.get('atlas', {})` is falsy — no output emitted."
+      },
+      {
+        "acId": "AC-6",
+        "text": "Running `netpath country ZA --atlas-key <key>` with insufficient credits prints a clear error and exits before creating any Atlas measurements.",
+        "status": "pass",
+        "evidence": "cli.py:649-661: `check_budget` is called before the scheduling loop at cli.py:746; if `not _ok`, prints error message with cost/balance and raises `typer.Exit(1)` before any `schedule_measurements` call."
+      },
+      {
+        "acId": "AC-7",
+        "text": "Running `netpath country ZA --atlas-key <key>` for an ASN with no Atlas probes records `\"atlas\": \"no probes available\"` in that ASN's probe errors and continues to the next ASN.",
+        "status": "pass",
+        "evidence": "cli.py:763-766: after the scheduling loop, iterates `top_asns` and calls `_set_atlas_error(summary_rows, _ai['asn'], 'no probes available')` for any ASN not in `_atlas_probes`."
+      },
+      {
+        "acId": "AC-8",
+        "text": "Atlas measurement IDs are printed or logged so a user can look them up on the Atlas web interface.",
+        "status": "pass",
+        "evidence": "cli.py:757-759: prints `{_asn_str}: ping #{_mids['ping']}  traceroute #{_mids['traceroute']}` to console for each ASN after scheduling."
+      },
+      {
+        "acId": "AC-9",
+        "text": "Atlas ping RTT statistics (min/avg/max) appear in the per-ASN summary when `--atlas-key` is provided, labeled to distinguish them from locally-measured latency.",
+        "status": "pass",
+        "evidence": "display.py:382-383: renders `RTT {avg} ms avg ({min}–{max})` prefixed with `[Atlas]` label (display.py:389), distinguishing it from the locally-measured latency in the main row."
+      },
+      {
+        "acId": "AC-10",
+        "text": "Atlas traceroute AS-hop sequences appear in the per-ASN summary when `--atlas-key` is provided, labeled as inbound or outbound path.",
+        "status": "pass",
+        "evidence": "Self-fix applied: display.py:385 changed from `'→'.join(path[:6])` to `'outbound: ' + '→'.join(path[:6])`; output now reads `[Atlas] outbound: AS1→AS2→...`. Verified with ruff and 70/70 tests."
+      },
+      {
+        "acId": "AC-11",
+        "text": "Measurements not completing within 600 seconds are recorded as timed-out errors without hanging the sweep indefinitely.",
+        "status": "pass",
+        "evidence": "atlas.py:144: `deadline = time.monotonic() + timeout`; atlas.py:166-167: remaining items in `pending` set after the while loop get `final[mid] = 'timed_out'`; cli.py:790-800: timed-out ping or trace sets `probe_errors['atlas'] = 'timed out'`."
+      },
+      {
+        "acId": "AC-12",
+        "text": "All Atlas API calls pass the key as `Authorization: Key {key}` and go through `_with_retry()`.",
+        "status": "pass",
+        "evidence": "atlas.py:17-18: `_hdr(atlas_key)` → `{'Authorization': f'Key {atlas_key}'}`. All five API-touching functions — `find_probes_in_asn` (line 37), `check_budget` (line 60), `schedule_measurements` (lines 89, 108), `poll_until_done` (line 151), `fetch_results` (line 174) — wrap requests calls in `_with_retry(lambda: ...)` and pass `headers=_hdr(atlas_key)`."
+      },
+      {
+        "acId": "AC-13",
+        "text": "`src/netpath/atlas.py` contains all Atlas API interaction; `cli.py` and `country.py` contain no direct Atlas API calls.",
+        "status": "pass",
+        "evidence": "atlas.py contains all new Phase 2 Atlas API calls. cli.py delegates entirely via `atlas_mod.*`. country.py was not modified by this task (git diff main..HEAD -- src/netpath/country.py is empty); its pre-existing `_get_atlas_probe_ip` (v2 API, unauthenticated, for test-IP fallback) predates this task and is explicitly acknowledged in the task context as existing infrastructure."
+      },
+      {
+        "acId": "AC-14",
+        "text": "`ruff check src tests` reports no errors after both phases.",
+        "status": "pass",
+        "evidence": "Ran `uv run ruff check src tests` after the self-fix; output: `All checks passed!`"
+      }
+    ],
+    "headlineFindings": [],
+    "requiredChanges": [],
+    "codeQualityFindings": [],
+    "securityFindings": [],
+    "decisions": [
+      "iperf3 protocol validation uses a 1-second live test measurement (iperf3 -t 1 -J) rather than TCP banner inspection or a zero-duration test",
+      "Atlas integration lives in a new atlas.py module following the single-purpose measurement module convention, not in country.py or cli.py",
+      "Atlas probe discovery runs before the regular sweep so the budget check uses exact per-ASN probe counts, not worst-case estimates",
+      "All Atlas measurements are scheduled after the regular sweep completes, then polled in one shared 600-second window rather than inline per-ASN"
+    ],
+    "revision": 1,
+    "changeAnnotations": [
+      {
+        "file": "src/netpath/servers.py",
+        "note": "Reorders max_count truncation to run after the liveness filter, and replaces the TCP-only _is_alive with _is_iperf3_alive — runs a 1-second iperf3 protocol test with TCP fallback when iperf3 is absent"
+      },
+      {
+        "file": "tests/test_servers.py",
+        "note": "New test file: 10 tests covering _tcp_alive, _is_iperf3_alive happy/rejection/timeout/fallback paths, and find_servers_in_asn truncation-after-filter correctness"
+      },
+      {
+        "file": "src/netpath/atlas.py",
+        "note": "New module owning all RIPE Atlas API logic for Phase 2: probe discovery, credit budget check, measurement scheduling, result polling, and RTT/AS-path parsing"
+      },
+      {
+        "file": "src/netpath/cli.py",
+        "note": "Adds --atlas-key option to the country command; wires pre-sweep probe discovery and budget check, per-ASN test IP tracking, and post-sweep schedule/poll/parse/merge Atlas flow"
+      },
+      {
+        "file": "src/netpath/display.py",
+        "note": "Adds _render_atlas_subrow for optional Atlas RTT and outbound AS-path sub-lines in country_summary; called conditionally so the non-Atlas layout is pixel-identical to before"
+      }
+    ]
+  }
 }
