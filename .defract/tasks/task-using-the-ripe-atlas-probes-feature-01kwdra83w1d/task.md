@@ -18,6 +18,8 @@ defract:
 
 # Improve RIPE Atlas probe selection and traceroute depth in country mode
 
+# Improve RIPE Atlas probe selection and traceroute depth in country mode
+
 ## What We're Building
 
 When `netpath country <CC>` sweeps a country's top ASNs, it picks a target IP per ASN using the RIPE Atlas API. Today it grabs the first connected probe, which is often a home router or NAT device that drops ICMP — causing traces to stall short of the destination ASN. A separate problem is that the traceroute fallback is hard-capped at 15 hops, which clips intercontinental paths before they reach their target. This task fixes both: it makes probe selection smarter (preferring Atlas anchors, which are well-connected hosted probes), raises the hop cap to 30, and ensures paths that stop short of the target ASN are flagged as incomplete rather than scored as "Healthy."
@@ -30,8 +32,100 @@ When `netpath country <CC>` sweeps a country's top ASNs, it picks a target IP pe
 - RIPE Atlas anchor probes are tried first, providing more reliable and reachable target IPs
 - When no anchor is available, the tool falls back gracefully to regular probes or the prefix-based target
 
+## Phase Outcomes
+
+- **Phase 1: Fix probe selection, hop cap, and incomplete-path verdict** — Country sweeps prefer reliable Atlas anchor probes, traces reach their destination on intercontinental paths, and incomplete traces are flagged clearly instead of silently passing as Healthy.
+
 ## Out of Scope
 
 - Scheduling actual RIPE Atlas measurements via the measurements API (requires an API key and measurement credits — a separate integration)
 - Median latency or throughput display improvements
 - Changes to the `asn` subcommand
+
+## Scope Summary
+
+**Size:** 5 requirements, 5 acceptance criteria, 1 implementation phase
+**Key decisions:**
+- Anchor preference is a two-step API call (anchors first, any probe fallback), not a sort/filter combined — avoids passing over an available anchor due to sort order
+- Incomplete-path check added in `diagnosis.py` rather than `cli.py` — keeps diagnosis pure and testable
+- Traceroute hop cap raised to 30 to match mtr's default TTL ceiling
+**Biggest risk:** The RIPE Atlas anchors API filter (`is_anchor=true`) is well-documented but response shape must be verified against the live API; the fallback chain means a bad query silently degrades to regular probes without exposing a bug.
+
+## Context
+
+The `country` subcommand calls `get_test_ip_for_asn()` in `country.py` to resolve a traceable IPv4 per ASN. That function delegates to `_get_atlas_probe_ip()` which queries the RIPE Atlas probes endpoint (`/api/v2/probes/`) with `sort=id, page_size=1` — returning the lowest-ID connected probe regardless of type. Atlas anchors are a distinct probe tier (`is_anchor=true`) hosted in data centers with stable routing, making them significantly more likely to be reachable from an arbitrary client.
+
+The traceroute fallback (`_run_traceroute_cmd` in `mtr.py`) is invoked when mtr lacks raw socket access. It hard-codes `-m 15` (max 15 hops), which is well below the 30-hop ceiling mtr uses by default and insufficient for intercontinental paths that commonly exceed 20 hops.
+
+`diagnosis.py` receives the full measurement result dict, which already carries `path_complete: bool` and `stall_hop: int | None` populated by `_classify_path()` in `cli.py`. Despite this, `diagnose()` never inspects `path_complete` — an incomplete trace (one that never reaches the target ASN) falls through all checks and returns the default "Healthy" verdict, which is a correctness bug.
+
+## Requirements
+
+### RIPE Atlas Probe Selection
+
+- R1: `_get_atlas_probe_ip()` in `country.py` must query the Atlas probes endpoint with `is_anchor=true` first, then retry without that filter if no anchor is found in the target ASN. Both queries use `status=1` (connected only). The function returns the first result's `address_v4` or None if both attempts find nothing. (Current implementation: `country.py:101–114`.)
+- R2: The anchor-first query and regular-probe fallback are separate HTTP requests, not a combined sort — this ensures an available anchor is never skipped due to sort order. `requests.RequestException` on either request degrades to `None` without raising, preserving the existing fallback chain to the RIPE prefix-based target.
+
+### Traceroute Hop Limit
+
+- R3: `_run_traceroute_cmd()` in `mtr.py` must use `-m 30` instead of `-m 15`, matching mtr's default TTL ceiling. The timeout parameter of `subprocess.run` does not need to change (`60s` is already sufficient for a 30-hop trace). (Current implementation: `mtr.py:196`.)
+
+### Incomplete Path Diagnosis
+
+- R4: `diagnose()` in `diagnosis.py` must check `result.get("path_complete")` early in its evaluation — before the mid-path loss checks — and return an "Incomplete Path" verdict with severity `"warning"` when `path_complete` is explicitly `False` (not `None`). The detail message must include `stall_hop` when present so the display can show where the trace stopped.
+- R5: The incomplete-path check must only fire when `path_complete is False` — not when it is `None` (meaning the field is absent, e.g. in `asn` subcommand results that don't populate it). Existing `asn` subcommand behavior must be unaffected.
+
+## Acceptance Criteria
+
+- [ ] Querying `netpath country ZA` (or any distant country) selects Atlas anchor IPs when available; verified by adding a temporary `print(atlas_ip)` and inspecting that the returned IP belongs to an Atlas anchor (crosscheck via `https://atlas.ripe.net/api/v2/probes/?asn=<N>&is_anchor=true`).
+- [ ] `_get_atlas_probe_ip` falls back to a regular probe when no anchor exists for an ASN; verified by unit-testing with a mock that returns an empty anchors result and a non-empty regular-probes result.
+- [ ] Running `netpath country US` with mtr unavailable (rename `mtr` binary temporarily) produces a traceroute command with `-m 30`; verified by grepping `_run_traceroute_cmd` subprocess call and reading the constructed `cmd` list.
+- [ ] When `diagnosis.diagnose({"path_complete": False, "stall_hop": 12, "hubs": [...]})` is called, the returned dict has `verdict == "Incomplete Path"` and `severity == "warning"`; verified by `pytest tests/test_diagnosis.py`.
+- [ ] `diagnosis.diagnose({"hubs": []})` (no `path_complete` key) still returns the default "Healthy" verdict; verified by existing or new test in `tests/test_diagnosis.py`.
+
+## Implementation Phases
+
+### Phase 1: Fix probe selection, hop cap, and incomplete-path verdict
+**Scope:** Apply all three corrections in a single pass: add the anchor-first two-step query to `_get_atlas_probe_ip`, raise the traceroute `-m` flag to 30, and insert the `path_complete` check into `diagnose()`. Add corresponding tests for the new diagnosis branch.
+**Files:**
+- `src/netpath/country.py` — rewrite `_get_atlas_probe_ip()` to try `is_anchor=true` then fall back
+- `src/netpath/mtr.py` — change `"-m", "15"` to `"-m", "30"` in `_run_traceroute_cmd()`
+- `src/netpath/diagnosis.py` — add incomplete-path early-return before mid-path loss checks
+- `tests/test_diagnosis.py` — add test cases for `path_complete=False` (with and without `stall_hop`) and for absent `path_complete` key
+**Verification:**
+- [ ] `pytest tests/test_diagnosis.py` passes, including new incomplete-path cases
+- [ ] `ruff check .` reports no lint errors
+- [ ] `grep -- '-m' src/netpath/mtr.py` shows `"-m", "30"` (not 15)
+- [ ] `grep is_anchor src/netpath/country.py` shows the anchor filter in use
+**Estimated effort:** Small
+
+## Edge Cases
+
+- **ASN with no Atlas probes at all**: both anchor and regular-probe queries return empty results; `_get_atlas_probe_ip` returns `None` and the existing RIPE-prefix fallback takes over — no change in behavior.
+- **Atlas API timeout**: both requests have a `timeout=5` budget; a slow API call fails fast and degrades to the prefix fallback, not a hung sweep.
+- **`path_complete` is `None`**: treated as "unknown" — `diagnose()` skips the incomplete-path check entirely, matching the current `asn` subcommand behavior where `_classify_path` is always called and always sets the field.
+- **Trace stalls at hop 1**: `stall_hop=1` is a valid incomplete-path signal; the detail message should include it so the user can distinguish a local routing failure from a mid-path stall.
+- **mtr is available but path is still incomplete**: `path_complete=False` can arise from mtr traces too (mtr defaults to 30 hops but the target ASN may still not appear); the incomplete-path verdict fires regardless of trace method.
+
+## Technical Notes
+
+`_classify_path()` in `cli.py:59–112` already sets `result["path_complete"]` and `result["stall_hop"]` for every `_measure()` call. The `diagnosis.py` rule should be inserted after the `hubs` length check on line 43 but before the mid-path loss loop — roughly after the `loss_threshold` calculation block. The return shape follows the existing pattern:
+
+```python
+if result.get("path_complete") is False:
+    stall = result.get("stall_hop")
+    stall_str = f" at hop {stall}" if stall is not None else ""
+    return {
+        "verdict": "Incomplete Path",
+        "severity": "warning",
+        "detail": (
+            f"Traceroute did not reach the target ASN{stall_str}. "
+            "The path may be filtered or the target unreachable."
+        ),
+        "signals": [f"path_complete=False" + (f", stall_hop={stall}" if stall else "")],
+    }
+```
+
+The RIPE Atlas probes API supports `is_anchor=true` as a documented query parameter. The endpoint and response shape are the same as the current call — `results[].address_v4`. No new dependency is needed; the existing `requests` call pattern in `_get_atlas_probe_ip` is reused verbatim with only the params dict changing.
+
+The `"-m", "15"` change in `mtr.py:196` is a one-character edit. The `timeout=60` ceiling on the subprocess call is already generous for a 30-hop trace (worst case ~30s with 1s wait per hop).

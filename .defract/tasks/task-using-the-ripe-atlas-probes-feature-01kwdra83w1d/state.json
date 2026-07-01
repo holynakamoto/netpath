@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 1,
   "createdAt": "2026-07-01T02:32:18Z",
-  "updatedAt": "2026-07-01T02:33:13Z",
+  "updatedAt": "2026-07-01T02:52:03Z",
   "events": [
     {
       "base_branch": "main",
@@ -34,15 +34,92 @@
       "type": "stage_work_complete",
       "worktree_head": "9f294051e1e99ca2171cf610e8f2f89e6c125977",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-01T02:47:43Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwds6gnxyszq3vhpckdv8a6c",
+      "stage": "scope",
+      "timestamp": "2026-07-01T02:47:43Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Full scope: anchor probe preference, traceroute hop cap fix, incomplete-path diagnosis",
+      "revision": 2,
+      "timestamp": "2026-07-01T02:51:23Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Three targeted correctness fixes in 4 files, no UI changes (skip design), no new subsystems or cross-cutting concerns (skip architecture). Bug-fix template: the work restores correct behavior (anchor selection, hop depth, incomplete-path verdict) rather than adding new features.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "bug-fix",
+      "tier": "standard",
+      "timestamp": "2026-07-01T02:51:31Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [
+        "Add is_anchor=true to the existing single query with sort=-is_anchor (not a supported sort key on the Atlas API)",
+        "Fetch page_size=50 and filter client-side (wastes bandwidth for common case where anchor is the first result)"
+      ],
+      "decision": "Anchor preference uses two sequential API calls (anchors first, any-probe fallback) rather than a combined sort or filter",
+      "rationale": "The Atlas API's `sort=id` returns the globally lowest-ID probe, which may not be an anchor even when anchors exist in the ASN. A separate `is_anchor=true` query guarantees anchors are checked first; only when that returns empty does the fallback fire. Combining into one sorted request would require server-side anchor-prioritized sorting which the API does not support.",
+      "timestamp": "2026-07-01T02:51:39Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Check path_complete in _run_test() before calling diagnose() and override the verdict (mixes display and diagnosis concerns)",
+        "Add a separate display.incomplete_path_banner() call in _run_test (verdict would still say Healthy in JSON mode)"
+      ],
+      "decision": "Incomplete-path check lives in `diagnosis.py`, not in `cli.py` or `display.py`",
+      "rationale": "`path_complete` is already in the result dict that `diagnose()` receives. Adding the check there keeps it testable in isolation (pure function, no I/O) and ensures the verdict is correct for both terminal display and JSON output paths. Putting it in `cli.py` would duplicate logic or require a special-case before `_run_test` calls `diagnose`.",
+      "timestamp": "2026-07-01T02:51:47Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope pushed as revision 2. Three targeted fixes: (1) `_get_atlas_probe_ip` tries `is_anchor=true` first then falls back to any connected probe; (2) traceroute `-m 15` raised to `-m 30`; (3) `diagnose()` returns \"Incomplete Path\" warning when `path_complete is False`. Single implementation phase touching `country.py`, `mtr.py`, `diagnosis.py`, and `tests/test_diagnosis.py`. Classified as standard bug-fix: no design or architecture stages needed.",
+      "timestamp": "2026-07-01T02:52:03Z",
+      "type": "stage_work_complete",
+      "worktree_head": "ae327c297d07ed28e281a280775dc3dba1f34957",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "bug-fix",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Three targeted correctness fixes in 4 files, no UI changes (skip design), no new subsystems or cross-cutting concerns (skip architecture). Bug-fix template: the work restores correct behavior (anchor selection, hop depth, incomplete-path verdict) rather than adding new features."
+  },
   "stages": {
-    "review": {
-      "status": "not_started"
-    },
     "scope": {
       "status": "awaiting_approval",
-      "startedAt": "2026-07-01T02:32:18Z"
+      "startedAt": "2026-07-01T02:47:43Z"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "architecture": {
+      "status": "skipped"
     },
     "release": {
       "status": "not_started"
@@ -50,13 +127,11 @@
     "implementation": {
       "status": "not_started"
     },
-    "architecture": {
-      "status": "not_started"
-    },
-    "design": {
+    "review": {
       "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-using-the-ripe-atlas-probes-feature-01kwdra83w1d",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-07-01T02:47:43Z"
 }
