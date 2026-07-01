@@ -1,10 +1,9 @@
+import concurrent.futures
 import json
-import queue
 import re
 import socket
 import subprocess
 import sys
-import threading
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
@@ -14,6 +13,7 @@ from netpath import display, globe as globe_mod, iperf as iperf_mod, latency as 
 from netpath import mtr, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
+from netpath.types import MeasurementResult
 
 app = typer.Typer(
     help="netpath — probe throughput, latency, and packet loss to an ASN.",
@@ -115,7 +115,7 @@ def _parse_ping_avg(output: str) -> float | None:
     return None
 
 
-def _run_ping_probe(host: str, duration: int, result_q: queue.Queue) -> None:
+def _run_ping_probe_sync(host: str, duration: int) -> float | None:
     count = min(duration, 5)
     try:
         proc = subprocess.run(
@@ -125,17 +125,10 @@ def _run_ping_probe(host: str, duration: int, result_q: queue.Queue) -> None:
         if proc.returncode != 0:
             stderr_lower = proc.stderr.lower()
             if "permission" in stderr_lower or "operation not permitted" in stderr_lower:
-                result_q.put(None)
-                return
-        result_q.put(_parse_ping_avg(proc.stdout))
-    except FileNotFoundError:
-        result_q.put(None)
-    except PermissionError:
-        result_q.put(None)
-    except subprocess.TimeoutExpired:
-        result_q.put(None)
+                return None
+        return _parse_ping_avg(proc.stdout)
     except Exception:
-        result_q.put(None)
+        return None
 
 
 def _check_deps(no_throughput: bool) -> bool:
@@ -167,7 +160,7 @@ def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
 def _measure(host: str, port: int, target_asn: str,
              cycles: int, duration: int, skip_throughput: bool,
              cf_token: str | None = None, prefer_tcp: bool = False,
-             ecmp_passes: int = 1, compare_v6: bool = False) -> dict:
+             ecmp_passes: int = 1, compare_v6: bool = False) -> MeasurementResult:
     """Collect all measurement data. Returns enriched result dict.
     No display calls, no json_mode parameter.
     Internal _-prefixed keys carry state needed by _run_test() for display.
@@ -182,156 +175,174 @@ def _measure(host: str, port: int, target_asn: str,
         "pmtu": None, "tcp_connect_ms": None, "tls_handshake_ms": None,
         "ecmp_paths": None, "path_changes": 0,
         "hubs_v4": None, "hubs_v6": None,
-        "_trace_method": None, "_trace_error": None,
+        "_trace_method": None,
         "_iperf_upload": None, "_iperf_download": None,
-        "_iperf_idle_rtt": None, "_iperf_loaded_rtt": None, "_iperf_error": None,
-        "_speedtest_upload": None, "_speedtest_download": None, "_speedtest_error": None,
+        "_iperf_idle_rtt": None, "_iperf_loaded_rtt": None,
+        "_speedtest_upload": None, "_speedtest_download": None,
         "_v6_warn": None,
+        "probe_errors": {},
     }
 
-    # Trace — single pass, multi-pass ECMP, or dual-stack IPv4/IPv6
-    if compare_v6:
-        v6_host = None
-        try:
-            v6_info = socket.getaddrinfo(host, None, socket.AF_INET6)
-            v6_host = v6_info[0][4][0]
-        except socket.gaierror:
-            result["_v6_warn"] = "IPv6 resolution failed — showing IPv4 only"
-
-        v4_q: queue.Queue = queue.Queue()
-        v6_q: queue.Queue = queue.Queue()
-
-        def _run_v4():
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        # ── Trace section ─────────────────────────────────────────────────
+        if compare_v6:
+            v6_host = None
             try:
-                v4_q.put(_trace(host, cycles, prefer_tcp=prefer_tcp))
+                v6_info = socket.getaddrinfo(host, None, socket.AF_INET6)
+                v6_host = v6_info[0][4][0]
+            except socket.gaierror:
+                result["_v6_warn"] = "IPv6 resolution failed — showing IPv4 only"
+
+            def _do_v4() -> tuple[list[dict], str]:
+                return _trace(host, cycles, prefer_tcp=prefer_tcp)
+
+            def _do_v6() -> list[dict] | None:
+                if v6_host is None:
+                    return None
+                try:
+                    v6_hubs, _ = _trace(v6_host, cycles)
+                    return v6_hubs
+                except Exception:
+                    return None
+
+            trace_timeout = cycles * 4 + 35
+            fut_v4 = executor.submit(_do_v4)
+            fut_v6 = executor.submit(_do_v6)
+
+            try:
+                hubs, method = fut_v4.result(timeout=trace_timeout)
+            except concurrent.futures.TimeoutError:
+                result["probe_errors"]["v4_trace"] = "timed out"
+                return result
             except RuntimeError as exc:
-                v4_q.put(exc)
+                result["probe_errors"]["v4_trace"] = str(exc)
+                return result
 
-        def _run_v6():
-            if v6_host is None:
-                v6_q.put(None)
-                return
-            try:
-                v6_hubs, _ = _trace(v6_host, cycles)
-                v6_q.put(v6_hubs)
-            except Exception:
-                v6_q.put(None)
-
-        t_v4 = threading.Thread(target=_run_v4, daemon=True)
-        t_v6 = threading.Thread(target=_run_v6, daemon=True)
-        t_v4.start()
-        t_v6.start()
-        t_v4.join(timeout=cycles * 4 + 35)
-        t_v6.join(timeout=cycles * 4 + 35)
-
-        v4_val = v4_q.get_nowait() if not v4_q.empty() else RuntimeError("v4 trace timed out")
-        if isinstance(v4_val, RuntimeError):
-            result["_trace_error"] = str(v4_val)
-            return result
-        hubs, method = v4_val
-        result["_trace_method"] = method
-        result["hubs_v4"] = hubs
-        result["hubs_v6"] = v6_q.get_nowait() if not v6_q.empty() else None
-
-    elif ecmp_passes > 1:
-        try:
-            all_passes = mtr.run(host, cycles=cycles, passes=ecmp_passes)
-            comparison = mtr._compare_as_paths(all_passes)
-            result["ecmp_paths"] = comparison["ecmp_paths"]
-            result["path_changes"] = comparison["path_changes"]
-            hubs = all_passes[0] if all_passes else []
-            result["_trace_method"] = "mtr"
-        except mtr.MtrPermissionError:
-            hubs = mtr.run_traceroute(host, probes=cycles, prefer_tcp=prefer_tcp)
-            result["_trace_method"] = "traceroute"
-        except RuntimeError as e:
-            result["_trace_error"] = str(e)
-            return result
-
-    else:
-        try:
-            hubs, method = _trace(host, cycles, prefer_tcp=prefer_tcp)
             result["_trace_method"] = method
-        except RuntimeError as e:
-            result["_trace_error"] = str(e)
+            result["hubs_v4"] = hubs
+            try:
+                result["hubs_v6"] = fut_v6.result(timeout=trace_timeout)
+            except Exception:
+                result["hubs_v6"] = None
+
+        elif ecmp_passes > 1:
+            try:
+                all_passes = mtr.run(host, cycles=cycles, passes=ecmp_passes)
+                comparison = mtr._compare_as_paths(all_passes)
+                result["ecmp_paths"] = comparison["ecmp_paths"]
+                result["path_changes"] = comparison["path_changes"]
+                hubs = all_passes[0] if all_passes else []
+                result["_trace_method"] = "mtr"
+            except mtr.MtrPermissionError:
+                hubs = mtr.run_traceroute(host, probes=cycles, prefer_tcp=prefer_tcp)
+                result["_trace_method"] = "traceroute"
+            except RuntimeError as e:
+                result["probe_errors"]["v4_trace"] = str(e)
+                return result
+
+        else:
+            try:
+                hubs, method = _trace(host, cycles, prefer_tcp=prefer_tcp)
+                result["_trace_method"] = method
+            except RuntimeError as e:
+                result["probe_errors"]["v4_trace"] = str(e)
+                return result
+
+        result["as_path"] = _extract_as_path(hubs)
+        result["hubs"] = hubs
+
+        responsive = [h for h in hubs if h.get("host") not in ("???", None, "")]
+        if responsive:
+            result["jitter_ms"] = round(
+                sum(h.get("StDev", 0.0) or 0.0 for h in responsive) / len(responsive), 2
+            )
+
+        for _h in reversed(hubs):
+            if _h.get("host") not in ("???", None, "") and _h.get("Avg", 0) > 0:
+                result["last_rtt_ms"] = _h["Avg"]
+                break
+
+        classification = _classify_path(hubs, target_asn)
+        result["path_complete"] = classification["complete"]
+        result["verified_rtt_ms"] = classification["rtt_ms"]
+        result["entry_transit_asn"] = classification["entry_transit_asn"]
+        result["stall_hop"] = classification["stall_hop"]
+        if not classification["complete"] and classification["rtt_ms"] is not None:
+            result["last_rtt_ms"] = classification["rtt_ms"]
+
+        # ── Concurrent independent probes ─────────────────────────────────
+        fut_pmtu = executor.submit(pmtu_mod.probe, host)
+        fut_tcp  = executor.submit(latency_mod.measure_tcp_connect, host)
+        fut_tls  = executor.submit(latency_mod.measure_tls_handshake, host)
+        fut_rum  = executor.submit(_fetch_rum, target_asn, cf_token)
+
+        try:
+            result["pmtu"] = fut_pmtu.result(timeout=30)
+        except Exception:
+            result["probe_errors"]["pmtu"] = "timeout"
+
+        try:
+            result["tcp_connect_ms"] = fut_tcp.result(timeout=15)
+        except Exception:
+            result["probe_errors"]["tcp_connect"] = "timeout"
+
+        try:
+            result["tls_handshake_ms"] = fut_tls.result(timeout=15)
+        except Exception:
+            result["probe_errors"]["tls_handshake"] = "timeout"
+
+        try:
+            result["rum"] = fut_rum.result(timeout=15)
+        except Exception:
+            result["rum"] = None
+
+        if skip_throughput:
+            result["verdict"] = diagnose(result)
             return result
 
-    result["as_path"] = _extract_as_path(hubs)
-    result["hubs"] = hubs
-
-    responsive = [h for h in hubs if h.get("host") not in ("???", None, "")]
-    if responsive:
-        result["jitter_ms"] = round(
-            sum(h.get("StDev", 0.0) or 0.0 for h in responsive) / len(responsive), 2
-        )
-
-    for _h in reversed(hubs):
-        if _h.get("host") not in ("???", None, "") and _h.get("Avg", 0) > 0:
-            result["last_rtt_ms"] = _h["Avg"]
-            break
-
-    classification = _classify_path(hubs, target_asn)
-    result["path_complete"] = classification["complete"]
-    result["verified_rtt_ms"] = classification["rtt_ms"]
-    result["entry_transit_asn"] = classification["entry_transit_asn"]
-    result["stall_hop"] = classification["stall_hop"]
-    if not classification["complete"] and classification["rtt_ms"] is not None:
-        result["last_rtt_ms"] = classification["rtt_ms"]
-
-    # PMTU black-hole detection and TCP/TLS application latency
-    result["pmtu"] = pmtu_mod.probe(host)
-    result["tcp_connect_ms"] = latency_mod.measure_tcp_connect(host)
-    result["tls_handshake_ms"] = latency_mod.measure_tls_handshake(host)
-
-    rum_data = _fetch_rum(target_asn, cf_token)
-    result["rum"] = rum_data
-
-    if skip_throughput:
-        result["verdict"] = diagnose(result)
-        return result
-
-    if iperf_mod.available():
-        idle_rtt = result["last_rtt_ms"]
-        result["_iperf_idle_rtt"] = idle_rtt
-        ping_q: queue.Queue = queue.Queue()
-        ping_thread = threading.Thread(
-            target=_run_ping_probe, args=(host, duration, ping_q), daemon=True
-        )
-        ping_thread.start()
-        try:
-            upload, download = iperf_mod.run_bidirectional(host, port, duration)
-            ping_thread.join(timeout=duration + 10)
+        # ── Throughput with concurrent ping ───────────────────────────────
+        if iperf_mod.available():
+            idle_rtt = result["last_rtt_ms"]
+            result["_iperf_idle_rtt"] = idle_rtt
+            fut_ping = executor.submit(_run_ping_probe_sync, host, duration)
             try:
-                loaded_rtt = ping_q.get_nowait()
-            except queue.Empty:
-                loaded_rtt = None
-            result["_iperf_loaded_rtt"] = loaded_rtt
-            if idle_rtt is not None and loaded_rtt is not None:
-                result["bufferbloat_ms"] = round(loaded_rtt - idle_rtt, 1)
+                upload, download = iperf_mod.run_bidirectional(host, port, duration)
+                fut_ping.cancel()
+                try:
+                    loaded_rtt = fut_ping.result(timeout=duration + 10)
+                except Exception:
+                    loaded_rtt = None
+                result["_iperf_loaded_rtt"] = loaded_rtt
+                if idle_rtt is not None and loaded_rtt is not None:
+                    result["bufferbloat_ms"] = round(loaded_rtt - idle_rtt, 1)
+                result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
+                result["upload_mbps"] = upload.get("bps", 0) / 1e6
+                result["_iperf_upload"] = upload
+                result["_iperf_download"] = download
+            except RuntimeError as e:
+                fut_ping.cancel()
+                try:
+                    fut_ping.result(timeout=5)
+                except Exception:
+                    pass
+                result["probe_errors"]["iperf3"] = str(e)
+            result["verdict"] = diagnose(result)
+            return result
+
+        # ── Speedtest fallback ────────────────────────────────────────────
+        # This measures user → Cloudflare, NOT user → target ASN.
+        try:
+            st_result = speedtest.run(duration=duration)
+            upload, download = speedtest.extract_stats(st_result)
             result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
             result["upload_mbps"] = upload.get("bps", 0) / 1e6
-            result["_iperf_upload"] = upload
-            result["_iperf_download"] = download
+            result["_speedtest_upload"] = upload
+            result["_speedtest_download"] = download
         except RuntimeError as e:
-            ping_thread.join(timeout=5)
-            result["_iperf_error"] = str(e)
+            result["probe_errors"]["speedtest"] = str(e)
+
         result["verdict"] = diagnose(result)
         return result
-
-    # iperf3 not installed — fall back to HTTP speedtest as a baseline.
-    # This measures user → Cloudflare, NOT user → target ASN.
-    try:
-        st_result = speedtest.run(duration=duration)
-        upload, download = speedtest.extract_stats(st_result)
-        result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
-        result["upload_mbps"] = upload.get("bps", 0) / 1e6
-        result["_speedtest_upload"] = upload
-        result["_speedtest_download"] = download
-    except RuntimeError as e:
-        result["_speedtest_error"] = str(e)
-
-    result["verdict"] = diagnose(result)
-    return result
 
 
 def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
@@ -364,9 +375,9 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
                           prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6)
 
-    if result.get("_trace_error"):
+    if result.get("probe_errors", {}).get("v4_trace"):
         if not json_mode:
-            display.error(f"trace: {result['_trace_error']}")
+            display.error(f"trace: {result['probe_errors']['v4_trace']}")
         return result
 
     if result.get("_trace_method") == "traceroute" and not json_mode:
@@ -401,7 +412,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
                 display.verdict_panel(result["verdict"])
         else:
             if not json_mode:
-                display.warn(f"iperf3 to {host}:{port} failed: {result.get('_iperf_error', 'unknown error')}")
+                display.warn(f"iperf3 to {host}:{port} failed: {result.get('probe_errors', {}).get('iperf3', 'unknown error')}")
                 if rum_data:
                     display.rum_only_panel(rum_data, target_asn)
                 display.verdict_panel(result["verdict"])
@@ -414,8 +425,8 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
                 result["_speedtest_upload"], result["_speedtest_download"],
                 rum=rum_data, server="speed.cloudflare.com (baseline — not cross-ASN)"
             )
-    elif result.get("_speedtest_error") and not json_mode:
-        display.warn(f"speedtest: {result['_speedtest_error']}")
+    elif result.get("probe_errors", {}).get("speedtest") and not json_mode:
+        display.warn(f"speedtest: {result['probe_errors']['speedtest']}")
         if rum_data:
             display.rum_only_panel(rum_data, target_asn)
 
@@ -628,6 +639,8 @@ def country(
                 skip_throughput=not can_test_throughput,
                 show_server_heading=True,
                 cf_token=cf_token,
+                ecmp_passes=2,
+                compare_v6=True,
             )
         else:
             test_ip = country_mod.get_test_ip_for_asn(asn_str)
@@ -652,6 +665,8 @@ def country(
                 show_server_heading=False,
                 cf_token=cf_token,
                 prefer_tcp=True,
+                ecmp_passes=2,
+                compare_v6=True,
             )
 
         summary_rows.append({

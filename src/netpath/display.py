@@ -503,17 +503,27 @@ def verdict_panel(verdict: dict) -> None:
     label = verdict.get("verdict", "Healthy")
     detail = verdict.get("detail", "")
     signals = verdict.get("signals", [])
+    partial = verdict.get("partial_results", False)
+    probe_errors = verdict.get("probe_errors", {})
 
     severity_styles = {"ok": "bold green", "warning": "bold yellow", "critical": "bold red"}
     border_colors   = {"ok": "green",      "warning": "yellow",       "critical": "red"}
     style  = severity_styles.get(severity, "bold green")
     border = border_colors.get(severity, "green")
 
-    lines = [f"  [{style}]{label}[/{style}]", f"  {detail}"]
+    if partial and probe_errors:
+        failed = ", ".join(probe_errors.keys())
+        label_text = f"{label} (partial results: {failed})"
+    elif partial:
+        label_text = f"{label} (partial results)"
+    else:
+        label_text = label
+
+    lines = [f"  [{style}]{label_text}[/{style}]", f"  {detail}"]
     if signals:
         lines.append("")
         for sig in signals:
-            lines.append(f"  • {sig}")
+            lines.append(f"  • {sig['detail']}")
 
     console.print(
         Panel("\n".join(lines), title="[bold]Diagnosis[/bold]",

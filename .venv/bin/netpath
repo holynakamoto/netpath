@@ -1,4 +1,4 @@
-#!/Users/nickmoore/netpath/.defract-worktrees/task-using-the-ripe-atlas-probes-feature-01kwdra83w1d/.venv/bin/python3
+#!/Users/nickmoore/netpath/.defract-worktrees/task-systems-design-review-of-netpath-01kwesg18dsj/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import sys
 from netpath.cli import run

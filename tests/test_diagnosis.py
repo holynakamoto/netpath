@@ -63,7 +63,7 @@ def test_rate_limited_hop_produces_healthy_not_mid_path_loss():
     result = diagnose({"hubs": hubs})
     assert result["verdict"] == "Healthy"
     assert result["severity"] == "ok"
-    assert any("rate_limited_hops" in s for s in result["signals"])
+    assert any(s["condition"] == "rate_limited_hop" for s in result["signals"])
 
 
 def test_high_jitter_warning():
@@ -75,7 +75,7 @@ def test_high_jitter_warning():
     result = diagnose({"jitter_ms": 15.0, "hubs": hubs})
     assert result["verdict"] == "High Jitter"
     assert result["severity"] == "warning"
-    assert any("jitter" in s.lower() for s in result["signals"])
+    assert any("jitter" in s["condition"] for s in result["signals"])
 
 
 def test_jitter_below_threshold_is_healthy():
@@ -145,7 +145,7 @@ def test_route_flapping_zero_changes_is_healthy():
 def test_tcp_latency_warning():
     result = diagnose({"tcp_connect_ms": 250})
     assert result["severity"] == "warning"
-    assert any("tcp" in s.lower() for s in result["signals"])
+    assert any("tcp" in s["condition"] for s in result["signals"])
 
 
 def test_tcp_latency_below_threshold_is_healthy():
@@ -156,7 +156,7 @@ def test_tcp_latency_below_threshold_is_healthy():
 def test_tls_latency_warning():
     result = diagnose({"tls_handshake_ms": 600})
     assert result["severity"] == "warning"
-    assert any("tls" in s.lower() for s in result["signals"])
+    assert any("tls" in s["condition"] for s in result["signals"])
 
 
 def test_tls_latency_below_threshold_is_healthy():
@@ -169,7 +169,7 @@ def test_incomplete_path_with_stall_hop():
     result = diagnose({"path_complete": False, "stall_hop": 12, "hubs": []})
     assert result["verdict"] == "Incomplete Path"
     assert result["severity"] == "warning"
-    assert any("stall_hop=12" in s for s in result["signals"])
+    assert any("hop 12" in s["detail"] for s in result["signals"])
     assert "hop 12" in result["detail"]
 
 
@@ -178,8 +178,8 @@ def test_incomplete_path_without_stall_hop():
     result = diagnose({"path_complete": False, "hubs": []})
     assert result["verdict"] == "Incomplete Path"
     assert result["severity"] == "warning"
-    assert any("path_complete=False" in s for s in result["signals"])
-    assert "stall_hop" not in result["signals"][0]
+    assert any(s["condition"] == "incomplete_path" for s in result["signals"])
+    assert "stall_hop" not in result["signals"][0]["detail"]
 
 
 def test_path_complete_none_is_healthy():
@@ -192,3 +192,27 @@ def test_path_complete_absent_is_healthy():
     """Missing path_complete key (asn subcommand) does not trigger Incomplete Path."""
     result = diagnose({"hubs": []})
     assert result["verdict"] == "Healthy"
+
+
+def test_multiple_simultaneous_signals():
+    """Two conditions present simultaneously both appear in signals list."""
+    # bufferbloat_ms=50 triggers severe_bufferbloat (critical); jitter_ms=15 triggers high_jitter (warning)
+    result = diagnose({"bufferbloat_ms": 50, "jitter_ms": 15.0, "hubs": []})
+    assert len(result["signals"]) >= 2
+    conditions = {s["condition"] for s in result["signals"]}
+    assert "severe_bufferbloat" in conditions
+    assert "high_jitter" in conditions
+    # worst severity across all signals is critical
+    assert result["severity"] == "critical"
+
+
+def test_partial_results_set_when_probe_errors():
+    """partial_results is True when probe_errors dict is non-empty."""
+    result = diagnose({"probe_errors": {"iperf3": "timed out"}})
+    assert result["partial_results"] is True
+
+
+def test_partial_results_false_when_no_probe_errors():
+    """partial_results is False when probe_errors is absent or empty."""
+    assert diagnose({})["partial_results"] is False
+    assert diagnose({"probe_errors": {}})["partial_results"] is False

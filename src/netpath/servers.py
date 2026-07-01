@@ -1,5 +1,6 @@
 import requests
 from .asn import resolve_hosts_parallel, cymru_bulk_lookup, normalize_asn
+from .utils import _with_retry
 
 SERVERS_URL = "https://export.iperf3serverlist.net/listed_iperf3_servers.json"
 
@@ -25,7 +26,7 @@ def _fetch_and_resolve() -> list[dict]:
     if _resolved_cache is not None:
         return _resolved_cache
 
-    resp = requests.get(SERVERS_URL, timeout=15)
+    resp = _with_retry(lambda: requests.get(SERVERS_URL, timeout=15))
     resp.raise_for_status()
     raw = resp.json()
     if isinstance(raw, dict):

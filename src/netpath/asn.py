@@ -1,4 +1,6 @@
 import socket
+import time
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -51,7 +53,12 @@ def cymru_bulk_lookup(ips: list[str], timeout: int = 30) -> dict[str, str]:
     try:
         response = _cymru_query(ips, timeout)
     except OSError:
-        return {}
+        try:
+            time.sleep(1)
+            response = _cymru_query(ips, timeout)
+        except OSError as exc:
+            warnings.warn(f"Cymru bulk lookup failed after retry: {exc}")
+            return {}
 
     result: dict[str, str] = {}
     for line in response.splitlines():
@@ -78,7 +85,12 @@ def cymru_bulk_lookup_rich(ips: list[str], timeout: int = 30) -> dict[str, dict]
     try:
         response = _cymru_query(ips, timeout)
     except OSError:
-        return {}
+        try:
+            time.sleep(1)
+            response = _cymru_query(ips, timeout)
+        except OSError as exc:
+            warnings.warn(f"Cymru rich lookup failed after retry: {exc}")
+            return {}
 
     result: dict[str, dict] = {}
     for line in response.splitlines():

@@ -3,7 +3,7 @@ defract:
   id: task-systems-design-review-of-netpath-01kwesg18dsj
   type: improvement
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 3
   priority: normal
@@ -296,4 +296,35 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Diagnostic engine rewritten to accumulate all matched conditions instead of stopping at the first one — a path with bufferbloat, packet loss, and jitter now reports all problems simultaneously, with the worst severity setting the top-level verdict
+- Probe failure visibility added: every failed probe populates a `probe_errors` dict; `diagnose()` sets `partial_results=True` and `verdict_panel()` renders "(partial results: probe-names)" so a clean "Healthy" verdict is unambiguous
+- Typed data contracts introduced via `Hub` and `MeasurementResult` TypedDicts in a new `types.py` module, covering all inter-module data shapes without breaking existing `.get()` call sites
+- Structured concurrency via a single `ThreadPoolExecutor` per `_measure()` call replaces bare daemon threads — dual-stack traces, PMTU, TCP/TLS latency, and RUM fetch all run concurrently with guaranteed teardown
+- HTTP retry helper (`_with_retry`) in new `utils.py` wraps server-list and Cloudflare RUM fetches with 3-attempt exponential backoff; Cymru socket lookups retry once before warning
+- Country-mode sweeps now pass `ecmp_passes=2` and `compare_v6=True` at both call sites, giving country scans the same probe depth as single-ASN mode
+
+### Key decisions
+- TypedDict with `total=False` chosen over dataclasses to preserve dict compatibility with existing JSON output callers and `.get()` access patterns throughout the codebase
+- Signals format changed from plain strings to `{condition, severity, detail}` dicts to enable worst-severity rollup and structured rendering in `verdict_panel()`
+- Single `ThreadPoolExecutor` per `_measure()` call replaces bare daemon thread pairs; context manager guarantees all futures are joined on exit including early-return paths
+- `_with_retry` added to `utils.py` using stdlib only, avoiding a production dependency on tenacity
+- `probe_errors` dict included in `diagnose()` return value so that `verdict_panel()` can render the comma-separated probe names in the annotation
+- Closures (`_do_v4`, `_do_v6`) used instead of `functools.partial` for v4/v6 future submission — cleaner for keyword-argument binding with read-only captures
+
+### Changes by phase
+- **Phase 1: Complete diagnostic reporting and typed contracts** — Rewrote `diagnosis.py` to evaluate all nine checks unconditionally and accumulate every matched condition into a `signals` list. Created `types.py` with `Hub` and `MeasurementResult` TypedDicts. Updated `verdict_panel()` signal rendering and type annotations in `cli.py` and `mtr.py`. Added 3 new tests; 47 total passing.
+- **Phase 2: Probe failure tracking and external call reliability** — Created `utils.py` with `_with_retry` helper. Replaced scattered `_`-prefixed error keys in `_measure()` with unified `probe_errors` dict. Wrapped `servers._fetch_and_resolve()` and `rum.fetch_asn_quality()` with retry. Added Cymru retry + `warnings.warn` in `asn.py`. Added partial results annotation to `verdict_panel()`. 5 new tests in `test_utils.py`; 52 total passing.
+- **Phase 3: Structured concurrency and country-mode parity** — Replaced daemon thread pairs with `concurrent.futures.ThreadPoolExecutor` wrapping the entire `_measure()` body. Submitted v4/v6 traces, PMTU, TCP/TLS latency, and RUM fetch as concurrent futures. Replaced queue-based ping probe with synchronous `_run_ping_probe_sync()` suitable for `executor.submit()`. Added `ecmp_passes=2` and `compare_v6=True` to both country-mode call sites. 52 tests passing.
+
+## Verification
+
+- Production build: PASS — `netpath-0.5.1.dev22+g98e983061.d20260701-py3-none-any.whl` built successfully
+- Review approved: 2026-07-01 — 12/12 acceptance criteria, 52/52 tests, ruff clean
+- Branch pushed: `feature/task-systems-design-review-of-netpath-01kwesg18dsj` → `origin`
 

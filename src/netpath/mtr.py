@@ -6,6 +6,7 @@ import statistics
 import subprocess
 
 from .asn import cymru_bulk_lookup
+from .types import Hub
 
 
 def _percentile(sorted_data: list, p: float) -> float:
@@ -43,7 +44,7 @@ class MtrPermissionError(RuntimeError):
     pass
 
 
-def run(host: str, cycles: int = 10, passes: int = 1) -> list:
+def run(host: str, cycles: int = 10, passes: int = 1) -> "list[Hub] | list[list[Hub]]":
     """
     Run mtr in JSON report mode. Raises MtrPermissionError on raw socket denial.
     When passes=1 (default): returns list[dict].
@@ -98,7 +99,7 @@ def _compare_as_paths(all_passes: list[list[dict]]) -> dict:
 
 # ── traceroute fallback ───────────────────────────────────────────────────────
 
-def _parse_traceroute_output(output: str) -> list[dict]:
+def _parse_traceroute_output(output: str) -> "list[Hub]":
     hubs = []
     for line in output.splitlines():
         line = line.strip()

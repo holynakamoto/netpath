@@ -1,4 +1,5 @@
 import requests
+from .utils import _with_retry
 
 CF_API_BASE = "https://api.cloudflare.com/client/v4/radar"
 
@@ -14,12 +15,12 @@ def fetch_asn_quality(asn: str, token: str, date_range: str = "7d") -> dict | No
     params  = {"asn": asn_num, "dateRange": date_range}
 
     try:
-        resp = requests.get(
+        resp = _with_retry(lambda: requests.get(
             f"{CF_API_BASE}/quality/speed/summary",
             params=params,
             headers=headers,
             timeout=10,
-        )
+        ))
         if resp.status_code == 401:
             raise ValueError("Cloudflare token invalid or missing radar:read permission")
         resp.raise_for_status()
