@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 # Systems-design review of netpath
@@ -239,3 +238,62 @@ Rate-limited hop signals use severity "ok" so they appear in the signals list wi
 ### No deviations from plan
 
 Closures used for `_do_v4`/`_do_v6` instead of `functools.partial` — cleaner for keyword-argument binding and read-only captures.
+
+## Review
+
+## Verdict
+
+**Verdict:** APPROVE
+**Files reviewed:** 11 files changed across 3 phases
+
+All 12 acceptance criteria pass: multi-signal diagnostics, probe_errors visibility, typed contracts, ThreadPoolExecutor concurrency, HTTP retry, and country-mode parity are all correctly implemented. One stale TypedDict annotation in types.py is noted but does not block the merge.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Test suite (pytest) | PASS | 52 passed, 0 failed, 0 skipped |
+| Lint (ruff check .) | PASS | All checks passed |
+
+### Acceptance Criteria (12/12 passed)
+
+- [x] AC-1: diagnosis.diagnose() returns a dict whose signals key is a non-empty list when two or more conditions are simultaneously present; verifiable with a crafted result dict in tests/test_diagnosis.py — PASS: diagnosis.py:202-225 accumulates all matched conditions before returning. test_multiple_simultaneous_signals (test_diagnosis.py:197) verifies {bufferbloat_ms:50, jitter_ms:15} produces signals with both severe_bufferbloat and high_jitter conditions. Confirmed programmatically.
+- [x] AC-2: The top-level severity in the diagnose() return equals the worst severity across all entries in signals — PASS: diagnosis.py:212: worst_sev = max(signals, key=lambda s: _SEVERITY_ORDER.get(s['severity'], 0))['severity']. test_multiple_simultaneous_signals asserts result['severity'] == 'critical' when bufferbloat (critical) and jitter (warning) both fire.
+- [x] AC-3: _measure() returns a dict containing a probe_errors key; it is populated when any probe fails and is an empty dict when all probes succeed — PASS: cli.py:183 initialises 'probe_errors': {} in the result dict. Failures populate it at lines 215, 218, 240, 248, 282, 287, 292, 328, 342. Old _trace_error / _iperf_error / _speedtest_error keys are absent from cli.py (grep returns exit 1).
+- [x] AC-4: Running netpath asn against a target where iperf3 is unavailable shows (partial results) in the terminal verdict panel — PASS: cli.py:328 sets probe_errors['iperf3'] on RuntimeError from iperf3. diagnose() sets partial_results=True when probe_errors is non-empty (diagnosis.py:208,223). display.verdict_panel() (display.py:514-518) renders '(partial results: iperf3)' in the label when partial=True and probe_errors is populated.
+- [x] AC-5: src/netpath/types.py exists and exports Hub and MeasurementResult TypedDicts; cli.py and mtr.py import from it — PASS: types.py exists with Hub (functional TypedDict form, total=False) at line 4 and MeasurementResult (class form, total=False) at line 20. cli.py:16 imports MeasurementResult; mtr.py:9 imports Hub.
+- [x] AC-6: _measure() uses concurrent.futures.ThreadPoolExecutor for the dual-stack trace pair; no bare threading.Thread(daemon=True) remains for v4/v6 — PASS: cli.py:186 wraps entire _measure() body with ThreadPoolExecutor(max_workers=8). v4/v6 traces submitted as futures at cli.py:209-210. grep for threading.Thread in cli.py returns no matches (exit 1).
+- [x] AC-7: PMTU probe and RUM fetch are submitted concurrently to the thread pool executor, not called sequentially — PASS: cli.py:274 submits fut_pmtu = executor.submit(pmtu_mod.probe, host) and cli.py:277 submits fut_rum = executor.submit(_fetch_rum, target_asn, cf_token) before either .result() is called. fut_tcp and fut_tls are also submitted concurrently at lines 275-276.
+- [x] AC-8: servers._fetch_and_resolve() retries the HTTP GET up to 3 times on ConnectionError or Timeout — PASS: servers.py:29: resp = _with_retry(lambda: requests.get(SERVERS_URL, timeout=15)). _with_retry defaults to attempts=3, retries on requests.ConnectionError and requests.Timeout (utils.py:34).
+- [x] AC-9: rum.fetch_asn_quality() retries the HTTP GET up to 3 times on ConnectionError or Timeout — PASS: rum.py:18-23 wraps requests.get(...) with _with_retry. The 401 check and raise_for_status() remain outside the retry wrapper at rum.py:24-26.
+- [x] AC-10: Running netpath country US --top 3 produces per-ASN output that includes ECMP path count, IPv6 delta, and PMTU results — PASS: cli.py:642-643 passes ecmp_passes=2, compare_v6=True to the iperf3-server call path; cli.py:668-669 passes the same to the traceroute-only call path. Both country-mode call sites now match the probe depth of asn mode.
+- [x] AC-11: ruff check . reports zero errors after all changes — PASS: ruff check . output: 'All checks passed!'
+- [x] AC-12: pytest passes with no regressions after all changes — PASS: pytest -q output: 52 passed in 0.07s. Baseline was 44 before this task; 8 new tests added across test_diagnosis.py (3) and test_utils.py (5).
+
+### Code Quality (Refactor Review)
+
+#### Stale type annotation
+
+- **WARNING:** `src/netpath/types.py:43` — MeasurementResult still declares _trace_error, _iperf_error, and _speedtest_error as optional fields (lines 43, 49, 52), but these keys were removed from _measure()'s return dict by R4 and replaced with the probe_errors dict. A maintainer reading the TypedDict would infer these keys can still appear in measurement results when they cannot. Suggested fix: Remove the _trace_error, _iperf_error, and _speedtest_error fields from MeasurementResult in types.py since _measure() no longer populates them
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- TypedDict (total=False) chosen over dataclasses to preserve dict compatibility with existing JSON output callers and .get() access patterns throughout the codebase.
+- Signals format changed from plain strings to {condition, severity, detail} dicts to enable worst-severity rollup and structured rendering in verdict_panel().
+- Single ThreadPoolExecutor per _measure() call replaces bare daemon thread pairs; context manager guarantees all futures are joined on exit including early-return paths.
+- _with_retry added to utils.py using stdlib only, avoiding a production dependency on tenacity; callers bind arguments via lambdas.
+- probe_errors dict included in diagnose() return value so that verdict_panel() can render the comma-separated probe names in the annotation.
+- Closures (_do_v4, _do_v6) used instead of functools.partial for v4/v6 future submission — cleaner for keyword-argument binding with read-only captures.
+
+## Headline Findings
+
+- **optional** — MeasurementResult TypedDict still declares _trace_error, _iperf_error, _speedtest_error as optional fields after those keys were removed from _measure() — stale annotations that could mislead future maintainers about the result shape.
+
+## Required Changes
+
+None.
+
