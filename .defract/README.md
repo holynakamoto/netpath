@@ -6,6 +6,7 @@ This project uses [defract](https://defract.dev) for structured AI-assisted deve
 
 | Task | Stage | Status |
 |------|-------|--------|
+| Auditing iperf3 + RIPE Atlas endpoint validity | scope | active |
 | Country AS-path visual + Binat RTT anomaly | release | active |
 | Incomplete paths still showing in ZA country sweep | release | active |
 | Automated PyPI Publishing with VCS Versioning | release | completed |
