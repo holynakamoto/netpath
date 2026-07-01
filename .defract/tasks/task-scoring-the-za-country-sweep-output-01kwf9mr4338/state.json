@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 1,
   "createdAt": "2026-07-01T16:54:21Z",
-  "updatedAt": "2026-07-01T16:58:24Z",
+  "updatedAt": "2026-07-01T16:59:31Z",
   "events": [
     {
       "base_branch": "main",
@@ -55,29 +55,43 @@
       "type": "stage_work_complete",
       "worktree_head": "9c786280a7dd0a8a954949be50ea7f0fd5b3c379",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-01T16:59:31Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwf9y6br5g0167j965mvdkg2",
+      "stage": "scope",
+      "timestamp": "2026-07-01T16:59:31Z",
+      "type": "stage_agent_started"
     }
   ],
   "stages": {
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-01T16:54:22Z"
-    },
-    "review": {
-      "status": "not_started"
-    },
-    "release": {
-      "status": "not_started"
-    },
-    "design": {
-      "status": "not_started"
-    },
     "implementation": {
       "status": "not_started"
     },
     "architecture": {
       "status": "not_started"
+    },
+    "review": {
+      "status": "not_started"
+    },
+    "scope": {
+      "status": "in_progress",
+      "startedAt": "2026-07-01T16:59:31Z"
+    },
+    "design": {
+      "status": "not_started"
+    },
+    "release": {
+      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-scoring-the-za-country-sweep-output-01kwf9mr4338",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-07-01T16:59:31Z"
 }
