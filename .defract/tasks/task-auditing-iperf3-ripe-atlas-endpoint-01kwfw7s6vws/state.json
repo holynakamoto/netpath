@@ -1,11 +1,11 @@
 {
   "id": "task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 2,
   "createdAt": "2026-07-01T22:19:19Z",
-  "updatedAt": "2026-07-01T22:34:38Z",
+  "updatedAt": "2026-07-01T22:54:00Z",
   "events": [
     {
       "base_branch": "main",
@@ -95,6 +95,174 @@
       "type": "stage_work_complete",
       "worktree_head": "a2550f3d1a9f2ed7425b1f77397430033a62968b",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 3,
+      "timestamp": "2026-07-01T22:50:46Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-07-01T22:50:45Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "719004c5adb9a55c39a7241ada0dd67494e7cac0",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "a2550f3d1a9f2ed7425b1f77397430033a62968b",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-01T22:50:46Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-07-01T22:50:46Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-07-01T22:50:46Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-01T22:50:46Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwfwt2w2jpgepgfk5182z7cr",
+      "timed_out": false,
+      "timestamp": "2026-07-01T22:50:46Z",
+      "type": "agent_exited"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwfy1bs0nscaamqgrj76cfth",
+      "stage": "implementation",
+      "timestamp": "2026-07-01T22:50:46Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting Phase 1: fix iperf3 server selection bugs in servers.py and write tests",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T22:51:49Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Fix iperf3 server selection bugs",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-07-01T22:51:53Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-07-01T22:52:15Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-07-01T22:53:07Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-07-01T22:53:12Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "70 passed, 0 failed. Baseline was 62; 8 new tests added for _tcp_alive, _is_iperf3_alive, and find_servers_in_asn. ruff clean.",
+      "failed": 0,
+      "passed": 70,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-07-01T22:53:19Z",
+      "type": "test_results"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-07-01T22:53:23Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 1 complete: Fix iperf3 server selection bugs",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T22:53:35Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/servers.py",
+        "tests/test_servers.py"
+      ],
+      "phase": 0,
+      "summary": "Moved max_count truncation after liveness filter in find_servers_in_asn; replaced TCP-only _is_alive with _is_iperf3_alive that runs iperf3 -t 1 -J with TCP fallback when iperf3 absent; 10 new tests covering all acceptance criteria.",
+      "timestamp": "2026-07-01T22:53:40Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `uv run pytest tests/test_servers.py -v` and confirm all 10 tests pass with no failures."
+        },
+        {
+          "description": "Run `uv run ruff check src tests` and confirm it reports `All checks passed!`."
+        },
+        {
+          "description": "Run `uv run pytest --tb=short -q` and confirm all 70 tests pass."
+        },
+        {
+          "description": "In a Python REPL (`uv run python3`), run `from netpath.servers import _is_iperf3_alive, find_servers_in_asn` to confirm the new symbols import without error."
+        },
+        {
+          "description": "Inspect `src/netpath/servers.py` and confirm the `[:max_count]` slice appears AFTER the liveness filter line (`live = [s for s in candidates ...`), not before."
+        },
+        {
+          "description": "In `src/netpath/servers.py`, confirm `_is_iperf3_alive` calls `subprocess.run` with args `[\"iperf3\", \"-c\", ip, \"-p\", str(port), \"-t\", \"1\", \"-J\"]` and a `timeout=15`."
+        },
+        {
+          "description": "Confirm `_is_iperf3_alive` contains a branch that calls `_tcp_alive(ip, port)` when `_iperf.available()` returns False, ensuring environments without iperf3 are not broken."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Fix iperf3 server selection bugs",
+      "timestamp": "2026-07-01T22:53:50Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Fix iperf3 server selection bugs",
+      "server_phase": 0,
+      "timestamp": "2026-07-01T22:54:00Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Fix iperf3 server selection bugs",
+      "timestamp": "2026-07-01T22:54:00Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "719004c5adb9a55c39a7241ada0dd67494e7cac0",
+      "worktree_status_digest": "e9bc4b9e6d30b84ac449a3133fd8fe927e77e2d71dc79547396c12f1beb22277"
     }
   ],
   "needsArchitecture": false,
@@ -111,7 +279,18 @@
     "classifiedBy": "scope-agent",
     "rationale": "Backend-only changes: no new UI flows or visual design decisions (display.py changes are additive column conditionals, not new components). Architecture skipped — both phases follow established patterns (single-purpose module in atlas.py, _with_retry from utils.py, ThreadPoolExecutor in _measure) and touch well-understood subsystems. Standard tier: 4–5 files across 2 phases, bounded scope, no new system boundaries."
   },
+  "stageApprovals": {
+    "scope": "2026-07-01T22:50:45Z"
+  },
+  "stageContent": {
+    "implementation": "## Phase 1: Fix iperf3 server selection bugs\n\n### Changes\n\n**`src/netpath/servers.py`**\n- Added module-level import of `from . import iperf as _iperf`\n- Added `json` and `subprocess` stdlib imports\n- Renamed `_is_alive` to `_tcp_alive` (TCP-only check, kept for fallback use)\n- Added `_is_iperf3_alive(ip, port)`: runs `iperf3 -c ip -p port -t 1 -J` with 15s timeout; zero exit code + parseable JSON with no `error` field = alive; falls back to `_tcp_alive` when `iperf.available()` returns False\n- `find_servers_in_asn`: moved `[:max_count]` truncation after the liveness filter; liveness now uses `_is_iperf3_alive`\n\n**`tests/test_servers.py`** (rewritten)\n- `test_tcp_alive_returns_false_on_oserror` — TCP fallback behaves correctly on error\n- `test_tcp_alive_returns_true_on_success` — TCP fallback succeeds\n- `test_is_iperf3_alive_true_on_zero_exit_valid_json` — happy path\n- `test_is_iperf3_alive_false_on_nonzero_exit` — rejected on non-zero exit\n- `test_is_iperf3_alive_false_when_json_has_error_field` — rejected when JSON contains `error` key\n- `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` — TCP fallback when iperf3 absent\n- `test_is_iperf3_alive_false_on_timeout` — TimeoutExpired returns False\n- `test_find_servers_in_asn_checks_all_candidates_before_truncating` — 5 candidates, first 3 dead, returns 2 live\n- `test_find_servers_in_asn_respects_max_count_after_filter` — 5 live servers, max_count=3 returns 3\n- `test_find_servers_in_asn_excludes_server_failing_iperf3_protocol` — TCP-only server excluded\n\n### Result\n70/70 tests pass. ruff reports no errors."
+  },
   "stages": {
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T22:50:45Z",
+      "startedAt": "2026-07-01T22:29:19Z"
+    },
     "design": {
       "status": "skipped"
     },
@@ -122,17 +301,14 @@
       "status": "not_started"
     },
     "implementation": {
-      "status": "not_started"
+      "status": "in_progress",
+      "startedAt": "2026-07-01T22:50:46Z"
     },
     "release": {
       "status": "not_started"
-    },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-01T22:29:19Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-01T22:29:19Z"
+  "worktreeLastSyncedAt": "2026-07-01T22:50:46Z"
 }

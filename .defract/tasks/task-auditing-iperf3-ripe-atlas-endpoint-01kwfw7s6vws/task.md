@@ -3,7 +3,7 @@ defract:
   id: task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws
   type: bug
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
   total_phases: 2
   priority: normal
@@ -145,3 +145,31 @@ Two complementary improvements to how netpath selects and measures endpoints. Fi
 
 - RIPE Atlas REST API — no new Python package required; `requests` is already in runtime deps
 - `iperf3` binary — already a system prerequisite; Phase 1 validation degrades gracefully when absent
+
+## Implementation Notes
+
+## Phase 1: Fix iperf3 server selection bugs
+
+### Changes
+
+**`src/netpath/servers.py`**
+- Added module-level import of `from . import iperf as _iperf`
+- Added `json` and `subprocess` stdlib imports
+- Renamed `_is_alive` to `_tcp_alive` (TCP-only check, kept for fallback use)
+- Added `_is_iperf3_alive(ip, port)`: runs `iperf3 -c ip -p port -t 1 -J` with 15s timeout; zero exit code + parseable JSON with no `error` field = alive; falls back to `_tcp_alive` when `iperf.available()` returns False
+- `find_servers_in_asn`: moved `[:max_count]` truncation after the liveness filter; liveness now uses `_is_iperf3_alive`
+
+**`tests/test_servers.py`** (rewritten)
+- `test_tcp_alive_returns_false_on_oserror` — TCP fallback behaves correctly on error
+- `test_tcp_alive_returns_true_on_success` — TCP fallback succeeds
+- `test_is_iperf3_alive_true_on_zero_exit_valid_json` — happy path
+- `test_is_iperf3_alive_false_on_nonzero_exit` — rejected on non-zero exit
+- `test_is_iperf3_alive_false_when_json_has_error_field` — rejected when JSON contains `error` key
+- `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` — TCP fallback when iperf3 absent
+- `test_is_iperf3_alive_false_on_timeout` — TimeoutExpired returns False
+- `test_find_servers_in_asn_checks_all_candidates_before_truncating` — 5 candidates, first 3 dead, returns 2 live
+- `test_find_servers_in_asn_respects_max_count_after_filter` — 5 live servers, max_count=3 returns 3
+- `test_find_servers_in_asn_excludes_server_failing_iperf3_protocol` — TCP-only server excluded
+
+### Result
+70/70 tests pass. ruff reports no errors.
