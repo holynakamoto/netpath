@@ -3,7 +3,7 @@ defract:
   id: task-using-the-ripe-atlas-probes-feature-01kwdra83w1d
   type: bug
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 1
   priority: normal
@@ -202,4 +202,30 @@ No security issues found in changed files.
 
 - tests/test_country.py — add a test (e.g. test_get_test_ip_falls_back_to_regular_probe_when_no_anchor) that mocks the first Atlas call (is_anchor=true) returning empty results and the second Atlas call returning a probe with address_v4, then asserts the function returns that probe IP (not falling through to the RIPE prefix path)
 
+## Release
+
+## Release Notes
+
+### What was built
+- Added anchor-first probe selection in `_get_atlas_probe_ip()` (country.py) — Atlas anchor probes (hosted in data centers) are tried before regular probes, improving target reachability in country sweeps
+- Raised traceroute hop cap from `-m 15` to `-m 30` in `_run_traceroute_cmd()` (mtr.py), matching mtr's default TTL ceiling so intercontinental paths are no longer clipped at 15 hops
+- Added incomplete-path early-return in `diagnose()` (diagnosis.py) — when `path_complete is False`, returns "Incomplete Path" warning instead of a false Healthy verdict; includes `stall_hop` in the detail message when present
+- Added four unit tests in tests/test_diagnosis.py covering the new incomplete-path branch: with stall_hop, without stall_hop, path_complete=None, and absent path_complete key
+
+### Key decisions
+- Anchor preference uses two sequential API calls (anchor-first, any-probe fallback) — Atlas API does not support anchor-prioritized sorting
+- Incomplete-path check lives in diagnosis.py to keep it testable as a pure function and correct in both terminal and JSON output paths
+- Anchor-first loop iterates over ({"is_anchor": "true"}, {}) rather than two separate try/except blocks to avoid duplicating request boilerplate
+
+### Changes by phase
+- **Phase 1: Fix probe selection, hop cap, and incomplete-path verdict** — Three targeted correctness fixes across country.py, mtr.py, diagnosis.py, and tests/test_diagnosis.py. 44/44 tests pass, ruff lint clean.
+
+## Verification
+
+- Production build: PASS — netpath-0.4.1.dev10+ga5fbb6510.d20260701 sdist and wheel built successfully
+- Test suite: 44/44 passed (23 diagnosis, 7 country, 14 mtr)
+- Lint: ruff check . clean
+- `-m 30` confirmed in mtr.py
+- `is_anchor` filter confirmed in country.py anchor loop
+- Incomplete-path verdict confirmed in diagnosis.py at line 39–50
 
