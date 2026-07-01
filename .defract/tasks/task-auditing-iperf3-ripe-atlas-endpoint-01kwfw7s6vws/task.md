@@ -173,3 +173,38 @@ Two complementary improvements to how netpath selects and measures endpoints. Fi
 
 ### Result
 70/70 tests pass. ruff reports no errors.
+
+## Phase 2: RIPE Atlas measurement mode
+
+### Changes
+
+**`src/netpath/atlas.py`** (new)
+- `get_public_ip()`: fetches caller's IPv4 via ipify, used once per sweep as the traceroute target
+- `find_probes_in_asn(asn, atlas_key)`: queries Atlas v4 probes endpoint with `asn_v4` + `status=1`, returns up to 3 probe IDs; returns `[]` on any failure
+- `check_budget(probes_by_asn, atlas_key)`: sums probe counts × (PING_CREDITS=1 + TRACE_CREDITS=10), queries `/api/v4/credits/`, returns `(sufficient, cost, balance)`
+- `schedule_measurements(probe_ids, target_ip, user_ip, atlas_key)`: two sequential POST requests — ping to `target_ip`, traceroute (TCP/80, paris=6) to `user_ip`; returns `{"ping": id, "traceroute": id}`; raises on API error
+- `poll_until_done(measurement_ids, atlas_key, timeout=600)`: polls with 30-second sleep intervals; terminal statuses: stopped, forced to stop, no suitable probes, failed, denied; returns `{id: status_name}` with `"timed_out"` for stragglers
+- `fetch_results(measurement_id, atlas_key)`: fetches `/api/v4/measurements/{id}/results/`; returns `[]` on failure
+- `parse_ping_rtt(results)`: extracts RTTs from `result[probe].result[pkt].rtt`, returns `{min, avg, max}` or None
+- `parse_traceroute_as_path(results)`: collects unique hop IPs, resolves via `cymru_bulk_lookup`, walks first probe's hop list to build deduplicated AS sequence
+
+**`src/netpath/cli.py`**
+- Added `atlas as atlas_mod` import
+- Added `_set_atlas_error(rows, asn, msg)` module-level helper
+- Added `--atlas-key` / `NETPATH_ATLAS_KEY` option to `country` command
+- Pre-sweep: discovers Atlas probes for all target ASNs, gets user's public IP, checks credit budget (aborts if insufficient)
+- Per-ASN loop: tracks test IP per ASN (`_atlas_test_ips`) as ping target for Atlas measurements
+- Post-sweep: schedules ping + traceroute for each ASN with probes (prints measurement IDs), polls all measurements with 600-second timeout, fetches + parses results, merges `atlas` dict into each summary row
+- No-probe and timed-out ASNs get `probe_errors["atlas"]` set
+
+**`src/netpath/display.py`**
+- Added `_render_atlas_subrow(r, is_last_in_group)`: prints optional indented `[Atlas] RTT X ms avg, AS-path` line beneath each ISP row; no-op when `r.get("atlas")` is absent
+- Called in `country_summary` for both complete and incomplete path rows
+- Non-Atlas layout is pixel-identical (function is a no-op when Atlas key was not used)
+
+### Decisions
+- Probe discovery runs before the regular sweep so the budget check uses exact probe counts
+- All Atlas measurements are scheduled after the regular sweep completes, then polled in one shared 600-second window — faster than per-ASN schedule+poll
+
+### Result
+70/70 tests pass. ruff reports no errors.

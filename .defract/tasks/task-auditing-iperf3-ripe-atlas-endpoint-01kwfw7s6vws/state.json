@@ -5,7 +5,7 @@
   "phase": 1,
   "totalPhases": 2,
   "createdAt": "2026-07-01T22:19:19Z",
-  "updatedAt": "2026-07-01T22:58:11Z",
+  "updatedAt": "2026-07-01T23:10:37Z",
   "events": [
     {
       "base_branch": "main",
@@ -289,6 +289,85 @@
       "stage": "implementation",
       "timestamp": "2026-07-01T22:58:11Z",
       "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting Phase 2: RIPE Atlas measurement mode — creating atlas.py, extending cli.py country command with --atlas-key, extending display.py country_summary",
+      "phase": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T23:05:41Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 2: RIPE Atlas measurement mode",
+      "percentage": 0,
+      "phase": 2,
+      "timestamp": "2026-07-01T23:05:46Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes — atlas.py, cli.py, display.py",
+      "percentage": 20,
+      "phase": 2,
+      "timestamp": "2026-07-01T23:05:50Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 2,
+      "timestamp": "2026-07-01T23:08:21Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 2,
+      "timestamp": "2026-07-01T23:08:30Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "70 passed (same baseline as Phase 1; no new unit tests added — Atlas module targets live APIs). ruff clean across src and tests.",
+      "failed": 0,
+      "passed": 70,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-07-01T23:09:35Z",
+      "type": "test_results"
+    },
+    {
+      "description": "Phase 2 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 2,
+      "timestamp": "2026-07-01T23:09:39Z",
+      "type": "progress_report"
+    },
+    {
+      "alternatives_considered": [
+        "Estimate budget using top_n * 3 probes * credits — cheap but inaccurate; could over-abort or under-abort",
+        "Discover probes inline per-ASN during the regular sweep — violates the 'before scheduling' requirement in R6"
+      ],
+      "decision": "Implementation: Atlas probe discovery runs before the regular sweep; budget check uses actual probe counts from discovery, not top-N estimates",
+      "phase": 2,
+      "rationale": "Discovering probes first (no credits spent) lets the budget check use exact probe counts per ASN, giving an accurate credit estimate rather than a worst-case assumption. The probe discovery loop adds N API calls before the sweep begins but keeps the no-credits-spent guarantee from R6 intact.",
+      "timestamp": "2026-07-01T23:09:49Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Inline per-ASN schedule+poll — serializes Atlas wait time across ISPs, dramatically extends sweep duration"
+      ],
+      "decision": "Implementation: Atlas scheduling and polling happen after all regular per-ASN measurements complete, not inline per-ASN",
+      "phase": 2,
+      "rationale": "Scheduling all Atlas measurements first, then polling all at once in a single 600-second window is faster than scheduling-then-polling per-ASN (which would serialize the 4-8 minute Atlas wait for each ISP). All measurements run concurrently on the Atlas side; the single poll window covers all of them.",
+      "timestamp": "2026-07-01T23:10:02Z",
+      "type": "decision"
+    },
+    {
+      "change_summary": "Phase 2 complete: RIPE Atlas measurement mode",
+      "revision": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-01T23:10:37Z",
+      "type": "stage_content_updated"
     }
   ],
   "needsArchitecture": false,
@@ -309,20 +388,16 @@
     "scope": "2026-07-01T22:50:45Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Fix iperf3 server selection bugs\n\n### Changes\n\n**`src/netpath/servers.py`**\n- Added module-level import of `from . import iperf as _iperf`\n- Added `json` and `subprocess` stdlib imports\n- Renamed `_is_alive` to `_tcp_alive` (TCP-only check, kept for fallback use)\n- Added `_is_iperf3_alive(ip, port)`: runs `iperf3 -c ip -p port -t 1 -J` with 15s timeout; zero exit code + parseable JSON with no `error` field = alive; falls back to `_tcp_alive` when `iperf.available()` returns False\n- `find_servers_in_asn`: moved `[:max_count]` truncation after the liveness filter; liveness now uses `_is_iperf3_alive`\n\n**`tests/test_servers.py`** (rewritten)\n- `test_tcp_alive_returns_false_on_oserror` — TCP fallback behaves correctly on error\n- `test_tcp_alive_returns_true_on_success` — TCP fallback succeeds\n- `test_is_iperf3_alive_true_on_zero_exit_valid_json` — happy path\n- `test_is_iperf3_alive_false_on_nonzero_exit` — rejected on non-zero exit\n- `test_is_iperf3_alive_false_when_json_has_error_field` — rejected when JSON contains `error` key\n- `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` — TCP fallback when iperf3 absent\n- `test_is_iperf3_alive_false_on_timeout` — TimeoutExpired returns False\n- `test_find_servers_in_asn_checks_all_candidates_before_truncating` — 5 candidates, first 3 dead, returns 2 live\n- `test_find_servers_in_asn_respects_max_count_after_filter` — 5 live servers, max_count=3 returns 3\n- `test_find_servers_in_asn_excludes_server_failing_iperf3_protocol` — TCP-only server excluded\n\n### Result\n70/70 tests pass. ruff reports no errors."
+    "implementation": "## Phase 1: Fix iperf3 server selection bugs\n\n### Changes\n\n**`src/netpath/servers.py`**\n- Added module-level import of `from . import iperf as _iperf`\n- Added `json` and `subprocess` stdlib imports\n- Renamed `_is_alive` to `_tcp_alive` (TCP-only check, kept for fallback use)\n- Added `_is_iperf3_alive(ip, port)`: runs `iperf3 -c ip -p port -t 1 -J` with 15s timeout; zero exit code + parseable JSON with no `error` field = alive; falls back to `_tcp_alive` when `iperf.available()` returns False\n- `find_servers_in_asn`: moved `[:max_count]` truncation after the liveness filter; liveness now uses `_is_iperf3_alive`\n\n**`tests/test_servers.py`** (rewritten)\n- `test_tcp_alive_returns_false_on_oserror` — TCP fallback behaves correctly on error\n- `test_tcp_alive_returns_true_on_success` — TCP fallback succeeds\n- `test_is_iperf3_alive_true_on_zero_exit_valid_json` — happy path\n- `test_is_iperf3_alive_false_on_nonzero_exit` — rejected on non-zero exit\n- `test_is_iperf3_alive_false_when_json_has_error_field` — rejected when JSON contains `error` key\n- `test_is_iperf3_alive_falls_back_to_tcp_when_iperf3_absent` — TCP fallback when iperf3 absent\n- `test_is_iperf3_alive_false_on_timeout` — TimeoutExpired returns False\n- `test_find_servers_in_asn_checks_all_candidates_before_truncating` — 5 candidates, first 3 dead, returns 2 live\n- `test_find_servers_in_asn_respects_max_count_after_filter` — 5 live servers, max_count=3 returns 3\n- `test_find_servers_in_asn_excludes_server_failing_iperf3_protocol` — TCP-only server excluded\n\n### Result\n70/70 tests pass. ruff reports no errors.\n\n## Phase 2: RIPE Atlas measurement mode\n\n### Changes\n\n**`src/netpath/atlas.py`** (new)\n- `get_public_ip()`: fetches caller's IPv4 via ipify, used once per sweep as the traceroute target\n- `find_probes_in_asn(asn, atlas_key)`: queries Atlas v4 probes endpoint with `asn_v4` + `status=1`, returns up to 3 probe IDs; returns `[]` on any failure\n- `check_budget(probes_by_asn, atlas_key)`: sums probe counts × (PING_CREDITS=1 + TRACE_CREDITS=10), queries `/api/v4/credits/`, returns `(sufficient, cost, balance)`\n- `schedule_measurements(probe_ids, target_ip, user_ip, atlas_key)`: two sequential POST requests — ping to `target_ip`, traceroute (TCP/80, paris=6) to `user_ip`; returns `{\"ping\": id, \"traceroute\": id}`; raises on API error\n- `poll_until_done(measurement_ids, atlas_key, timeout=600)`: polls with 30-second sleep intervals; terminal statuses: stopped, forced to stop, no suitable probes, failed, denied; returns `{id: status_name}` with `\"timed_out\"` for stragglers\n- `fetch_results(measurement_id, atlas_key)`: fetches `/api/v4/measurements/{id}/results/`; returns `[]` on failure\n- `parse_ping_rtt(results)`: extracts RTTs from `result[probe].result[pkt].rtt`, returns `{min, avg, max}` or None\n- `parse_traceroute_as_path(results)`: collects unique hop IPs, resolves via `cymru_bulk_lookup`, walks first probe's hop list to build deduplicated AS sequence\n\n**`src/netpath/cli.py`**\n- Added `atlas as atlas_mod` import\n- Added `_set_atlas_error(rows, asn, msg)` module-level helper\n- Added `--atlas-key` / `NETPATH_ATLAS_KEY` option to `country` command\n- Pre-sweep: discovers Atlas probes for all target ASNs, gets user's public IP, checks credit budget (aborts if insufficient)\n- Per-ASN loop: tracks test IP per ASN (`_atlas_test_ips`) as ping target for Atlas measurements\n- Post-sweep: schedules ping + traceroute for each ASN with probes (prints measurement IDs), polls all measurements with 600-second timeout, fetches + parses results, merges `atlas` dict into each summary row\n- No-probe and timed-out ASNs get `probe_errors[\"atlas\"]` set\n\n**`src/netpath/display.py`**\n- Added `_render_atlas_subrow(r, is_last_in_group)`: prints optional indented `[Atlas] RTT X ms avg, AS-path` line beneath each ISP row; no-op when `r.get(\"atlas\")` is absent\n- Called in `country_summary` for both complete and incomplete path rows\n- Non-Atlas layout is pixel-identical (function is a no-op when Atlas key was not used)\n\n### Decisions\n- Probe discovery runs before the regular sweep so the budget check uses exact probe counts\n- All Atlas measurements are scheduled after the regular sweep completes, then polled in one shared 600-second window — faster than per-ASN schedule+poll\n\n### Result\n70/70 tests pass. ruff reports no errors."
   },
   "stages": {
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-01T22:58:11Z"
+    "design": {
+      "status": "skipped"
     },
-    "review": {
+    "release": {
       "status": "not_started"
     },
     "architecture": {
-      "status": "skipped"
-    },
-    "design": {
       "status": "skipped"
     },
     "scope": {
@@ -330,8 +405,12 @@
       "approvedAt": "2026-07-01T22:50:45Z",
       "startedAt": "2026-07-01T22:29:19Z"
     },
-    "release": {
+    "review": {
       "status": "not_started"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-01T22:58:11Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws",
