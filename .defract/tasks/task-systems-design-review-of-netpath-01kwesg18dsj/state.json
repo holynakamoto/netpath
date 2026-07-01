@@ -5,7 +5,7 @@
   "phase": 2,
   "totalPhases": 3,
   "createdAt": "2026-07-01T12:12:09Z",
-  "updatedAt": "2026-07-01T15:30:10Z",
+  "updatedAt": "2026-07-01T15:30:28Z",
   "events": [
     {
       "base_branch": "main",
@@ -679,6 +679,50 @@
       "stage": "implementation",
       "timestamp": "2026-07-01T15:30:10Z",
       "type": "stage_content_updated"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `grep -n 'threading.Thread' src/netpath/cli.py` and confirm zero lines are returned (exit code 1)."
+        },
+        {
+          "description": "Run `grep -n 'import threading\\|import queue' src/netpath/cli.py` and confirm zero lines are returned."
+        },
+        {
+          "description": "Run `uv run python -c \"import concurrent.futures; from netpath.cli import _measure; print('OK')\"` and confirm it prints `OK`."
+        },
+        {
+          "description": "Run `grep -n 'ecmp_passes=2\\|compare_v6=True' src/netpath/cli.py` and confirm at least 4 matching lines appear (2 call sites × 2 args each)."
+        },
+        {
+          "description": "Run `uv run python -m ruff check .` and confirm zero errors are reported."
+        },
+        {
+          "description": "Run `uv run python -m pytest -q` and confirm all 52 tests pass with no failures."
+        },
+        {
+          "description": "Run `uv run netpath country US --top 2` (requires mtr installed) and verify per-ASN output includes ECMP path count and PMTU results."
+        }
+      ],
+      "phase": 2,
+      "phase_title": "Structured concurrency and country-mode parity",
+      "timestamp": "2026-07-01T15:30:22Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 3,
+      "phase_title": "Structured concurrency and country-mode parity",
+      "server_phase": 2,
+      "timestamp": "2026-07-01T15:30:28Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 2,
+      "phase_title": "Structured concurrency and country-mode parity",
+      "timestamp": "2026-07-01T15:30:28Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "c7affddb3624956256d9437cd3f68a9d712fbc0a",
+      "worktree_status_digest": "55d37d1e48bc53ab44bab014919e97aead821d3fb3f21f5653c197fd61dd8373"
     }
   ],
   "needsArchitecture": true,
@@ -944,20 +988,6 @@
     "summary": "The six architectural problems in netpath are fixed in three sequential passes. First, the diagnostic engine is taught to collect every network problem it finds instead of stopping at the first one — a path with bufferbloat, packet loss, and high jitter will now report all three, and the worst one sets the overall verdict. TypedDict contracts are added to make the data shapes visible and verifiable. Second, probe failures become first-class data: every probe that fails records its name and reason in a shared dictionary, the diagnostic engine reads that dictionary and sets a 'partial results' flag, and the terminal output shows a visible annotation so a 'Healthy (partial)' result is clearly distinguished from a fully-verified clean pass. External HTTP calls (server list, Cloudflare RUM) get automatic retry with exponential backoff. Third, the background threads that have no structured cleanup are replaced by a single managed thread pool used for all concurrent work: dual-stack traces, PMTU probing, TCP/TLS latency, and RUM fetching all run in parallel through the same executor, and country-mode sweeps gain the same full probe set that single-ASN mode already provides."
   },
   "stages": {
-    "architecture": {
-      "status": "approved",
-      "approvedAt": "2026-07-01T15:01:36Z",
-      "startedAt": "2026-07-01T14:48:05Z"
-    },
-    "review": {
-      "status": "not_started"
-    },
-    "release": {
-      "status": "not_started"
-    },
-    "design": {
-      "status": "skipped"
-    },
     "implementation": {
       "status": "in_progress",
       "startedAt": "2026-07-01T15:22:50Z"
@@ -966,6 +996,20 @@
       "status": "approved",
       "approvedAt": "2026-07-01T14:46:14Z",
       "startedAt": "2026-07-01T12:16:44Z"
+    },
+    "architecture": {
+      "status": "approved",
+      "approvedAt": "2026-07-01T15:01:36Z",
+      "startedAt": "2026-07-01T14:48:05Z"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "review": {
+      "status": "not_started"
+    },
+    "release": {
+      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-systems-design-review-of-netpath-01kwesg18dsj",
