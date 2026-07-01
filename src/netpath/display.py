@@ -382,7 +382,7 @@ def _render_atlas_subrow(r: dict, is_last_in_group: bool) -> None:
     if rtt:
         parts.append(f"RTT {rtt['avg']:.1f} ms avg ({rtt['min']:.1f}–{rtt['max']:.1f})")
     if path:
-        parts.append("→".join(path[:6]))
+        parts.append("outbound: " + "→".join(path[:6]))
     if not parts:
         return
     cont = "   " if is_last_in_group else "  │"
