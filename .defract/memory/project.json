@@ -16,7 +16,7 @@
       "timestamp": "2026-06-30T22:34:41.037236+00:00"
     }
   ],
-  "usage_sweep_cursor": "2026-07-01T15:01:42Z",
+  "usage_sweep_cursor": "2026-07-01T15:22:50Z",
   "feedback_sweep_cursor": "2026-07-01T14:54:32.960Z",
   "last_emit_hashes": {
     "builder-preferences.md": "647af80def437a14311602b3132b0a098e5f941da229b4a94f60a4103de40517",

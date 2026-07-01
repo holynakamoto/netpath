@@ -220,3 +220,21 @@ Rate-limited hop signals use severity "ok" so they appear in the signals list wi
 ### One deviation from plan
 
 `probe_errors` was added to the `diagnose()` return dict (in addition to the `partial_results` bool) so that `verdict_panel()` has access to the failed probe names for the annotation. Without this, `verdict_panel()` would only know a partial result occurred, not which probes failed.
+
+## Phase 3: Structured concurrency and country-mode parity
+
+**Files changed:** `src/netpath/cli.py`
+
+### What was built
+
+- `import threading` and `import queue` removed; `import concurrent.futures` added.
+- `_run_ping_probe` (queue-based) replaced by `_run_ping_probe_sync(host, duration) -> float | None` which returns the ping average directly — suitable for `executor.submit()`.
+- `_measure()` now wraps its entire body in `with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:`. The context manager guarantees all submitted futures are joined when `_measure()` exits, including early-return paths.
+- In the `compare_v6` branch: `_do_v4` and `_do_v6` closures submitted as futures; each collected with `fut.result(timeout=cycles * 4 + 35)`. `TimeoutError` on v4 populates `probe_errors["v4_trace"]`; `TimeoutError` on v6 sets `hubs_v6 = None`.
+- PMTU, TCP connect, TLS handshake, and RUM fetch submitted concurrently (`fut_pmtu`, `fut_tcp`, `fut_tls`, `fut_rum`) and collected in parallel. Timeout or exception on any probe adds to `probe_errors`; RUM failure silently sets `rum = None`.
+- Ping during iperf3: `fut_ping = executor.submit(_run_ping_probe_sync, host, duration)`. After iperf3 completes or fails, `fut_ping.cancel()` is called followed by `fut_ping.result(timeout=duration + 10)` within a bounded except to drain the future.
+- Country-mode `_run_test()` calls: both call sites (iperf3-server path and traceroute-only path) now pass `ecmp_passes=2` and `compare_v6=True`, matching the probe depth of ASN mode.
+
+### No deviations from plan
+
+Closures used for `_do_v4`/`_do_v6` instead of `functools.partial` — cleaner for keyword-argument binding and read-only captures.
