@@ -14,16 +14,23 @@
       "entriesUpdated": 1,
       "taskId": "task-fixing-incomplete-paths-richer-path-01kwcya418n5",
       "timestamp": "2026-06-30T22:34:41.037236+00:00"
+    },
+    {
+      "entriesArchived": 1,
+      "entriesCreated": 7,
+      "entriesUpdated": 0,
+      "taskId": "task-systems-design-review-of-netpath-01kwesg18dsj",
+      "timestamp": "2026-07-01T16:22:41.531980+00:00"
     }
   ],
   "usage_sweep_cursor": "2026-07-01T16:17:54Z",
   "feedback_sweep_cursor": "2026-07-01T14:54:32.960Z",
   "last_emit_hashes": {
-    "builder-preferences.md": "647af80def437a14311602b3132b0a098e5f941da229b4a94f60a4103de40517",
     "decisions.md": "d03d7b29a4759cc35b7d90d1f5188045302f4b0432aa4e3fbf7f70e3caa91450",
     "workflows.md": "fe0ef018bba98248fd8036982868181bf6c6217c27c709c6f40fcab54c519cdb",
     "mistakes.md": "92c4c711ec4f802c37a3d3854a294336cb771ccc45888144cc79c6a4d37ba5ff",
-    "project-facts.md": "ceeb63e897074f902258d17eb2450906679c4adfd0153014e99ec1b7e56d2762"
+    "project-facts.md": "ceeb63e897074f902258d17eb2450906679c4adfd0153014e99ec1b7e56d2762",
+    "builder-preferences.md": "647af80def437a14311602b3132b0a098e5f941da229b4a94f60a4103de40517"
   },
   "pending_external_edits": []
 }
