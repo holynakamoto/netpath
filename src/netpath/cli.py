@@ -9,7 +9,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from netpath import __version__
 from netpath import country as country_mod
-from netpath import display, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
+from netpath import atlas as atlas_mod, display, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
 from netpath import mtr, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
@@ -32,6 +32,14 @@ _CF_TOK  = typer.Option(None,  "--cf-token",
                          help="Cloudflare API token with radar:read (or set NETPATH_CF_TOKEN)")
 
 _SEVERITY_CODE = {"ok": 0, "warning": 1, "critical": 2}
+
+
+def _set_atlas_error(rows: list[dict], asn: str, msg: str) -> None:
+    """Record an Atlas error on the summary row matching asn."""
+    for row in rows:
+        if row["asn"] == asn:
+            row.setdefault("probe_errors", {})["atlas"] = msg
+            return
 
 
 def _worst_exit_code(verdicts: list[dict]) -> int:
@@ -562,6 +570,11 @@ def country(
     no_throughput: bool = _NO_TPUT,
     cf_token:      str | None = _CF_TOK,
     globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probes"),
+    atlas_key:     str | None = typer.Option(
+        None, "--atlas-key",
+        envvar="NETPATH_ATLAS_KEY",
+        help="RIPE Atlas API key for in-network measurements from inside each ISP",
+    ),
 ):
     """Test the top N ASNs (by allocated IPv4 address space) for a country."""
     code = code.upper()
@@ -612,6 +625,51 @@ def country(
         servers._fetch_and_resolve()
     display.console.print()
 
+    # Atlas: probe discovery + budget check (before regular sweep, no credits spent)
+    _atlas_probes: dict[str, list[int]] = {}   # asn → probe IDs
+    _atlas_test_ips: dict[str, str] = {}        # asn → test IP for ping target
+    _user_public_ip: str | None = None
+
+    if atlas_key:
+        display.console.print("[dim]Discovering RIPE Atlas probes…[/dim]")
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                      console=display.console, transient=True) as p:
+            p.add_task("Querying Atlas probe endpoints…", total=None)
+            for _ai in top_asns:
+                _probes = atlas_mod.find_probes_in_asn(_ai["asn"], atlas_key)
+                if _probes:
+                    _atlas_probes[_ai["asn"]] = _probes
+
+        if _atlas_probes:
+            _user_public_ip = atlas_mod.get_public_ip()
+            if _user_public_ip is None:
+                display.warn("Could not determine your public IP — Atlas measurements will be skipped")
+                _atlas_probes = {}
+            else:
+                try:
+                    _ok, _cost, _balance = atlas_mod.check_budget(_atlas_probes, atlas_key)
+                except Exception as _e:
+                    display.error(f"Atlas credit check failed: {_e}")
+                    raise typer.Exit(1)
+
+                if not _ok:
+                    display.error(
+                        f"Insufficient Atlas credits: {_cost} needed, "
+                        f"{_balance} available. "
+                        "Aborting before any credits are spent."
+                    )
+                    raise typer.Exit(1)
+
+                display.console.print(
+                    f"[green]✓[/green] Atlas probes found in "
+                    f"{len(_atlas_probes)}/{len(top_asns)} ASNs  "
+                    f"[dim](estimated cost: {_cost} credits, balance: {_balance})[/dim]\n"
+                )
+        else:
+            display.console.print(
+                "[dim]No Atlas probes found in any target ASN — skipping Atlas mode[/dim]\n"
+            )
+
     summary_rows: list[dict] = []
     hubs_for_globe: dict[str, list[dict]] = {}
 
@@ -630,6 +688,8 @@ def country(
 
         if asn_servers:
             server = asn_servers[0]
+            if atlas_key:
+                _atlas_test_ips[asn_str] = server["HOST"]
             can_test_throughput = not no_throughput and iperf_mod.available()
             r = _run_test(
                 host=server["HOST"], port=server["port"],
@@ -651,6 +711,8 @@ def country(
                                      "entry_transit_asn": None, "stall_hop": None})
                 continue
 
+            if atlas_key:
+                _atlas_test_ips[asn_str] = test_ip
             display.console.print(
                 f"  [dim]→ {test_ip}  (traceroute target — no iperf3 server in {asn_str})[/dim]\n"
             )
@@ -675,6 +737,76 @@ def country(
         })
         if globe:
             hubs_for_globe[asn_str] = r.get("hubs", [])
+
+    # Atlas: schedule, poll, and merge results after all regular measurements
+    if atlas_key and _atlas_probes and _user_public_ip:
+        display.console.print("[dim]Scheduling RIPE Atlas measurements…[/dim]")
+        _atlas_mids: dict[str, dict[str, int]] = {}
+
+        for _asn_str, _probe_ids in _atlas_probes.items():
+            _tip = _atlas_test_ips.get(_asn_str)
+            if not _tip:
+                _set_atlas_error(summary_rows, _asn_str, "no test IP available")
+                continue
+            try:
+                _mids = atlas_mod.schedule_measurements(
+                    _probe_ids, _tip, _user_public_ip, atlas_key
+                )
+                _atlas_mids[_asn_str] = _mids
+                display.console.print(
+                    f"  [dim]{_asn_str}: ping #{_mids['ping']}  "
+                    f"traceroute #{_mids['traceroute']}[/dim]"
+                )
+            except Exception as _e:
+                _set_atlas_error(summary_rows, _asn_str, str(_e))
+
+        # Record no-probe ASNs
+        for _ai in top_asns:
+            if _ai["asn"] not in _atlas_probes:
+                _set_atlas_error(summary_rows, _ai["asn"], "no probes available")
+
+        _all_mids = [_m for _ms in _atlas_mids.values() for _m in _ms.values()]
+        if _all_mids:
+            display.console.print(
+                f"\n[dim]Waiting for {len(_all_mids)} Atlas measurements "
+                f"(up to 600 s)…[/dim]"
+            )
+            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                          console=display.console, transient=True) as _p:
+                _p.add_task("Polling Atlas API…", total=None)
+                _statuses = atlas_mod.poll_until_done(_all_mids, atlas_key, timeout=600)
+
+            for _asn_str, _mids in _atlas_mids.items():
+                _ping_id = _mids["ping"]
+                _trace_id = _mids["traceroute"]
+                _atlas_data: dict = {"measurement_ids": _mids}
+
+                if _statuses.get(_ping_id) == "stopped":
+                    _rtt = atlas_mod.parse_ping_rtt(
+                        atlas_mod.fetch_results(_ping_id, atlas_key)
+                    )
+                    if _rtt:
+                        _atlas_data["ping_rtt"] = _rtt
+                elif _statuses.get(_ping_id) == "timed_out":
+                    _set_atlas_error(summary_rows, _asn_str, "timed out")
+
+                if _statuses.get(_trace_id) == "stopped":
+                    _path = atlas_mod.parse_traceroute_as_path(
+                        atlas_mod.fetch_results(_trace_id, atlas_key)
+                    )
+                    if _path:
+                        _atlas_data["outbound_as_path"] = _path
+                elif _statuses.get(_trace_id) == "timed_out":
+                    _set_atlas_error(summary_rows, _asn_str, "timed out")
+
+                _row = next((r for r in summary_rows if r["asn"] == _asn_str), None)
+                if _row is not None:
+                    _row["atlas"] = _atlas_data
+
+    elif atlas_key:
+        # No probes found or public IP unavailable — record for all ASNs
+        for _ai in top_asns:
+            _set_atlas_error(summary_rows, _ai["asn"], "no probes available")
 
     display.country_summary(code, summary_rows)
     if globe and hubs_for_globe:

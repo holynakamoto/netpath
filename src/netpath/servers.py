@@ -1,6 +1,9 @@
+import json
 import socket
+import subprocess
 
 import requests
+from . import iperf as _iperf
 from .asn import resolve_hosts_parallel, cymru_bulk_lookup, normalize_asn
 from .utils import _with_retry
 
@@ -64,7 +67,7 @@ def _fetch_and_resolve() -> list[dict]:
     return enriched
 
 
-def _is_alive(ip: str, port: int, timeout: float = 3.0) -> bool:
+def _tcp_alive(ip: str, port: int, timeout: float = 3.0) -> bool:
     try:
         socket.create_connection((ip, port), timeout).close()
         return True
@@ -72,12 +75,33 @@ def _is_alive(ip: str, port: int, timeout: float = 3.0) -> bool:
         return False
 
 
+def _is_iperf3_alive(ip: str, port: int) -> bool:
+    if not _iperf.available():
+        return _tcp_alive(ip, port)
+    try:
+        r = subprocess.run(
+            ["iperf3", "-c", ip, "-p", str(port), "-t", "1", "-J"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    if r.returncode != 0:
+        return False
+    try:
+        data = json.loads(r.stdout or r.stderr)
+    except json.JSONDecodeError:
+        return False
+    return "error" not in data
+
+
 def find_servers_in_asn(asn: str, max_count: int = 3) -> list[dict]:
     """Return up to max_count live iperf3 servers in the given ASN."""
     target = normalize_asn(asn)
     all_servers = _fetch_and_resolve()
     candidates = [s for s in all_servers if s["asn"] == target]
+    live = [s for s in candidates if _is_iperf3_alive(s["ip"], s["port"])]
     if max_count > 0:
-        candidates = candidates[:max_count]
-    live = [s for s in candidates if _is_alive(s["ip"], s["port"])]
+        live = live[:max_count]
     return live
