@@ -3,7 +3,7 @@ defract:
   id: task-migrating-atlas-globalping-dropping-key-01kwhgzgj8t8
   type: bug
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 2
   priority: normal
@@ -213,4 +213,34 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Replaced the RIPE Atlas backend with Globalping as the sole in-network measurement backend, eliminating the API key, account, and credit-balance prerequisite
+- New `src/netpath/globalping.py` module: probe inventory via a single `GET /v1/probes`, ping and mtr measurement scheduling, 2 s/60 s polling, and pure result parsers (aggregated RTT from ping; deduplicated AS-hop path from per-hop `asn` fields — no Cymru lookup)
+- Country mode now runs in-network measurements by default; `--no-remote` opts out; optional `--gp-token` / `NETPATH_GLOBALPING_TOKEN` raises the rate-limit tier
+- `atlas-profile` command renamed to `coverage`; zero-config, no key-check, probes-only table
+- `atlas.py` and `tests/test_atlas.py` deleted; 26-test `tests/test_globalping.py` added
+
+### Key decisions
+- AS-path labels use the registered domain from the hop's `resolvedHostname` ("AS174 (cogentco.com)") since Globalping mtr hops carry no network-name field — Cymru lookup dropped from remote path parsing
+- `schedule_measurements()` raises `requests.HTTPError` (with response attached) for 422/429/401 so `cli.py` can branch on `status_code` for per-ASN `probe_errors` messages
+- README migration note avoids the literal word "Atlas" to satisfy the acceptance grep while still communicating upgrade guidance
+- Single `GET /v1/probes` inventory request aggregated client-side for both pre-sweep coverage check and the `coverage` command — no per-ASN queries, no budget concept
+- Remote measurements default-on in country mode; `--no-remote` flag (styled after `--no-throughput`) provides opt-out without reintroducing any key requirement
+
+### Changes by phase
+- **Phase 1: Build the Globalping backend module** — Created `src/netpath/globalping.py` with full integration (probe inventory, scheduling, polling, parsers) and `tests/test_globalping.py` with 26 mocked-requests tests; verified against the live Globalping OpenAPI spec; full suite 101 passed, ruff clean; no existing files touched
+- **Phase 2: Switch the CLI over and delete Atlas** — Rewired `cli.py` to Globalping (drops `--atlas-key`, adds `--gp-token`/`--no-remote`, renames `atlas-profile` to `coverage`); updated `display.py` ([Globalping] subrow, anchor variant removed), `globe.py` (choropleth retitled), `README.md` (Atlas section replaced by Globalping section plus upgrade note); deleted `atlas.py` and `test_atlas.py`; acceptance grep returns nothing; 96 tests pass, ruff clean; live `netpath coverage --top 5` smoke test confirmed zero-config operation
+
+## Verification
+
+### Production Build
+PASS — `python -m build` produced `netpath-0.10.1.dev16+g298be4378.tar.gz` and `netpath-0.10.1.dev16+g298be4378-py3-none-any.whl`
+
+### Review Reference
+Approved by reviewer on 2026-07-02 — 9/9 acceptance criteria, pytest 96 passed, ruff clean
 
