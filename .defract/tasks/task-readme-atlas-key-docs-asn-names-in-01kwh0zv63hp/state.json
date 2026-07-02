@@ -2,10 +2,10 @@
   "id": "task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",
   "status": "active",
   "stage": "implementation",
-  "phase": 0,
+  "phase": 1,
   "totalPhases": 3,
   "createdAt": "2026-07-02T09:01:37Z",
-  "updatedAt": "2026-07-02T09:56:46Z",
+  "updatedAt": "2026-07-02T10:47:58Z",
   "events": [
     {
       "base_branch": "main",
@@ -320,6 +320,67 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "888852280b19eaf5f89cccb6966db3283fd1da65",
       "worktree_status_digest": "fbceb51629559baff21db7dec3ecae02b92c6ed30513456cb76bebe1ca90215b"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "ASN org name enrichment",
+      "timestamp": "2026-07-02T10:42:53Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "phase": 0,
+      "timestamp": "2026-07-02T10:42:53Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-02T10:42:54Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwh6sajnea2g3bz0jjfste2y",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T10:42:54Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting Phase 2: Atlas anchor fallback — reading atlas.py, cli.py, display.py before writing",
+      "phase": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T10:43:01Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 2: Atlas anchor fallback",
+      "percentage": 0,
+      "phase": 2,
+      "timestamp": "2026-07-02T10:46:47Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 2,
+      "timestamp": "2026-07-02T10:46:52Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 2,
+      "timestamp": "2026-07-02T10:47:58Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": false,
@@ -343,29 +404,29 @@
     "implementation": "## Phase 1: ASN org name enrichment\n\n**Files changed:**\n- `src/netpath/types.py` — added `asn_name: str` to `Hub` TypedDict (total=False, so optional)\n- `src/netpath/mtr.py` — replaced `cymru_bulk_lookup` import with `cymru_bulk_lookup_rich`; added `clean_asn_name` import from `display`; added `_enrich_names()` helper that batch-looks up org names and populates `hub[\"asn_name\"]` (and fills `hub[\"ASN\"]` as fallback when mtr didn't resolve it); called from both `_single_pass()` (mtr mode) and `run_traceroute()` (traceroute fallback mode)\n- `src/netpath/atlas.py` — replaced `cymru_bulk_lookup` with `cymru_bulk_lookup_rich`; added `clean_asn_name` import; `parse_traceroute_as_path()` now returns `[\"AS1234 (Name)\", ...]` formatted strings, deduplicating on bare ASN number\n- `src/netpath/display.py` — `_build_hub_table()` ASN column now shows `\"AS15169 (Google)\"` format (name truncated to 20 chars), column min_width raised to 20; `as_path_summary()` deduplicates on bare ASN, renders `\"AS{N} (Name)\"` labels in the path line\n\n**Deviations from plan:**\n- `cymru_bulk_lookup` removed from `mtr.py` entirely (replaced by `cymru_bulk_lookup_rich`) rather than calling both — avoids two Cymru TCP connections per `run_traceroute` call\n- Two test mocks in `tests/test_country.py` patched the now-removed `netpath.mtr.cymru_bulk_lookup` symbol; updated to patch `cymru_bulk_lookup_rich` instead\n\n**Test results:** 70/70 passed, ruff clean"
   },
   "stages": {
-    "release": {
-      "status": "not_started"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-02T09:50:13Z"
-    },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T09:50:12Z",
       "startedAt": "2026-07-02T09:11:11Z"
     },
+    "design": {
+      "status": "skipped"
+    },
+    "release": {
+      "status": "not_started"
+    },
     "review": {
       "status": "not_started"
     },
-    "architecture": {
-      "status": "skipped"
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T10:42:54Z"
     },
-    "design": {
+    "architecture": {
       "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T09:50:12Z"
+  "worktreeLastSyncedAt": "2026-07-02T10:42:54Z"
 }
