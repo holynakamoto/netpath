@@ -2,10 +2,10 @@
   "id": "task-migrating-atlas-globalping-dropping-key-01kwhgzgj8t8",
   "status": "active",
   "stage": "implementation",
-  "phase": 0,
+  "phase": 1,
   "totalPhases": 2,
   "createdAt": "2026-07-02T13:41:03Z",
-  "updatedAt": "2026-07-02T15:05:05Z",
+  "updatedAt": "2026-07-02T15:21:29Z",
   "events": [
     {
       "base_branch": "main",
@@ -294,6 +294,53 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "40b3b30d491550fad11251ffbe68de2bf75e9974",
       "worktree_status_digest": "4b98030264c8029b53384d322e124df65feb882c9adeb858b7714508b3bfe102"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Build the Globalping backend module",
+      "timestamp": "2026-07-02T15:17:52Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 0,
+      "timestamp": "2026-07-02T15:17:52Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-02T15:17:54Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwhpgw1cbt83sxzcnbn5qkn3",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T15:17:54Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting phase 2: switching cli/display/globe/README to Globalping and deleting the Atlas backend",
+      "phase": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T15:18:12Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 2: Switch the CLI over and delete Atlas",
+      "percentage": 0,
+      "phase": 2,
+      "timestamp": "2026-07-02T15:18:20Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes: rewiring cli.py to Globalping, updating display/globe, rewriting README",
+      "percentage": 20,
+      "phase": 2,
+      "timestamp": "2026-07-02T15:21:29Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": false,
@@ -317,29 +364,29 @@
     "implementation": "## Phase 1: Build the Globalping backend module — complete\n\n**Files created:**\n- `src/netpath/globalping.py` — the complete Globalping integration: `get_public_ip()` (carried over from atlas.py unchanged), `fetch_probes()` (single GET /v1/probes inventory), `count_probes_by_asn()` and `coverage_by_country()` (pure client-side aggregation over the inventory, satisfying R2's one-request coverage model), `schedule_measurements()` (POST /v1/measurements: ping to the per-ASN test IP plus mtr back to the user's public IP, `locations: [{\"magic\": \"AS{n}\"}]`, `limit: 3`), `poll_until_done()` (2 s interval, 60 s default timeout, unfinished measurements marked \"timed_out\"), `fetch_results()`, `parse_ping_rtt()` (min-of-mins / mean-of-avgs / max-of-maxes across probes), and `parse_mtr_as_path()` (consecutive-ASN dedup using the per-hop `asn` field — no Cymru lookup).\n- `tests/test_globalping.py` — 26 tests in the same mock-`requests` style as the deleted-in-phase-2 test_atlas.py: inventory fetch and error paths, Bearer-header injection and its absence without a token (acceptance-criterion test), ASN/country coverage counting, ping+mtr scheduling body shape, AS-prefix normalisation, 422 propagation, poll terminal/timeout behavior, RTT aggregation with null-stats (100 % loss) handling, mtr path dedup/labeling/fall-through, and ipify parsing.\n\n**Schema verification (required by the phase before locking parsers):** confirmed against the live OpenAPI spec at api.globalping.io/v1/spec.yaml — mtr hops carry `asn` as an array of integers plus `resolvedHostname` (no network-name field), ping stats live at `result.stats.{min,avg,max}`, result items are `{probe, result}`, top-level status is `in-progress`/`finished`, 422 means no matching probes, 429 rate limit.\n\n**Deviations/refinements:** AS-path labels take their readable name from the hop hostname's registered domain (\"AS174 (cogentco.com)\") since Globalping provides no AS organisation names (decision logged). Errors from measurement creation propagate as requests.HTTPError with the response attached so Phase 2 can branch on 422/429/401 (decision logged).\n\n**Checks:** full suite 101 passed (baseline was 75, no pre-existing failures), `ruff check src tests` clean, `python -c \"from netpath import globalping\"` imports cleanly. No existing files touched — no user-visible change yet."
   },
   "stages": {
-    "design": {
-      "status": "skipped"
-    },
-    "review": {
-      "status": "not_started"
-    },
     "release": {
       "status": "not_started"
+    },
+    "design": {
+      "status": "skipped"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T14:57:36Z",
       "startedAt": "2026-07-02T13:46:19Z"
     },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T15:17:54Z"
+    },
     "architecture": {
       "status": "skipped"
     },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-02T14:57:38Z"
+    "review": {
+      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-migrating-atlas-globalping-dropping-key-01kwhgzgj8t8",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T14:57:38Z"
+  "worktreeLastSyncedAt": "2026-07-02T15:17:54Z"
 }
