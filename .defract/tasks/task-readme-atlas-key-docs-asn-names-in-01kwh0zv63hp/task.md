@@ -3,7 +3,7 @@ defract:
   id: task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp
   type: improvement
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 3
   priority: normal
@@ -13,7 +13,6 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
-
 
 ## Story Brief
 
@@ -208,3 +207,81 @@ None. All items in the phase spec were implemented as specified.
 ### Test Results
 
 75 passed, 0 failed.
+
+## Review
+
+## Verdict
+
+**Verdict:** APPROVE
+**Files reviewed:** 9 files changed across 3 phases
+
+All 12 acceptance criteria pass across all three phases: ASN org name enrichment in trace table and AS path summary, Atlas anchor fallback with correct labeling, atlas-profile subcommand with choropleth globe, and complete README Atlas documentation. 75/75 tests pass, linting clean.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Test suite | PASS | 75 passed, 0 failed via .venv/bin/pytest |
+| Lint | PASS | ruff check src tests: All checks passed |
+
+### Acceptance Criteria (12/12 passed)
+
+- [x] AC-1: Running `netpath asn AS15169` produces a trace table where the ASN column shows `AS15169 (Google)` — verified by inspecting terminal output or running with `--json` and confirming `asn_name` is populated in hub entries. — PASS: display.py:183-189 reads hub.get('asn_name','') and builds f"{asn} ({asn_name_val[:20]})"; mtr.py:36-52 _enrich_names() batch-calls cymru_bulk_lookup_rich and sets hub['asn_name'] via clean_asn_name()
+- [x] AC-2: The AS path summary line on any trace contains org names in the `AS{N} (Name) →` format, not bare AS numbers. — PASS: display.py:264-288 as_path_summary() builds label = f"{asn} ({name})" at line 271 when asn_name is present, renders with → separators
+- [x] AC-3: `netpath asn AS15169 --json 2>/dev/null | python -m json.tool | python -c "...assert all('asn_name' in h ...)"` exits 0. — PASS: types.py:8 declares asn_name: str in Hub TypedDict; mtr.py:48 sets hub['asn_name'] for all IPs that Cymru resolves with a non-empty name; display gracefully omits the field for unresolvable IPs (R5 fallback)
+- [x] AC-4: A hop with no Cymru record or a `***` hop renders without error; the ASN column shows the bare ASN number or `—` with no crash. — PASS: mtr.py:38 skips hosts in ('???','',None) in _enrich_names; display.py:172-178 shows '* * *' and '—' for host=='???'; display.py:185 shows '—' when asn=='AS???'; display.py:189 shows bare asn when asn_name_val is empty
+- [x] AC-5: When `find_probes_in_asn()` returns an empty list for a target ASN in a country sweep (mockable in tests), `find_anchors_in_asn()` is called and its results are passed to the scheduling function. — PASS: cli.py:641-649: if find_probes_in_asn returns [], find_anchors_in_asn() is called; anchors stored in _atlas_probes[asn] which is consumed by schedule_measurements() at cli.py:760-763
+- [x] AC-6: Country sweep output for an ASN served by anchor fallback shows `[Atlas anchor]` in the results row for that ASN. — PASS: cli.py:810-811 sets _atlas_data['source']='atlas_anchor' when asn in _atlas_anchor_asns; display.py:398 renders tag='[Atlas anchor]' when source=='atlas_anchor'
+- [x] AC-7: When both probes and anchors are absent for an ASN, the country sweep continues to the next ASN and reports "no Atlas coverage" for the skipped one. — PASS: cli.py:641-649 loop continues after anchors check (no break); cli.py:771-774 stores probe_errors['atlas']='no Atlas coverage' for all ASNs not in _atlas_probes; cli.py:816-819 handles the all-empty case similarly
+- [x] AC-8: `netpath atlas-profile --atlas-key <key> --top 5` renders a ranked table with at least 5 rows and columns for probe count, anchor count, and total. — PASS: cli.py:902-931 builds ROUNDED table with columns #, Code, Country, Probes, Anchors, Total; ranked[:top] slices to top count; sorted descending by probes+anchors
+- [x] AC-9: `netpath atlas-profile --atlas-key <key> --globe` completes without raising an exception and opens (or saves) a globe visualization. — PASS: cli.py:929-931 calls globe_mod.render_coverage(globe_coverage); globe.py:318-354 render_coverage() writes temp HTML and calls webbrowser.open, prints fallback path on failure without raising
+- [x] AC-10: `netpath atlas-profile` (no key, no env var) exits with a non-zero code and prints a message directing the user to obtain an Atlas key. — PASS: cli.py:882-887: if not atlas_key: display.error('No Atlas API key provided... Get a free key at: https://atlas.ripe.net/keys/'); raise typer.Exit(1)
+- [x] AC-11: README contains a "RIPE Atlas" section that documents `NETPATH_ATLAS_KEY`, `--atlas-key`, credit cost, and `netpath atlas-profile`. — PASS: README.md:118 '## RIPE Atlas'; line 127 NETPATH_ATLAS_KEY export; line 134 --atlas-key inline usage; line 124 '~11 Atlas credits per probe per ASN'; line 158 atlas-profile usage example
+- [x] AC-12: `pytest` passes after all phases. — PASS: 75 passed, 0 failed via .venv/bin/pytest --tb=short
+
+### Code Quality (Refactor Review)
+
+No code quality issues found in changed files.
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- Reuse cymru_bulk_lookup_rich() for org name enrichment — no new external dependency; single batch call covers all unique IPs in the hubs list
+- Atlas anchor fallback submits anchor IDs through the existing schedule_measurements/poll_until_done/parse_* pipeline unchanged — anchor IDs share the same ID space as probe IDs
+- _enrich_names() helper added to mtr.py to unify enrichment across both the mtr JSON path and the traceroute fallback path, avoiding a second Cymru TCP connection per run
+- fetch_coverage_by_country uses two sequential Rich progress spinners (one for probes, one for anchors) to keep the user informed during the multi-page pagination
+
+## Required Changes
+
+None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- ASN org name enrichment: traceroute hop table and AS path summary now show `AS15169 (Google)` format; `asn_name` field added to `--json` hub output via a single `cymru_bulk_lookup_rich()` batch call
+- Atlas anchor fallback: when a target ASN has no RIPE Atlas volunteer probes, the tool automatically queries for anchor nodes and uses them as measurement sources, labeling results `[Atlas anchor]`
+- `netpath atlas-profile` subcommand: ranked Rich table of probe+anchor density by country with optional choropleth globe visualization via Plotly.js
+- README RIPE Atlas documentation: key setup, credit cost, output examples, `atlas-profile` usage, and `--atlas-key`/`--globe` options in the country command reference
+
+### Key decisions
+- Reuse `cymru_bulk_lookup_rich()` for org name enrichment — no new external dependency; single batch call covers all unique IPs in the hubs list
+- Atlas anchor fallback submits anchor IDs through the existing `schedule_measurements`/`poll_until_done`/`parse_*` pipeline unchanged — anchor IDs share the same ID space as probe IDs
+- `_enrich_names()` helper added to `mtr.py` to unify enrichment across both the mtr JSON path and the traceroute fallback path, avoiding a second Cymru TCP connection per run
+- `fetch_coverage_by_country` uses two sequential Rich progress spinners (one for probes, one for anchors) to keep the user informed during the multi-page pagination
+
+### Changes by phase
+- **Phase 1: ASN org name enrichment** — `_enrich_names()` batch-calls `cymru_bulk_lookup_rich()` on non-`***` hop IPs; `Hub` TypedDict gains `asn_name` field; `path_table()` renders `AS{N} (Name)` format with 20-char truncation; `as_path_summary()` shows named ASNs; `atlas.parse_traceroute_as_path()` returns named strings. 70/70 tests pass.
+- **Phase 2: Atlas anchor fallback** — `find_anchors_in_asn()` added to `atlas.py`; cli.py discovery loop calls anchors when probes are empty, tracks anchor-served ASNs, tags results `source: "atlas_anchor"`, reports "no Atlas coverage" when both absent; `display.py` renders `[Atlas anchor]` annotation. 75/75 tests pass.
+- **Phase 3: Atlas Profile Command + README** — `fetch_coverage_by_country()` in `atlas.py` paginates probes+anchors endpoints; `render_coverage()` + choropleth HTML builder + `_A2_TO_A3` mapping in `globe.py`; `_COUNTRY_NAMES` dict + `atlas_profile` command in `cli.py`; complete `## RIPE Atlas` section in `README.md`. 75/75 tests pass.
+
+## Verification
+
+- Production build: `uv build` — PASS (netpath-0.9.1.dev24+g86b52b85a sdist + wheel)
+- Review approved: 2026-07-02T12:01:07Z — 12/12 acceptance criteria, 75/75 tests, ruff clean
+- Code committed and pushed: branch `feature/task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp` at HEAD `86b52b85aeecd679342f3d7971e2c8c2953d3101`
+
