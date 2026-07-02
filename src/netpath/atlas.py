@@ -1,6 +1,9 @@
 """RIPE Atlas integration: probe discovery, credit budget check,
 measurement scheduling, result polling, and result parsing."""
 
+from __future__ import annotations
+
+
 import time
 
 import requests
