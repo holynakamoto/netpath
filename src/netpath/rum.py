@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import requests
 from .utils import _with_retry
 

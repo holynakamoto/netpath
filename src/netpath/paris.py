@@ -8,6 +8,9 @@ raises ParisError so callers can fall through silently to the system
 traceroute.
 """
 
+from __future__ import annotations
+
+
 import json
 import os
 import statistics

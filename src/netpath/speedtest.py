@@ -7,6 +7,9 @@ the path from this host to the nearest Cloudflare PoP, which is typically
 inside the local ISP's network.
 """
 
+from __future__ import annotations
+
+
 import time
 import requests
 

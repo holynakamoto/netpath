@@ -4,6 +4,9 @@ result polling, result parsing, and coverage by country.
 No authentication is required. An optional Bearer token raises the
 per-IP rate limit tier."""
 
+from __future__ import annotations
+
+
 import statistics
 import time
 

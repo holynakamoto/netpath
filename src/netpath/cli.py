@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import concurrent.futures
 import json
 import re
 import socket
 import subprocess
 import sys
+from typing import Optional
+
 import requests
 import typer
 from rich import box
@@ -119,7 +123,7 @@ def _classify_path(hubs: list[dict], target_asn: str) -> dict:
         return {"complete": False, "rtt_ms": rtt_ms, "entry_transit_asn": entry_transit_asn, "stall_hop": stall_hop}
 
 
-def _parse_ping_avg(output: str) -> float | None:
+def _parse_ping_avg(output: str) -> Optional[float]:
     m = re.search(r'rtt min/avg/max/mdev = [\d.]+/([\d.]+)/', output)
     if m:
         return float(m.group(1))
@@ -129,7 +133,7 @@ def _parse_ping_avg(output: str) -> float | None:
     return None
 
 
-def _run_ping_probe_sync(host: str, duration: int) -> float | None:
+def _run_ping_probe_sync(host: str, duration: int) -> Optional[float]:
     count = min(duration, 5)
     try:
         proc = subprocess.run(
@@ -170,7 +174,7 @@ def _trace(host: str, cycles: int, prefer_tcp: bool = False) -> tuple[list[dict]
         return _fallback_trace(host, cycles, prefer_tcp=prefer_tcp)
 
 
-def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
+def _fetch_rum(asn: str, cf_token: Optional[str]) -> Optional[dict]:
     if not cf_token:
         return None
     try:
@@ -184,7 +188,7 @@ def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
 
 def _measure(host: str, port: int, target_asn: str,
              cycles: int, duration: int, skip_throughput: bool,
-             cf_token: str | None = None, prefer_tcp: bool = False,
+             cf_token: Optional[str] = None, prefer_tcp: bool = False,
              ecmp_passes: int = 1, compare_v6: bool = False) -> MeasurementResult:
     """Collect all measurement data. Returns enriched result dict.
     No display calls, no json_mode parameter.
@@ -222,7 +226,7 @@ def _measure(host: str, port: int, target_asn: str,
             def _do_v4() -> tuple[list[dict], str]:
                 return _trace(host, cycles, prefer_tcp=prefer_tcp)
 
-            def _do_v6() -> list[dict] | None:
+            def _do_v6() -> Optional[list[dict]]:
                 if v6_host is None:
                     return None
                 try:
@@ -400,7 +404,7 @@ def _measure(host: str, port: int, target_asn: str,
 
 def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               cycles: int, duration: int, skip_throughput: bool,
-              cf_token: str | None = None, show_server_heading: bool = True,
+              cf_token: Optional[str] = None, show_server_heading: bool = True,
               json_mode: bool = False, prefer_tcp: bool = False,
               ecmp_passes: int = 1, compare_v6: bool = False) -> dict:
     """Run trace + optional throughput test. Returns enriched result dict."""
@@ -504,7 +508,7 @@ def asn(
     duration:      int  = _DUR,
     cycles:        int  = _CYCLES,
     no_throughput: bool = _NO_TPUT,
-    cf_token:      str | None = _CF_TOK,
+    cf_token:      Optional[str] = _CF_TOK,
     output_json:   bool = typer.Option(False, "--json", help="Output results as JSON to stdout; suppresses terminal display"),
     globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probe"),
     ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
@@ -621,9 +625,9 @@ def country(
     duration:      int  = _DUR,
     cycles:        int  = _CYCLES,
     no_throughput: bool = _NO_TPUT,
-    cf_token:      str | None = _CF_TOK,
+    cf_token:      Optional[str] = _CF_TOK,
     globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probes"),
-    gp_token:      str | None = _GP_TOK,
+    gp_token:      Optional[str] = _GP_TOK,
     no_remote:     bool = typer.Option(False, "--no-remote", help="Skip Globalping in-network measurements"),
 ):
     """Test the top N ASNs (by allocated IPv4 address space) for a country."""
@@ -678,7 +682,7 @@ def country(
     # Globalping: probe inventory (single request) before the regular sweep
     _gp_covered_asns: set[str] = set()          # ASNs with at least one connected probe
     _gp_test_ips: dict[str, str] = {}           # asn → test IP for ping target
-    _user_public_ip: str | None = None
+    _user_public_ip: Optional[str] = None
 
     if not no_remote:
         display.console.print("[dim]Discovering Globalping probes…[/dim]")
@@ -952,7 +956,7 @@ _COUNTRY_NAMES: dict[str, str] = {
 
 @app.command()
 def coverage(
-    gp_token: str | None = _GP_TOK,
+    gp_token: Optional[str] = _GP_TOK,
     top: int = typer.Option(20, "--top", "-t", help="Number of top countries to show"),
     globe: bool = typer.Option(False, "--globe", "-g", help="Render choropleth globe after fetching"),
 ):
