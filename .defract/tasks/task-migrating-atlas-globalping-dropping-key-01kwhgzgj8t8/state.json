@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 2,
   "createdAt": "2026-07-02T13:41:03Z",
-  "updatedAt": "2026-07-02T13:42:03Z",
+  "updatedAt": "2026-07-02T13:51:23Z",
   "events": [
     {
       "base_branch": "main",
@@ -41,29 +41,119 @@
       "type": "stage_work_complete",
       "worktree_head": "e7147aa73650ac91a932a305f7d965fe15830743",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-02T13:46:19Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwhh95aacacbtswnhp6rvd90",
+      "stage": "scope",
+      "timestamp": "2026-07-02T13:46:19Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Exploring Atlas integration surface, then writing full scope as revision 2",
+      "phase": 0,
+      "stage": "scope",
+      "timestamp": "2026-07-02T13:46:35Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Full scope: replace RIPE Atlas backend with Globalping across 2 phases — new keyless backend module with tests, then CLI/display/docs rewiring and Atlas deletion",
+      "revision": 2,
+      "timestamp": "2026-07-02T13:50:14Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Backend swap with no UI work — terminal label and README text changes only, so design is skipped. Architecture is skipped because the new Globalping module is a one-for-one replacement of atlas.py inside an existing, well-understood boundary (discover, schedule, poll, parse) and the scope already carries detailed per-phase Files and Verification. Standard tier: about 7 files, builds entirely on existing module and error-handling patterns.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "backend-feature",
+      "tier": "standard",
+      "timestamp": "2026-07-02T13:50:28Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Keep country.py's keyless Atlas probe-IP lookup (_get_atlas_probe_ip / RIPE_ATLAS_PROBES) despite deleting the Atlas measurement backend.",
+      "rationale": "That lookup serves local measurements only — it finds a routable IPv4 per ASN to use as a traceroute target from the user's machine — and requires no API key. Globalping publishes no probe IP addresses, so there is nothing to migrate it to. The acceptance-criteria grep for \"atlas\" therefore excludes country.py, and tests/test_country.py stays untouched.",
+      "timestamp": "2026-07-02T13:50:39Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Use Globalping's mtr measurement type (not traceroute) for the inside-out path from probes back to the user.",
+      "rationale": "Globalping mtr results carry a per-hop ASN field, so the new module's AS-path parser needs no Cymru bulk lookup round-trip — unlike the Atlas parser, which had to resolve every hop IP via cymru_bulk_lookup_rich. Fewer network dependencies, simpler pure-function parsing, and the exact hop field names get verified against a live response in Phase 1.",
+      "timestamp": "2026-07-02T13:50:41Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Remote in-network measurements run by default in country mode, gated by a new --no-remote opt-out flag instead of an API key.",
+      "rationale": "The Atlas backend was implicitly opt-in via --atlas-key; with the key requirement gone, Globalping would silently become always-on, adding sweep time and consuming shared per-IP rate limits. A --no-remote flag (styled after --no-throughput) preserves a cheap escape hatch without reintroducing any configuration requirement. An optional --gp-token / NETPATH_GLOBALPING_TOKEN (mirroring --cf-token) raises the rate-limit tier for heavy users.",
+      "timestamp": "2026-07-02T13:50:50Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Rename the atlas-profile command to coverage, and determine sweep coverage from a single GET /v1/probes inventory call instead of per-ASN queries.",
+      "rationale": "The command name must not reference the old service (per approved intent), and \"coverage\" describes what it shows without binding the CLI surface to a vendor name. The single probe-inventory fetch returns every connected probe with ASN and country metadata, so one request powers both the pre-sweep \"probes found in X/Y ASNs\" report and the per-country coverage table — replacing N per-ASN Atlas queries plus the paginated coverage crawl. The anchors column disappears; Globalping has no anchor class (accepted trade-off).",
+      "timestamp": "2026-07-02T13:50:54Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope pushed as revision 2. Two phases: (1) build the new Globalping backend module with unit tests, (2) switch cli.py/display.py/globe.py/README over and delete atlas.py and its tests. 13 requirements, 9 acceptance criteria. Key calls: mtr measurement type gives per-hop ASN so the remote parser drops the Cymru lookup; remote measurements default-on with a --no-remote opt-out and optional --gp-token for higher rate limits; atlas-profile becomes coverage; country.py's keyless Atlas probe-IP oracle for local test-IP discovery stays (Globalping publishes no probe IPs). Workflow classified backend-feature/standard, skipping design and architecture. Four decisions logged.",
+      "timestamp": "2026-07-02T13:51:23Z",
+      "type": "stage_work_complete",
+      "worktree_head": "7cba522cb2227ad3464532399ec6f3b59715046d",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "backend-feature",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Backend swap with no UI work — terminal label and README text changes only, so design is skipped. Architecture is skipped because the new Globalping module is a one-for-one replacement of atlas.py inside an existing, well-understood boundary (discover, schedule, poll, parse) and the scope already carries detailed per-phase Files and Verification. Standard tier: about 7 files, builds entirely on existing module and error-handling patterns."
+  },
   "stages": {
-    "release": {
-      "status": "not_started"
-    },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-02T13:41:04Z"
-    },
     "design": {
+      "status": "skipped"
+    },
+    "implementation": {
       "status": "not_started"
     },
     "review": {
       "status": "not_started"
     },
-    "implementation": {
+    "architecture": {
+      "status": "skipped"
+    },
+    "release": {
       "status": "not_started"
     },
-    "architecture": {
-      "status": "not_started"
+    "scope": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-07-02T13:46:19Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-migrating-atlas-globalping-dropping-key-01kwhgzgj8t8",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-07-02T13:46:19Z"
 }
