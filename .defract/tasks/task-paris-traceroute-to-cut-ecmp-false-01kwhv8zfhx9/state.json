@@ -2,10 +2,10 @@
   "id": "task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9",
   "status": "active",
   "stage": "implementation",
-  "phase": 1,
+  "phase": 2,
   "totalPhases": 3,
   "createdAt": "2026-07-02T16:40:58Z",
-  "updatedAt": "2026-07-02T17:26:08Z",
+  "updatedAt": "2026-07-02T17:32:33Z",
   "events": [
     {
       "base_branch": "main",
@@ -333,6 +333,172 @@
       "phase": 2,
       "timestamp": "2026-07-02T17:26:08Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 2,
+      "timestamp": "2026-07-02T17:28:19Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 2,
+      "timestamp": "2026-07-02T17:28:42Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "Baseline was 109 passed. Added 20 tests in tests/test_paris.py: binary detection order (dublin-traceroute preferred, scamper fallback, None when absent), dublin-traceroute parser (per-TTL aggregation across runs, fractional loss, unresponsive hops, empty-payload error), scamper parser (reply grouping, gap-TTL fill, fractional loss, missing-trace error), run() behavior (probe cap at 5, Paris command construction, permission/OS errors mapped to ParisError), and the cli._trace fallback chain (mtr -> paris -> traceroute). ruff check src tests: all checks passed.",
+      "failed": 0,
+      "passed": 129,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-07-02T17:28:54Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Single dublin-traceroute invocation with --npaths=probes, aggregating per TTL across flows — rejected because cross-flow aggregation mixes ECMP paths again",
+        "A generic \"paris\" _trace_method value plus a separate _paris_binary result key — rejected as it grows the TypedDict for display-only state"
+      ],
+      "decision": "Implementation: dublin-traceroute is invoked once per probe with --npaths=1 and the runs aggregated per TTL, rather than one invocation with N paths; _trace_method carries the Paris binary name (\"dublin-traceroute\" / \"scamper\") instead of a generic \"paris\" value.",
+      "phase": 2,
+      "rationale": "dublin-traceroute's npaths parameter enumerates N distinct flows, and each flow deliberately takes a different ECMP path — aggregating across flows would reintroduce exactly the path diversity Paris probing is meant to remove. Running the binary probes times with a single pinned flow (--npaths=1) yields N samples per TTL that all follow the same path. scamper needs no such loop because trace -q N -Q sends all N attempts per hop on one pinned icmp-paris flow. Storing the binary name in _trace_method lets _run_test() name the prober in the terminal note (R6) and lets _measure() apply the probe-count correction via membership in paris.SUPPORTED_BINARIES, without adding a new result key to the MeasurementResult TypedDict.",
+      "timestamp": "2026-07-02T17:29:01Z",
+      "type": "decision"
+    },
+    {
+      "change_summary": "Phase 2 complete: Consistent-route probing via a Paris-capable prober",
+      "revision": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T17:29:27Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "description": "Phase 2 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 2,
+      "timestamp": "2026-07-02T17:29:33Z",
+      "type": "progress_report"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/paris.py",
+        "src/netpath/cli.py",
+        "tests/test_paris.py"
+      ],
+      "phase": 1,
+      "summary": "New src/netpath/paris.py module adds best-effort Paris traceroute support: detects dublin-traceroute (preferred) or scamper, runs route-pinned probes (dublin: one --npaths=1 run per probe aggregated per TTL; scamper: trace -P icmp-paris -q N -Q), and parses output into Hub-shaped hop dicts. Any failure raises ParisError and falls through silently. cli.py gains a _fallback_trace() helper implementing the mtr -> paris -> traceroute chain (used by both _trace() and the ECMP branch), corrects probe_count for Paris-sourced traces, and names the prober in the terminal note. 20 new tests; 129 passed; ruff clean.",
+      "timestamp": "2026-07-02T17:29:37Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "With no Paris prober installed (confirm with `which dublin-traceroute scamper`), run `netpath asn AS15169` and verify behavior is unchanged: the note still reads `mtr unavailable — using traceroute + Cymru ASN lookup` and the run completes."
+        },
+        {
+          "description": "Install a Paris prober with `brew install dublin-traceroute` (or `brew install scamper`), run `sudo netpath asn AS15169`... skip sudo; instead run `netpath asn AS15169` and check the note: if the prober has raw-socket access the note reads `mtr unavailable — using dublin-traceroute Paris traceroute + Cymru ASN lookup`; if it lacks privileges the run silently falls back to the plain traceroute note."
+        },
+        {
+          "description": "While a Paris-probed run is in flight, run `ps aux | grep dublin-traceroute` in another terminal and confirm the command line contains `--npaths=1` (single pinned flow) and that it is invoked repeatedly (once per probe)."
+        },
+        {
+          "description": "Run `netpath asn AS15169 --cycles 10 --json` on a machine where the Paris prober engages and confirm the JSON `probe_count` field is `5` (capped) and `_trace_method` is absent from the JSON while the hop list carries `Loss%`, `Avg`, and `StDev` per hop."
+        },
+        {
+          "description": "Simulate a broken Paris binary: create an executable that exits 1, e.g. `printf '#!/bin/sh\\nexit 1\\n' > /tmp/dublin-traceroute && chmod +x /tmp/dublin-traceroute`, then run `PATH=/tmp:$PATH netpath asn AS15169` and confirm the run silently falls through to the system traceroute with no error output."
+        },
+        {
+          "description": "On a machine where mtr works with raw sockets, run `netpath asn AS15169` and confirm the Paris chain never engages: normal mtr output, no prober note."
+        }
+      ],
+      "phase": 1,
+      "phase_title": "Consistent-route probing via a Paris-capable prober",
+      "timestamp": "2026-07-02T17:29:52Z",
+      "type": "manual_tests"
+    },
+    {
+      "items": [
+        {
+          "description": "With no Paris prober installed (confirm with `which dublin-traceroute scamper`), run `netpath asn AS15169` and verify behavior is unchanged: the note still reads `mtr unavailable — using traceroute + Cymru ASN lookup` and the run completes."
+        },
+        {
+          "description": "Install a Paris prober with `brew install dublin-traceroute` (or `brew install scamper`), then run `netpath asn AS15169`. If the prober has raw-socket access, the note reads `mtr unavailable — using dublin-traceroute Paris traceroute + Cymru ASN lookup`; if it lacks privileges, the run silently falls back to the plain `using traceroute` note with no error output."
+        },
+        {
+          "description": "While a Paris-probed run is in flight, run `ps aux | grep dublin-traceroute` in another terminal and confirm the command line contains `--npaths=1` (single pinned flow) and that the binary is invoked repeatedly, once per probe."
+        },
+        {
+          "description": "Run `netpath asn AS15169 --cycles 10 --json` on a machine where the Paris prober engages and confirm `probe_count` in the JSON is `5` (capped at `PARIS_MAX_PROBES`), with `Loss%`, `Avg`, and `StDev` present on each hop."
+        },
+        {
+          "description": "Simulate a broken Paris binary: run `printf '#!/bin/sh\\nexit 1\\n' > /tmp/dublin-traceroute && chmod +x /tmp/dublin-traceroute`, then `PATH=/tmp:$PATH netpath asn AS15169`, and confirm the run silently falls through to the system traceroute with no error output."
+        },
+        {
+          "description": "On a machine where mtr works with raw sockets, run `netpath asn AS15169` and confirm the Paris chain never engages: normal 10-cycle mtr output and no prober note."
+        }
+      ],
+      "phase": 1,
+      "phase_title": "Consistent-route probing via a Paris-capable prober",
+      "timestamp": "2026-07-02T17:30:06Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 2,
+      "phase_title": "Consistent-route probing via a Paris-capable prober",
+      "server_phase": 1,
+      "timestamp": "2026-07-02T17:30:14Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 1,
+      "phase_title": "Consistent-route probing via a Paris-capable prober",
+      "timestamp": "2026-07-02T17:30:14Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "ab2d8a62d35d8ed10af0cfe7961e677158a57636",
+      "worktree_status_digest": "d36424f497d9353c11c98d886bf5ba6653b4a143ec32f09dc24eaacf62323f7f"
+    },
+    {
+      "approved_by": "user",
+      "phase": 1,
+      "phase_title": "Consistent-route probing via a Paris-capable prober",
+      "timestamp": "2026-07-02T17:31:56Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 1,
+      "timestamp": "2026-07-02T17:31:56Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-02T17:31:57Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwhy6a6n206neq210kc2e8bp",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T17:31:57Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting phase 3: near-target measurements drive country-sweep verdicts",
+      "phase": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T17:32:25Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 3: Near-target measurements drive country-sweep verdicts",
+      "percentage": 0,
+      "phase": 3,
+      "timestamp": "2026-07-02T17:32:33Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": false,
@@ -353,15 +519,20 @@
     "scope": "2026-07-02T17:06:38Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Meaningful samples in the fallback prober\n\n**What was built:**\n\n- `src/netpath/mtr.py` — `_run_traceroute_cmd` gains a `probes` parameter (default 2, matching the old hardcoded behavior) with a public `TRACEROUTE_MAX_PROBES = 5` cap; the effective count is clamped to 1–5 and the subprocess timeout scales with it (`30 * effective + 15` seconds, so probes=2 stays near the old 60 s while probes=5 gets 165 s headroom for a slow filtered path). `run_traceroute` now threads its `probes` parameter into all four `_run_traceroute_cmd` call sites (TCP-first, UDP fallback, UDP-first, TCP retry).\n- `src/netpath/cli.py` — after the trace section in `_measure()`, when `_trace_method` is `\"traceroute\"` the result's `probe_count` is corrected from `cycles` to the effective fallback count `min(cycles, mtr.TRACEROUTE_MAX_PROBES)`, covering all three trace branches (dual-stack, ECMP, plain).\n- `src/netpath/diagnosis.py` — new `JITTER_MIN_SAMPLES = 5` constant; check (5) now emits an ok-severity `jitter_low_sample` informational signal instead of the High Jitter warning when `probe_count` is present and below 5. `probe_count=None` (unknown) keeps legacy warning behavior. `jitter_low_sample` maps to \"Healthy\" in the condition-verdict table, mirroring the rate-limited-hop pattern.\n\n**Tests:** 3 new cases in `tests/test_mtr.py` (probe threading via mocked `subprocess.run`, cap at 5, timeout scaling) and 3 in `tests/test_diagnosis.py` (suppression at probe_count=2, warning at 5 and at 10). Two exact-call assertions in `tests/test_country.py` updated for the new `probes` kwarg. Suite: 109 passed, ruff clean.\n\n**Deviations from plan:** none."
+    "implementation": "## Phase 1: Meaningful samples in the fallback prober\n\n**What was built:**\n\n- `src/netpath/mtr.py` — `_run_traceroute_cmd` gains a `probes` parameter (default 2, matching the old hardcoded behavior) with a public `TRACEROUTE_MAX_PROBES = 5` cap; the effective count is clamped to 1–5 and the subprocess timeout scales with it (`30 * effective + 15` seconds, so probes=2 stays near the old 60 s while probes=5 gets 165 s headroom for a slow filtered path). `run_traceroute` now threads its `probes` parameter into all four `_run_traceroute_cmd` call sites (TCP-first, UDP fallback, UDP-first, TCP retry).\n- `src/netpath/cli.py` — after the trace section in `_measure()`, when `_trace_method` is `\"traceroute\"` the result's `probe_count` is corrected from `cycles` to the effective fallback count `min(cycles, mtr.TRACEROUTE_MAX_PROBES)`, covering all three trace branches (dual-stack, ECMP, plain).\n- `src/netpath/diagnosis.py` — new `JITTER_MIN_SAMPLES = 5` constant; check (5) now emits an ok-severity `jitter_low_sample` informational signal instead of the High Jitter warning when `probe_count` is present and below 5. `probe_count=None` (unknown) keeps legacy warning behavior. `jitter_low_sample` maps to \"Healthy\" in the condition-verdict table, mirroring the rate-limited-hop pattern.\n\n**Tests:** 3 new cases in `tests/test_mtr.py` (probe threading via mocked `subprocess.run`, cap at 5, timeout scaling) and 3 in `tests/test_diagnosis.py` (suppression at probe_count=2, warning at 5 and at 10). Two exact-call assertions in `tests/test_country.py` updated for the new `probes` kwarg. Suite: 109 passed, ruff clean.\n\n**Deviations from plan:** none.\n\n## Phase 2: Consistent-route probing via a Paris-capable prober\n\n**What was built:**\n\n- `src/netpath/paris.py` (new) — single-purpose module for Paris-style route-pinned probing. `detect()` returns the first installed supported binary (`dublin-traceroute` preferred, then `scamper`) or None; `available()` wraps it. `run(host, probes, binary)` caps probes at `PARIS_MAX_PROBES = 5`, dispatches to the binary-specific runner, and raises `ParisError` on any failure — non-zero exit (covers raw-socket permission denial), timeout, unreadable or empty output, missing binary — so callers can fall through silently. Successful runs get Cymru name enrichment via the shared `mtr._enrich_names`.\n  - dublin-traceroute runner: invokes the binary once per probe with `--npaths=1` and a temp-dir `--output-file`, so every sample per TTL rides the same pinned flow (aggregating a single multi-path invocation would reintroduce ECMP diversity); `_parse_dublin_outputs` aggregates the runs per TTL into `Hub`-shaped dicts.\n  - scamper runner: one invocation of `scamper -O json -I \"trace -P icmp-paris -q {probes} -Q -w 1 -m 30 {host}\"`; `_parse_scamper_output` parses the line-delimited JSON, groups replies by `probe_ttl`, computes fractional loss from `attempts`, and fills unanswered TTLs up to `hop_count` as `???` hops.\n  - Both parsers are pure module-private functions producing hop dicts with `count`, `host`, `ASN`, `Loss%`, `Avg`, `Best`, `Wrst`, `StDev`, `p50`, `p95`, `p99` — matching the `Hub` TypedDict and the existing traceroute parser's conventions.\n- `src/netpath/cli.py` — new `_fallback_trace()` helper implements the mtr → paris → traceroute chain; `_trace()` and the ECMP branch's `MtrPermissionError` handler both use it. `_trace_method` carries the Paris binary name, so `_measure()` corrects `probe_count` to `min(cycles, paris.PARIS_MAX_PROBES)` for Paris-sourced traces, and `_run_test()` prints \"(mtr unavailable — using {binary} Paris traceroute + Cymru ASN lookup)\" naming the prober.\n\n**Tests:** 20 new cases in `tests/test_paris.py`: detection order, dublin parser (aggregation, fractional loss, unresponsive hops, empty payload), scamper parser (grouping, gap fill, fractional loss, missing trace object), `run()` (no binary, probe cap, Paris command construction, permission and OS errors mapped to `ParisError`), and the `cli._trace` fallback chain (Paris selected on mtr permission error, traceroute when Paris absent or failing, mtr untouched when it works). Suite: 129 passed, ruff clean.\n\n**Deviations from plan:** none."
   },
   "stages": {
-    "design": {
-      "status": "skipped"
+    "release": {
+      "status": "not_started"
     },
     "implementation": {
       "status": "in_progress",
-      "startedAt": "2026-07-02T17:22:42Z"
+      "startedAt": "2026-07-02T17:31:57Z"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-02T17:06:38Z",
+      "startedAt": "2026-07-02T16:49:13Z"
     },
     "architecture": {
       "status": "skipped"
@@ -369,16 +540,11 @@
     "review": {
       "status": "not_started"
     },
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-07-02T17:06:38Z",
-      "startedAt": "2026-07-02T16:49:13Z"
-    },
-    "release": {
-      "status": "not_started"
+    "design": {
+      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T17:22:42Z"
+  "worktreeLastSyncedAt": "2026-07-02T17:31:57Z"
 }

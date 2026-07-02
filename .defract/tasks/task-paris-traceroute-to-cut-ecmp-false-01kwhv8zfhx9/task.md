@@ -180,3 +180,17 @@ Re-diagnosis in country mode should be a small helper that re-runs `diagnose(row
 **Tests:** 3 new cases in `tests/test_mtr.py` (probe threading via mocked `subprocess.run`, cap at 5, timeout scaling) and 3 in `tests/test_diagnosis.py` (suppression at probe_count=2, warning at 5 and at 10). Two exact-call assertions in `tests/test_country.py` updated for the new `probes` kwarg. Suite: 109 passed, ruff clean.
 
 **Deviations from plan:** none.
+
+## Phase 2: Consistent-route probing via a Paris-capable prober
+
+**What was built:**
+
+- `src/netpath/paris.py` (new) — single-purpose module for Paris-style route-pinned probing. `detect()` returns the first installed supported binary (`dublin-traceroute` preferred, then `scamper`) or None; `available()` wraps it. `run(host, probes, binary)` caps probes at `PARIS_MAX_PROBES = 5`, dispatches to the binary-specific runner, and raises `ParisError` on any failure — non-zero exit (covers raw-socket permission denial), timeout, unreadable or empty output, missing binary — so callers can fall through silently. Successful runs get Cymru name enrichment via the shared `mtr._enrich_names`.
+  - dublin-traceroute runner: invokes the binary once per probe with `--npaths=1` and a temp-dir `--output-file`, so every sample per TTL rides the same pinned flow (aggregating a single multi-path invocation would reintroduce ECMP diversity); `_parse_dublin_outputs` aggregates the runs per TTL into `Hub`-shaped dicts.
+  - scamper runner: one invocation of `scamper -O json -I "trace -P icmp-paris -q {probes} -Q -w 1 -m 30 {host}"`; `_parse_scamper_output` parses the line-delimited JSON, groups replies by `probe_ttl`, computes fractional loss from `attempts`, and fills unanswered TTLs up to `hop_count` as `???` hops.
+  - Both parsers are pure module-private functions producing hop dicts with `count`, `host`, `ASN`, `Loss%`, `Avg`, `Best`, `Wrst`, `StDev`, `p50`, `p95`, `p99` — matching the `Hub` TypedDict and the existing traceroute parser's conventions.
+- `src/netpath/cli.py` — new `_fallback_trace()` helper implements the mtr → paris → traceroute chain; `_trace()` and the ECMP branch's `MtrPermissionError` handler both use it. `_trace_method` carries the Paris binary name, so `_measure()` corrects `probe_count` to `min(cycles, paris.PARIS_MAX_PROBES)` for Paris-sourced traces, and `_run_test()` prints "(mtr unavailable — using {binary} Paris traceroute + Cymru ASN lookup)" naming the prober.
+
+**Tests:** 20 new cases in `tests/test_paris.py`: detection order, dublin parser (aggregation, fractional loss, unresponsive hops, empty payload), scamper parser (grouping, gap fill, fractional loss, missing trace object), `run()` (no binary, probe cap, Paris command construction, permission and OS errors mapped to `ParisError`), and the `cli._trace` fallback chain (Paris selected on mtr permission error, traceroute when Paris absent or failing, mtr untouched when it works). Suite: 129 passed, ruff clean.
+
+**Deviations from plan:** none.
