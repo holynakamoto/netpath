@@ -2,10 +2,10 @@
   "id": "task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
   "status": "active",
   "stage": "implementation",
-  "phase": 1,
+  "phase": 2,
   "totalPhases": 3,
   "createdAt": "2026-07-02T22:13:19Z",
-  "updatedAt": "2026-07-02T22:37:02Z",
+  "updatedAt": "2026-07-02T22:42:14Z",
   "events": [
     {
       "models": {
@@ -393,6 +393,62 @@
       "phase_title": "Fill uncovered/remote-only ISP data and salvage partial baselines",
       "timestamp": "2026-07-02T22:37:02Z",
       "type": "manual_tests"
+    },
+    {
+      "agent_phase": 2,
+      "phase_title": "Fill uncovered/remote-only ISP data and salvage partial baselines",
+      "server_phase": 1,
+      "timestamp": "2026-07-02T22:37:07Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 1,
+      "phase_title": "Fill uncovered/remote-only ISP data and salvage partial baselines",
+      "timestamp": "2026-07-02T22:37:07Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "1eebb10c94cf2959a3d821494bb652c5651a42cd",
+      "worktree_status_digest": "04af9f5f688574711a230961625da95b1a3922701f290a4480840482f87e4bcf"
+    },
+    {
+      "approved_by": "user",
+      "phase": 1,
+      "phase_title": "Fill uncovered/remote-only ISP data and salvage partial baselines",
+      "timestamp": "2026-07-02T22:41:08Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 1,
+      "timestamp": "2026-07-02T22:41:08Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-02T22:41:09Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "model": "opus",
+      "session_id": "01kwjfwfn620ne9z0jt9y24a20",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T22:41:09Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Phase 3: PeeringDB netixlan trace-target discovery in ixp.py + country.get_test_ip_for_asn",
+      "phase": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T22:41:18Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Implementing PeeringDB netixlan lookup in ixp.py and target discovery in country.py",
+      "percentage": 20,
+      "phase": 3,
+      "timestamp": "2026-07-02T22:42:14Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": false,
@@ -419,35 +475,35 @@
     "review": {
       "status": "not_started"
     },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T22:41:09Z"
+    },
+    "design": {
+      "status": "skipped"
+    },
     "release": {
       "status": "not_started"
-    },
-    "architecture": {
-      "status": "skipped"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T22:30:51Z",
       "startedAt": "2026-07-02T22:14:08Z"
     },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-02T22:33:02Z"
-    },
-    "design": {
+    "architecture": {
       "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T22:33:02Z",
+  "worktreeLastSyncedAt": "2026-07-02T22:41:09Z",
   "stageModels": {
-    "scope_full": "opus",
-    "scope_initial": "haiku",
-    "release": "haiku",
-    "review": "sonnet",
+    "implementation": "opus",
     "design": "sonnet",
+    "review": "sonnet",
+    "scope_initial": "haiku",
     "architecture": "opus",
-    "implementation": "opus"
+    "release": "haiku",
+    "scope_full": "opus"
   }
 }
