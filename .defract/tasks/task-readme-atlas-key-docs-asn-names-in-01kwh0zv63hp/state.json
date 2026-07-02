@@ -5,7 +5,7 @@
   "phase": 1,
   "totalPhases": 3,
   "createdAt": "2026-07-02T09:01:37Z",
-  "updatedAt": "2026-07-02T10:47:58Z",
+  "updatedAt": "2026-07-02T10:49:51Z",
   "events": [
     {
       "base_branch": "main",
@@ -381,6 +381,97 @@
       "phase": 2,
       "timestamp": "2026-07-02T10:47:58Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 2,
+      "timestamp": "2026-07-02T10:48:42Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "75/75 tests pass (5 new atlas tests). Ruff clean. Fixed one test with bad kwargs extraction pattern.",
+      "failed": 0,
+      "passed": 75,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-07-02T10:48:51Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Implementation: anchor discovery runs in the same progress spinner as probe discovery to avoid two separate UI blocks",
+      "phase": 2,
+      "rationale": "Adding a second progress block after probe discovery would produce choppy UX. Running both in one pass keeps the spinner going uninterrupted and the code flow simpler — probe discovery and anchor fallback are the same logical step (finding Atlas sources for each ASN).",
+      "timestamp": "2026-07-02T10:48:58Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 2 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 2,
+      "timestamp": "2026-07-02T10:49:03Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 2 complete: Atlas anchor fallback",
+      "revision": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T10:49:27Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/atlas.py",
+        "src/netpath/cli.py",
+        "src/netpath/display.py",
+        "tests/test_atlas.py"
+      ],
+      "phase": 1,
+      "summary": "Atlas anchor fallback implemented. find_anchors_in_asn() added to atlas.py. cli.py discovery loop tries anchors when no probes found, tracks anchor-served ASNs, tags results with source: \"atlas_anchor\", and reports \"no Atlas coverage\" when both are absent. display.py renders [Atlas anchor] annotation for anchor-sourced rows. 5 new tests, 75/75 pass.",
+      "timestamp": "2026-07-02T10:49:36Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `uv run pytest --tb=short` and confirm all 75 tests pass with no failures."
+        },
+        {
+          "description": "Run `uv run ruff check src tests` and confirm no lint errors are reported."
+        },
+        {
+          "description": "Inspect `src/netpath/atlas.py` and confirm `find_anchors_in_asn` is present and calls `https://atlas.ripe.net/api/v2/anchors/` (not the v4 base)."
+        },
+        {
+          "description": "Inspect `src/netpath/cli.py` around the Atlas discovery loop (~line 638) and confirm the `else:` branch calls `atlas_mod.find_anchors_in_asn` and adds the ASN to `_atlas_anchor_asns` when anchors are found."
+        },
+        {
+          "description": "Inspect `src/netpath/cli.py` and confirm both occurrences of the old `\"no probes available\"` string are now `\"no Atlas coverage\"` (search with `grep -n 'no probes available' src/netpath/cli.py` — should return no matches)."
+        },
+        {
+          "description": "Inspect `src/netpath/display.py` in `_render_atlas_subrow` and confirm: `tag = \"[Atlas anchor]\" if source == \"atlas_anchor\" else \"[Atlas]\"` is present, and the function prints `tag` even when no RTT/path parts exist (for anchor-sourced rows)."
+        }
+      ],
+      "phase": 1,
+      "phase_title": "Atlas anchor fallback",
+      "timestamp": "2026-07-02T10:49:45Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 2,
+      "phase_title": "Atlas anchor fallback",
+      "server_phase": 1,
+      "timestamp": "2026-07-02T10:49:51Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 1,
+      "phase_title": "Atlas anchor fallback",
+      "timestamp": "2026-07-02T10:49:51Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "772b5bd9a7aba312e702fbd18e0967f21e1ee215",
+      "worktree_status_digest": "36bf5fbe2c4f3c198ce48976d0879b4a2bb9ba2961d6ec7b1fbcf315fdfbefb6"
     }
   ],
   "needsArchitecture": false,
@@ -401,19 +492,19 @@
     "scope": "2026-07-02T09:50:12Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: ASN org name enrichment\n\n**Files changed:**\n- `src/netpath/types.py` — added `asn_name: str` to `Hub` TypedDict (total=False, so optional)\n- `src/netpath/mtr.py` — replaced `cymru_bulk_lookup` import with `cymru_bulk_lookup_rich`; added `clean_asn_name` import from `display`; added `_enrich_names()` helper that batch-looks up org names and populates `hub[\"asn_name\"]` (and fills `hub[\"ASN\"]` as fallback when mtr didn't resolve it); called from both `_single_pass()` (mtr mode) and `run_traceroute()` (traceroute fallback mode)\n- `src/netpath/atlas.py` — replaced `cymru_bulk_lookup` with `cymru_bulk_lookup_rich`; added `clean_asn_name` import; `parse_traceroute_as_path()` now returns `[\"AS1234 (Name)\", ...]` formatted strings, deduplicating on bare ASN number\n- `src/netpath/display.py` — `_build_hub_table()` ASN column now shows `\"AS15169 (Google)\"` format (name truncated to 20 chars), column min_width raised to 20; `as_path_summary()` deduplicates on bare ASN, renders `\"AS{N} (Name)\"` labels in the path line\n\n**Deviations from plan:**\n- `cymru_bulk_lookup` removed from `mtr.py` entirely (replaced by `cymru_bulk_lookup_rich`) rather than calling both — avoids two Cymru TCP connections per `run_traceroute` call\n- Two test mocks in `tests/test_country.py` patched the now-removed `netpath.mtr.cymru_bulk_lookup` symbol; updated to patch `cymru_bulk_lookup_rich` instead\n\n**Test results:** 70/70 passed, ruff clean"
+    "implementation": "## Phase 1: ASN org name enrichment\n\n**Files changed:**\n- `src/netpath/types.py` — added `asn_name: str` to `Hub` TypedDict (total=False, so optional)\n- `src/netpath/mtr.py` — replaced `cymru_bulk_lookup` import with `cymru_bulk_lookup_rich`; added `clean_asn_name` import from `display`; added `_enrich_names()` helper that batch-looks up org names and populates `hub[\"asn_name\"]` (and fills `hub[\"ASN\"]` as fallback when mtr didn't resolve it); called from both `_single_pass()` (mtr mode) and `run_traceroute()` (traceroute fallback mode)\n- `src/netpath/atlas.py` — replaced `cymru_bulk_lookup` with `cymru_bulk_lookup_rich`; added `clean_asn_name` import; `parse_traceroute_as_path()` now returns `[\"AS1234 (Name)\", ...]` formatted strings, deduplicating on bare ASN number\n- `src/netpath/display.py` — `_build_hub_table()` ASN column now shows `\"AS15169 (Google)\"` format (name truncated to 20 chars), column min_width raised to 20; `as_path_summary()` deduplicates on bare ASN, renders `\"AS{N} (Name)\"` labels in the path line\n\n**Deviations from plan:**\n- `cymru_bulk_lookup` removed from `mtr.py` entirely (replaced by `cymru_bulk_lookup_rich`) rather than calling both — avoids two Cymru TCP connections per `run_traceroute` call\n- Two test mocks in `tests/test_country.py` patched the now-removed `netpath.mtr.cymru_bulk_lookup` symbol; updated to patch `cymru_bulk_lookup_rich` instead\n\n**Test results:** 70/70 passed, ruff clean\n\n## Phase 2: Atlas anchor fallback\n\n**Files changed:**\n- `src/netpath/atlas.py` — added `_ANCHORS_BASE = \"https://atlas.ripe.net/api/v2\"` constant; added `find_anchors_in_asn(asn, atlas_key) -> list[int]` that queries `/api/v2/anchors/?asn_v4={asn}&status=1&page_size=100` and returns the `probe` IDs from each anchor record\n- `src/netpath/cli.py` — added `_atlas_anchor_asns: set[str]` alongside `_atlas_probes`; extended the Atlas discovery loop to call `find_anchors_in_asn` when `find_probes_in_asn` returns empty; adds ASN to `_atlas_anchor_asns` when anchor fallback is used; tags `_atlas_data[\"source\"] = \"atlas_anchor\"` in the results section when the ASN was anchor-served; changed both \"no probes available\" messages to \"no Atlas coverage\"\n- `src/netpath/display.py` — updated `_render_atlas_subrow` to read `atlas[\"source\"]` and render `[Atlas anchor]` tag instead of `[Atlas]` when source is \"atlas_anchor\"; shows the `[Atlas anchor]` tag even when no RTT/path data is present (unlike the probe case which returns early on empty parts)\n- `tests/test_atlas.py` — new file with 5 unit tests for `find_anchors_in_asn`: returns probe IDs, strips AS prefix, skips records without probe field, returns empty on error, returns empty on empty results\n\n**Deviations from plan:**\n- Anchor discovery runs in the same progress spinner as probe discovery (one pass per ASN: try probes, fallback to anchors) rather than two separate passes — avoids choppy UX and is more efficient\n\n**Test results:** 75/75 passed, ruff clean"
   },
   "stages": {
+    "design": {
+      "status": "skipped"
+    },
+    "architecture": {
+      "status": "skipped"
+    },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T09:50:12Z",
       "startedAt": "2026-07-02T09:11:11Z"
-    },
-    "design": {
-      "status": "skipped"
-    },
-    "release": {
-      "status": "not_started"
     },
     "review": {
       "status": "not_started"
@@ -422,8 +513,8 @@
       "status": "in_progress",
       "startedAt": "2026-07-02T10:42:54Z"
     },
-    "architecture": {
-      "status": "skipped"
+    "release": {
+      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",

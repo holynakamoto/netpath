@@ -204,3 +204,16 @@ No new runtime dependencies. All network calls use the existing `requests`-based
 - Two test mocks in `tests/test_country.py` patched the now-removed `netpath.mtr.cymru_bulk_lookup` symbol; updated to patch `cymru_bulk_lookup_rich` instead
 
 **Test results:** 70/70 passed, ruff clean
+
+## Phase 2: Atlas anchor fallback
+
+**Files changed:**
+- `src/netpath/atlas.py` — added `_ANCHORS_BASE = "https://atlas.ripe.net/api/v2"` constant; added `find_anchors_in_asn(asn, atlas_key) -> list[int]` that queries `/api/v2/anchors/?asn_v4={asn}&status=1&page_size=100` and returns the `probe` IDs from each anchor record
+- `src/netpath/cli.py` — added `_atlas_anchor_asns: set[str]` alongside `_atlas_probes`; extended the Atlas discovery loop to call `find_anchors_in_asn` when `find_probes_in_asn` returns empty; adds ASN to `_atlas_anchor_asns` when anchor fallback is used; tags `_atlas_data["source"] = "atlas_anchor"` in the results section when the ASN was anchor-served; changed both "no probes available" messages to "no Atlas coverage"
+- `src/netpath/display.py` — updated `_render_atlas_subrow` to read `atlas["source"]` and render `[Atlas anchor]` tag instead of `[Atlas]` when source is "atlas_anchor"; shows the `[Atlas anchor]` tag even when no RTT/path data is present (unlike the probe case which returns early on empty parts)
+- `tests/test_atlas.py` — new file with 5 unit tests for `find_anchors_in_asn`: returns probe IDs, strips AS prefix, skips records without probe field, returns empty on error, returns empty on empty results
+
+**Deviations from plan:**
+- Anchor discovery runs in the same progress spinner as probe discovery (one pass per ASN: try probes, fallback to anchors) rather than two separate passes — avoids choppy UX and is more efficient
+
+**Test results:** 75/75 passed, ruff clean
