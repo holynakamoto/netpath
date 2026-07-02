@@ -1,11 +1,11 @@
 {
   "id": "task-incomplete-paths-still-showing-in-za-01kwddfsahcm",
-  "status": "active",
-  "stage": "release",
+  "status": "cancelled",
+  "stage": "implementation",
   "phase": 1,
   "totalPhases": 1,
   "createdAt": "2026-06-30T23:23:04Z",
-  "updatedAt": "2026-07-01T00:02:15Z",
+  "updatedAt": "2026-07-02T19:57:38Z",
   "events": [
     {
       "base_branch": "main",
@@ -441,6 +441,53 @@
       "timed_out": false,
       "timestamp": "2026-07-01T00:02:15Z",
       "type": "agent_exited"
+    },
+    {
+      "actor": {
+        "kind": "user"
+      },
+      "cleared_approvals": {
+        "implementation": "2026-06-30T23:53:31Z",
+        "review": "2026-06-30T23:58:17Z"
+      },
+      "detail": null,
+      "from_stage": "release",
+      "reason": "Release blocked because the merge failed.\n\nDetails:\nmerge applied but a transient local change to the main checkout could not be re-applied cleanly; it is preserved in `git stash` (stash@{0}) for manual recovery:\n\nPlease resolve the issue and retry.",
+      "timestamp": "2026-07-02T19:57:32Z",
+      "to_stage": "implementation",
+      "type": "stage_looped_back"
+    },
+    {
+      "base_branch": "main",
+      "conflict_message": "Conflicted paths:\n  .defract/README.md\n  .defract/memory/entries.jsonl\n  .defract/memory/feedback.log.jsonl\n  .defract/memory/project.json\n  .defract/memory/usage.log.jsonl\n  .defract/tasks/task-incomplete-paths-still-showing-in-za-01kwddfsahcm/state.json\n  .defract/tasks/task-incomplete-paths-still-showing-in-za-01kwddfsahcm/task.md\n  .venv/bin/netpath\n  .venv/lib/python3.11/site-packages/_distutils_hack/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/certifi/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/certifi/__pycache__/core.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/charset_normalizer/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/charset_normalizer/__pycache__/api.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/charset_normalizer/__pycache__/constant.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/charset_normalizer/__pycache__/legacy.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/charset_normalizer/__pycache__/models.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/charset_normalizer/__pycache__/utils.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/charset_normalizer/__pycache__/version.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/idna/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/idna/__pycache__/core.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/idna/__pycache__/idnadata.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/idna/__pycache__/intranges.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/idna/__pycache__/package_data.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/console.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/filter.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/formatter.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/lexer.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/modeline.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/plugin.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/regexopt.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/token.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/unistring.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/__pycache__/util.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/filters/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/formatters/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/formatters/__pycache__/_mapping.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/formatters/__pycache__/terminal.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/lexers/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/lexers/__pycache__/_mapping.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/lexers/__pycache__/diff.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/lexers/__pycache__/python.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/styles/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/pygments/styles/__pycache__/_mapping.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/__version__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/_internal_utils.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/_types.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/adapters.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/api.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/auth.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/certs.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/compat.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/cookies.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/exceptions.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/hooks.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/models.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/packages.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/sessions.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/status_codes.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/structures.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/requests/__pycache__/utils.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/_base_connection.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/_collections.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/_request_methods.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/_version.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/connection.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/connectionpool.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/exceptions.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/fields.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/filepost.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/poolmanager.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/__pycache__/response.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/contrib/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/contrib/__pycache__/socks.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/http2/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/http2/__pycache__/probe.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/__init__.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/connection.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/proxy.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/request.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/response.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/retry.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/ssl_.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/ssl_match_hostname.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/ssltransport.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/timeout.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/url.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/util.cpython-311.pyc\n  .venv/lib/python3.11/site-packages/urllib3/util/__pycache__/wait.cpython-311.pyc\n  src/netpath/__pycache__/__init__.cpython-311.pyc\n  src/netpath/__pycache__/asn.cpython-311.pyc\n  src/netpath/__pycache__/country.cpython-311.pyc\n  src/netpath/__pycache__/diagnosis.cpython-311.pyc\n  src/netpath/__pycache__/mtr.cpython-311.pyc\n  src/netpath/country.py",
+      "timestamp": "2026-07-02T19:57:32Z",
+      "type": "worktree_sync_conflict"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwj6gwtqb2w4ncs0vzmdgws5",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T19:57:32Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwj6gwtqb2w4ncs0vzmdgws5",
+      "timed_out": false,
+      "timestamp": "2026-07-02T19:57:35Z",
+      "type": "agent_exited"
+    },
+    {
+      "actor": null,
+      "previous_status": "active",
+      "reason": "not_needed",
+      "timestamp": "2026-07-02T19:57:38Z",
+      "type": "task_cancelled"
+    },
+    {
+      "reason": "task_cancelled",
+      "timestamp": "2026-07-02T19:57:38Z",
+      "type": "worktree_removed"
     }
   ],
   "needsArchitecture": false,
@@ -457,25 +504,24 @@
     "classifiedBy": "scope-agent",
     "rationale": "Bug fix in country-mode IP selection — no UI changes (skip design), well-contained to country.py and its test file (skip architecture). The Atlas probe lookup adds one helper function and updates one existing function."
   },
+  "cancelledAt": "2026-07-02T19:57:38Z",
   "stageApprovals": {
-    "scope": "2026-06-30T23:37:19Z",
-    "implementation": "2026-06-30T23:53:31Z",
-    "review": "2026-06-30T23:58:17Z"
+    "scope": "2026-06-30T23:37:19Z"
   },
   "stageContent": {
     "release": "## Release Notes\n\n### What was built\n- Added RIPE Atlas probe lookup as the primary IP-selection strategy in `get_test_ip_for_asn()` in `country.py`, so country sweeps trace to known-live probe endpoints instead of arbitrary dark prefix addresses\n- Added `RIPE_ATLAS_PROBES` constant and `_get_atlas_probe_ip(asn: str) -> str | None` helper that queries the Atlas probes API (`status=1`, `sort=id`, `page_size=1`) and returns the first connected probe's `address_v4`\n- Existing RIPE-prefix-based IP selection retained unchanged as fallback for ASNs with no registered Atlas probes\n- Four new unit tests cover all error paths: Atlas hit, empty-results fallback, `RequestException` fallback, and null `address_v4` skip\n\n### Key decisions\n- Use RIPE Atlas probe registry as primary target IP source, with existing prefix-based selection as fallback — probe IPs are known-live hardware devices inside ISP networks, eliminating the root cause of stalled traces\n- `_get_atlas_probe_ip()` uses `raise_for_status()` for non-200 responses and catches `requests.RequestException` broadly to silently fall through on any network error\n- `page_size=1` and `sort=id` minimize data transfer and ensure deterministic results across calls\n\n### Changes by phase\n- **Phase 1: Use RIPE Atlas probe IPs as traceroute targets** — Added `RIPE_ATLAS_PROBES` constant and `_get_atlas_probe_ip()` helper to `country.py`; prepended Atlas lookup to `get_test_ip_for_asn()` with prefix-based selection as fallback. Added 4 unit tests to `tests/test_country.py`. All 40 tests pass, ruff clean.\n\n## Verification\n\n| Check | Result |\n|-------|--------|\n| Production build (`uv build`) | PASS — `netpath-0.3.1.dev7+gd6f4c30d5-py3-none-any.whl` built successfully |\n| Code committed | PASS — `feat(task-incomplete-paths-still-showing-in-za-01kwddfsahcm): phase 1 — Use RIPE Atlas probe IPs as traceroute targets` (7d6871a) |\n| Branch pushed | PASS — `feature/task-incomplete-paths-still-showing-in-za-01kwddfsahcm` pushed to origin |\n",
-    "implementation": "## Phase 1: Use RIPE Atlas probe IPs as traceroute targets\n\n### Changes\n\n**`src/netpath/country.py`**\n- Added `RIPE_ATLAS_PROBES = \"https://atlas.ripe.net/api/v2/probes/\"` constant alongside the existing RIPE constants.\n- Added `_get_atlas_probe_ip(asn: str) -> str | None` — queries the Atlas probes API with `status=1`, `sort=id`, `page_size=1`; returns the first probe's `address_v4` (skipping null); silently returns `None` on `requests.RequestException` or non-200 (via `raise_for_status()`).\n- Updated `get_test_ip_for_asn()` to call `_get_atlas_probe_ip()` first and return early if it yields an IP; falls through to the existing RIPE-prefix logic otherwise. The prefix logic is unchanged.\n\n**`tests/test_country.py`**\n- Added `test_get_test_ip_uses_atlas_probe_when_available` — Atlas hit path returns probe's `address_v4`.\n- Added `test_get_test_ip_falls_through_to_prefix_when_atlas_empty` — empty `results` list triggers prefix fallback.\n- Added `test_get_test_ip_falls_through_to_prefix_on_atlas_error` — `RequestException` triggers prefix fallback without raising.\n- Added `test_get_test_ip_skips_null_address_v4` — probe with `address_v4: null` is skipped; prefix fallback is used.\n- Existing tests unchanged.\n\n### Verification\n- `pytest`: 40/40 passed (7 new country tests + 33 pre-existing).\n- `ruff check src/netpath/country.py tests/test_country.py`: no errors.\n",
-    "review": "## Verdict\n\n**Verdict:** APPROVE\n**Files reviewed:** 2 files changed across 1 phases\n\nAll 6 acceptance criteria pass. The Atlas probe lookup is correctly implemented as the primary IP-selection strategy with the existing prefix-based fallback preserved unchanged. All 40 tests pass and ruff is clean.\n\n### Automated Checks\n\n| Check | Result | Details |\n|-------|--------|---------|\n| Test suite (pytest) | PASS | 40/40 passed across test_country.py (7), test_diagnosis.py (19), test_mtr.py (14) |\n| Lint (ruff) | PASS | ruff check src/netpath/country.py tests/test_country.py — no errors |\n\n### Acceptance Criteria (6/6 passed)\n\n- [x] AC-1: Running `netpath country ZA --top 10` produces fewer incomplete paths than before; at least one previously-stalling ASN now shows a complete trace to the destination ASN. — PASS: country.py:131-133 calls _get_atlas_probe_ip() first and returns early on a hit, routing traces to known-live Atlas probe IPs instead of dark prefix addresses. Builder approved the phase after manual smoke testing.\n- [x] AC-2: get_test_ip_for_asn() returns the Atlas probe IP when the Atlas API response contains a connected probe with a non-null address_v4. (Verified by pytest tests/test_country.py -v.) — PASS: test_get_test_ip_uses_atlas_probe_when_available (tests/test_country.py:23-28) passes. country.py:120-123 iterates results, checks `if ip:`, returns first non-null address_v4.\n- [x] AC-3: When the Atlas API returns an empty results list, the function falls through to prefix-based selection without error. (Verified by pytest tests/test_country.py -v.) — PASS: test_get_test_ip_falls_through_to_prefix_when_atlas_empty (tests/test_country.py:31-50) passes. Empty results list causes _get_atlas_probe_ip() to return None, get_test_ip_for_asn() falls through to prefix logic at country.py:135.\n- [x] AC-4: When the Atlas API call raises a requests.RequestException, the function falls through to prefix-based selection without raising. (Verified by pytest tests/test_country.py -v.) — PASS: test_get_test_ip_falls_through_to_prefix_on_atlas_error (tests/test_country.py:53-71) passes. country.py:124-125: `except requests.RequestException: pass` catches and suppresses the error.\n- [x] AC-5: The caller in cli.py is unchanged — get_test_ip_for_asn() still returns str | None. — PASS: git diff main..HEAD -- src/netpath/cli.py returns empty; cli.py:633 still calls `country_mod.get_test_ip_for_asn(asn_str)` unchanged. Return type annotation at country.py:129 is `str | None`.\n- [x] AC-6: ruff check src/netpath/country.py tests/test_country.py passes with no errors. — PASS: ruff output: 'All checks passed!'\n\n### Code Quality (Refactor Review)\n\nNo code quality issues found in changed files.\n\n### Security Assessment (Security Review)\n\nNo security issues found in changed files.\n\n### Decisions Made During Implementation\n\n- Atlas probe lookup added as primary IP selection strategy in get_test_ip_for_asn(); existing prefix-based selection retained as fallback for ASNs with no registered probes.\n- _get_atlas_probe_ip() uses raise_for_status() to handle non-200 responses and catches requests.RequestException broadly to silently fall through on any network error.\n- page_size=1 and sort=id parameters minimize data transfer and ensure a deterministic result across calls.\n\n## Required Changes\n\nNone.\n"
+    "review": "## Verdict\n\n**Verdict:** APPROVE\n**Files reviewed:** 2 files changed across 1 phases\n\nAll 6 acceptance criteria pass. The Atlas probe lookup is correctly implemented as the primary IP-selection strategy with the existing prefix-based fallback preserved unchanged. All 40 tests pass and ruff is clean.\n\n### Automated Checks\n\n| Check | Result | Details |\n|-------|--------|---------|\n| Test suite (pytest) | PASS | 40/40 passed across test_country.py (7), test_diagnosis.py (19), test_mtr.py (14) |\n| Lint (ruff) | PASS | ruff check src/netpath/country.py tests/test_country.py — no errors |\n\n### Acceptance Criteria (6/6 passed)\n\n- [x] AC-1: Running `netpath country ZA --top 10` produces fewer incomplete paths than before; at least one previously-stalling ASN now shows a complete trace to the destination ASN. — PASS: country.py:131-133 calls _get_atlas_probe_ip() first and returns early on a hit, routing traces to known-live Atlas probe IPs instead of dark prefix addresses. Builder approved the phase after manual smoke testing.\n- [x] AC-2: get_test_ip_for_asn() returns the Atlas probe IP when the Atlas API response contains a connected probe with a non-null address_v4. (Verified by pytest tests/test_country.py -v.) — PASS: test_get_test_ip_uses_atlas_probe_when_available (tests/test_country.py:23-28) passes. country.py:120-123 iterates results, checks `if ip:`, returns first non-null address_v4.\n- [x] AC-3: When the Atlas API returns an empty results list, the function falls through to prefix-based selection without error. (Verified by pytest tests/test_country.py -v.) — PASS: test_get_test_ip_falls_through_to_prefix_when_atlas_empty (tests/test_country.py:31-50) passes. Empty results list causes _get_atlas_probe_ip() to return None, get_test_ip_for_asn() falls through to prefix logic at country.py:135.\n- [x] AC-4: When the Atlas API call raises a requests.RequestException, the function falls through to prefix-based selection without raising. (Verified by pytest tests/test_country.py -v.) — PASS: test_get_test_ip_falls_through_to_prefix_on_atlas_error (tests/test_country.py:53-71) passes. country.py:124-125: `except requests.RequestException: pass` catches and suppresses the error.\n- [x] AC-5: The caller in cli.py is unchanged — get_test_ip_for_asn() still returns str | None. — PASS: git diff main..HEAD -- src/netpath/cli.py returns empty; cli.py:633 still calls `country_mod.get_test_ip_for_asn(asn_str)` unchanged. Return type annotation at country.py:129 is `str | None`.\n- [x] AC-6: ruff check src/netpath/country.py tests/test_country.py passes with no errors. — PASS: ruff output: 'All checks passed!'\n\n### Code Quality (Refactor Review)\n\nNo code quality issues found in changed files.\n\n### Security Assessment (Security Review)\n\nNo security issues found in changed files.\n\n### Decisions Made During Implementation\n\n- Atlas probe lookup added as primary IP selection strategy in get_test_ip_for_asn(); existing prefix-based selection retained as fallback for ASNs with no registered probes.\n- _get_atlas_probe_ip() uses raise_for_status() to handle non-200 responses and catches requests.RequestException broadly to silently fall through on any network error.\n- page_size=1 and sort=id parameters minimize data transfer and ensure a deterministic result across calls.\n\n## Required Changes\n\nNone.\n",
+    "implementation": "## Phase 1: Use RIPE Atlas probe IPs as traceroute targets\n\n### Changes\n\n**`src/netpath/country.py`**\n- Added `RIPE_ATLAS_PROBES = \"https://atlas.ripe.net/api/v2/probes/\"` constant alongside the existing RIPE constants.\n- Added `_get_atlas_probe_ip(asn: str) -> str | None` — queries the Atlas probes API with `status=1`, `sort=id`, `page_size=1`; returns the first probe's `address_v4` (skipping null); silently returns `None` on `requests.RequestException` or non-200 (via `raise_for_status()`).\n- Updated `get_test_ip_for_asn()` to call `_get_atlas_probe_ip()` first and return early if it yields an IP; falls through to the existing RIPE-prefix logic otherwise. The prefix logic is unchanged.\n\n**`tests/test_country.py`**\n- Added `test_get_test_ip_uses_atlas_probe_when_available` — Atlas hit path returns probe's `address_v4`.\n- Added `test_get_test_ip_falls_through_to_prefix_when_atlas_empty` — empty `results` list triggers prefix fallback.\n- Added `test_get_test_ip_falls_through_to_prefix_on_atlas_error` — `RequestException` triggers prefix fallback without raising.\n- Added `test_get_test_ip_skips_null_address_v4` — probe with `address_v4: null` is skipped; prefix fallback is used.\n- Existing tests unchanged.\n\n### Verification\n- `pytest`: 40/40 passed (7 new country tests + 33 pre-existing).\n- `ruff check src/netpath/country.py tests/test_country.py`: no errors.\n"
   },
   "stages": {
+    "review": {
+      "status": "approved",
+      "approvedAt": "2026-06-30T23:58:17Z",
+      "startedAt": "2026-06-30T23:53:31Z"
+    },
     "release": {
       "status": "awaiting_approval",
       "startedAt": "2026-06-30T23:58:17Z"
-    },
-    "implementation": {
-      "status": "approved",
-      "approvedAt": "2026-06-30T23:53:31Z",
-      "startedAt": "2026-06-30T23:37:20Z"
     },
     "design": {
       "status": "skipped"
@@ -485,18 +531,26 @@
       "approvedAt": "2026-06-30T23:37:19Z",
       "startedAt": "2026-06-30T23:24:05Z"
     },
-    "review": {
-      "status": "approved",
-      "approvedAt": "2026-06-30T23:58:17Z",
-      "startedAt": "2026-06-30T23:53:31Z"
-    },
     "architecture": {
       "status": "skipped"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "approvedAt": "2026-06-30T23:53:31Z",
+      "startedAt": "2026-07-02T19:57:32Z"
     }
   },
-  "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-incomplete-paths-still-showing-in-za-01kwddfsahcm",
-  "worktreeBaseBranch": "main",
   "worktreeLastSyncedAt": "2026-06-30T23:58:17Z",
+  "loopBackHistory": [
+    {
+      "fromStage": "release",
+      "reason": "Release blocked because the merge failed.\n\nDetails:\nmerge applied but a transient local change to the main checkout could not be re-applied cleanly; it is preserved in `git stash` (stash@{0}) for manual recovery:\n\nPlease resolve the issue and retry.",
+      "actor": {
+        "kind": "user"
+      },
+      "occurredAt": "2026-07-02T19:57:32Z"
+    }
+  ],
   "reviewPayload": {
     "verdict": "approve",
     "summary": "All 6 acceptance criteria pass. The Atlas probe lookup is correctly implemented as the primary IP-selection strategy with the existing prefix-based fallback preserved unchanged. All 40 tests pass and ruff is clean.",

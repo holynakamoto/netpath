@@ -1,0 +1,83 @@
+{
+  "id": "task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 1,
+  "createdAt": "2026-07-02T20:05:36Z",
+  "updatedAt": "2026-07-02T20:06:21Z",
+  "events": [
+    {
+      "base_branch": "main",
+      "branch": "feature/task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a",
+      "path": "/Users/nickmoore/netpath/.defract-worktrees/task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a",
+      "timestamp": "2026-07-02T20:05:37Z",
+      "type": "worktree_created"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwj6zp1efccsmz9brgx09np1",
+      "stage": "scope",
+      "timestamp": "2026-07-02T20:05:37Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Intent check: replace the dead .2 fallback with a valid-probe target ladder, mark no-coverage ISPs instead of timing out, and surface partial hops on trace timeout",
+      "revision": 1,
+      "timestamp": "2026-07-02T20:06:08Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Intent check (revision 1) pushed: country sweeps trace only valid live targets (server, then probe, then remote-only), mark no-coverage ISPs instead of timing out on dead .2 addresses, and show partial hops on trace timeout. Top-50-countries batch mode and baseline speedtest changes are out of scope.",
+      "timestamp": "2026-07-02T20:06:15Z",
+      "type": "stage_work_complete",
+      "worktree_head": "6edc0657b74aca52ff996961a35213834b018b81",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-02T20:06:20Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwj710245kp2jzbe5f1fnzr7",
+      "stage": "scope",
+      "timestamp": "2026-07-02T20:06:20Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwj6zp1efccsmz9brgx09np1",
+      "timed_out": false,
+      "timestamp": "2026-07-02T20:06:21Z",
+      "type": "agent_exited"
+    }
+  ],
+  "stages": {
+    "design": {
+      "status": "not_started"
+    },
+    "implementation": {
+      "status": "not_started"
+    },
+    "architecture": {
+      "status": "not_started"
+    },
+    "scope": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T20:06:20Z"
+    },
+    "review": {
+      "status": "not_started"
+    },
+    "release": {
+      "status": "not_started"
+    }
+  },
+  "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a",
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-07-02T20:06:20Z"
+}

@@ -3,7 +3,7 @@ defract:
   id: task-incomplete-paths-still-showing-in-za-01kwddfsahcm
   type: improvement
   status: active
-  stage: release
+  stage: implementation
   phase: 0
   total_phases: 1
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 ## Story Brief
 
