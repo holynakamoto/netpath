@@ -377,17 +377,26 @@ def rum_only_panel(rum: dict, asn: str):
     console.print()
 
 
-def baseline_panel(upload: dict, download: dict):
-    """Your own connection baseline — shown once before per-ISP RUM comparisons."""
-    up  = fmt_bps(upload.get("bps", 0))
-    dn  = fmt_bps(download.get("recv_bps", download.get("bps", 0)))
-    ttfb = download.get("ttfb_ms")
-    lines = [
-        f"  [bold green]↑ Upload:[/bold green]   {up}",
-        f"  [bold cyan]↓ Download:[/bold cyan] {dn}",
-    ]
-    if ttfb is not None:
-        lines.append(f"  [dim]TTFB to Cloudflare: {ttfb:.0f} ms[/dim]")
+def baseline_panel(upload: dict | None, download: dict | None,
+                   errors: dict | None = None):
+    """Your own connection baseline — shown once before per-ISP RUM comparisons.
+
+    Either direction may be None when it failed; the panel then shows the
+    reading that succeeded and marks the failed direction.
+    """
+    errors = errors or {}
+    lines = []
+    if upload is not None:
+        lines.append(f"  [bold green]↑ Upload:[/bold green]   {fmt_bps(upload.get('bps', 0))}")
+    elif "upload" in errors:
+        lines.append("  [bold green]↑ Upload:[/bold green]   [yellow]failed[/yellow]")
+    if download is not None:
+        dn = fmt_bps(download.get("recv_bps", download.get("bps", 0)))
+        lines.append(f"  [bold cyan]↓ Download:[/bold cyan] {dn}")
+    elif "download" in errors:
+        lines.append("  [bold cyan]↓ Download:[/bold cyan] [yellow]failed[/yellow]")
+    if download is not None and download.get("ttfb_ms") is not None:
+        lines.append(f"  [dim]TTFB to Cloudflare: {download['ttfb_ms']:.0f} ms[/dim]")
     console.print(
         Panel("\n".join(lines),
               title="[bold]Your baseline · speed.cloudflare.com[/bold]",
@@ -420,6 +429,27 @@ def _render_globalping_subrow(r: dict, is_last_in_group: bool) -> None:
         return
     cont = "   " if is_last_in_group else "  │"
     console.print(f"  {cont}         [dim][Globalping] {', '.join(parts)}[/dim]")
+
+
+def _rum_summary_str(rum: dict) -> str:
+    """Compact one-line Radar figures for a country-summary subrow."""
+    parts = [
+        f"↓ {_fmt_opt(rum.get('dl_mbps'), 'Mbps')}",
+        f"↑ {_fmt_opt(rum.get('ul_mbps'), 'Mbps')}",
+        f"idle {_fmt_opt(rum.get('latency_idle'), 'ms')}",
+    ]
+    if rum.get("packet_loss") is not None:
+        parts.append(f"loss {rum['packet_loss']:.2f}%")
+    return "Radar: " + "  ".join(parts)
+
+
+def _render_rum_subrow(r: dict, is_last_in_group: bool) -> None:
+    """Print an optional Radar figures line beneath an ISP summary row."""
+    rum = r.get("rum")
+    if not rum:
+        return
+    cont = "   " if is_last_in_group else "  │"
+    console.print(f"  {cont}         [magenta]{_rum_summary_str(rum)}[/magenta]")
 
 
 def country_summary(code: str, results: list[dict]):
@@ -534,6 +564,7 @@ def country_summary(code: str, results: list[dict]):
             line.append(f"  {connector}   {r['asn']:<10}  {_trim(r['name']):<26}  ", style="dim")
             line.append("remote-only", style="cyan")
             console.print(line)
+            _render_rum_subrow(r, ri == len(remote_only) - 1)
             _render_globalping_subrow(r, ri == len(remote_only) - 1)
         console.print()
 
@@ -545,6 +576,7 @@ def country_summary(code: str, results: list[dict]):
             line.append(f"  {connector}   {r['asn']:<10}  {_trim(r['name']):<26}  ", style="dim")
             line.append(r.get("skip_reason", "no live target"), style="dim")
             console.print(line)
+            _render_rum_subrow(r, ri == len(no_coverage) - 1)
         console.print()
 
     if sorted_keys:

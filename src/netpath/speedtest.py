@@ -77,38 +77,57 @@ def _upload(duration: int = 5) -> dict:
 def run(duration: int = 5) -> dict:
     """
     Run download + upload speed test against Cloudflare.
-    Returns {"download": {...}, "upload": {...}, "server": "speed.cloudflare.com"}.
+
+    Each direction is attempted independently: a failure in one direction no
+    longer discards a successful reading in the other (mirrors the
+    ``probe_errors`` convention). Returns
+    ``{"download": {...}|None, "upload": {...}|None,
+       "server": "speed.cloudflare.com", "errors": {direction: reason}}``.
     """
-    try:
-        download = _download(duration)
-    except Exception as e:
-        raise RuntimeError(f"Download test failed: {e}")
-
-    try:
-        upload = _upload(duration)
-    except Exception as e:
-        raise RuntimeError(f"Upload test failed: {e}")
-
-    return {
-        "download": download,
-        "upload":   upload,
+    result: dict = {
+        "download": None,
+        "upload":   None,
         "server":   "speed.cloudflare.com",
+        "errors":   {},
     }
 
+    try:
+        result["download"] = _download(duration)
+    except Exception as e:
+        result["errors"]["download"] = str(e)
 
-def extract_stats(result: dict) -> tuple[dict, dict]:
-    """Return (upload_stats, download_stats) in the format display expects."""
-    dl = result["download"]
-    ul = result["upload"]
-    upload_stats = {
-        "bps":         ul["bps"],
-        "bytes":       ul["bytes"],
-        "retransmits": None,
-    }
-    download_stats = {
-        "bps":      dl["bps"],
-        "recv_bps": dl["bps"],
-        "bytes":    dl["bytes"],
-        "ttfb_ms":  dl.get("ttfb_ms"),
-    }
+    try:
+        result["upload"] = _upload(duration)
+    except Exception as e:
+        result["errors"]["upload"] = str(e)
+
+    return result
+
+
+def extract_stats(result: dict) -> tuple[dict | None, dict | None]:
+    """Return (upload_stats, download_stats) in the format display expects.
+
+    Either element is None when that direction was not measured, so callers
+    can render whatever succeeded.
+    """
+    dl = result.get("download")
+    ul = result.get("upload")
+
+    upload_stats = None
+    if ul is not None:
+        upload_stats = {
+            "bps":         ul["bps"],
+            "bytes":       ul["bytes"],
+            "retransmits": None,
+        }
+
+    download_stats = None
+    if dl is not None:
+        download_stats = {
+            "bps":      dl["bps"],
+            "recv_bps": dl["bps"],
+            "bytes":    dl["bytes"],
+            "ttfb_ms":  dl.get("ttfb_ms"),
+        }
+
     return upload_stats, download_stats

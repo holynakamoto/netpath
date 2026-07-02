@@ -3,7 +3,7 @@ defract:
   id: task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2
   type: task
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 3
   priority: normal
@@ -421,3 +421,45 @@ No security issues found in changed files.
 
 None.
 
+## Release
+
+## Release Notes
+
+### What was built
+
+- Expanded the coverage overview from a top 20 to top 50 countries ranking, giving a fuller picture of global Globalping probe availability with the ability to override via `--top N`
+- Added resilient partial baseline speedtest so a successful download is no longer discarded when upload times out (and vice versa)
+- Backfilled Cloudflare Radar quality data (RUM) for network providers that have no reachable target, closing blank rows in country probe summaries
+- Integrated PeeringDB IXP interconnection interface IPs as a second, non-RIPE source of reachable trace targets, extending measurement coverage to providers previously shown as "no coverage"
+- Added per-target origin labeling so users can see whether a trace target came from RIPE Atlas probes or PeeringDB IXP peering
+
+### Key decisions
+
+- Coverage default raised via single-line `typer.Option` change; title already interpolates the top count so no additional title work needed
+- Speedtest redesigned to attempt each direction independently and return partial results with per-direction errors, mirroring the existing `probe_errors` convention
+- Radar backfill for uncovered/remote-only rows uses the existing `_fetch_rum()` path directly, avoiding unwanted trace probes toward dead targets
+- PeeringDB netixlan lookup reuses the existing PeeringDB HTTP client and module-level caching pattern in ixp.py rather than adding a second client
+- Existing RIPE Atlas probe lookup preserved as primary target source; PeeringDB is fallback-only to maintain backward compatibility
+
+### Changes by phase
+
+- **Phase 1: Expand coverage to top 50** — Raised `coverage` command `--top` default from 20 to 50; title interpolates dynamically so `--top 10` yields "Top 10 Countries" as before. Files: cli.py (1 line).
+- **Phase 2: Fill uncovered/remote-only ISP data and salvage partial baselines** — Made speedtest.run() return partial results with per-direction errors instead of raising on a single failure. Backfilled Cloudflare Radar (RUM) for remote-only and no-coverage ISP rows via existing _fetch_rum path, rendering both per-ISP panels and summary-tree figures. Updated baseline display to show succeeded directions and mark failed ones. Files: speedtest.py, cli.py, display.py, tests/test_speedtest.py.
+- **Phase 3: PeeringDB netixlan trace-target discovery** — Added netixlan_ipv4_for_asn in ixp.py with per-ASN in-process caching. Extended country.get_test_ip_for_asn to try RIPE Atlas probe first, then fall back to PeeringDB IXP interface IPv4. Updated CLI trace-target note to indicate origin (Atlas probe vs PeeringDB IXP). Files: ixp.py, country.py, cli.py, tests/test_country.py.
+
+## Verification
+
+- Production build: PASS (sdist + wheel built successfully)
+- Code pushed: feature/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2 → origin (upstream tracking configured)
+- Test suite: 153 passed, 0 failed, 0 skipped
+- Lint (ruff): All checks passed
+- Acceptance criteria: 9/9 passed
+
+### Automated Checks Summary
+
+| Check | Result |
+|-------|--------|
+| Test suite (pytest) | PASS (153/153) |
+| Lint (ruff) | PASS |
+| Production build | PASS |
+| Code push | PASS |

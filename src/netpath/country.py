@@ -6,6 +6,7 @@ import requests
 from collections import defaultdict
 
 from .asn import cymru_bulk_lookup_rich
+from . import ixp
 
 RIPE_COUNTRY_RESOURCES = "https://stat.ripe.net/data/country-resource-list/data.json"
 RIPE_ATLAS_PROBES      = "https://atlas.ripe.net/api/v2/probes/"
@@ -135,11 +136,33 @@ def _get_atlas_probe_ip(asn: str) -> str | None:
     return None
 
 
+def get_test_target_for_asn(asn: str) -> tuple[str | None, str | None]:
+    """Return (ipv4, origin) for a live trace target in the ASN.
+
+    origin is "atlas" when the address comes from a connected RIPE Atlas
+    probe, "peeringdb" when it comes from the ASN's PeeringDB netixlan IXP
+    interface list, or None when no target was found.
+
+    A connected Atlas probe address is preferred because it is known to be
+    alive. When none exists, a PeeringDB IXP interface IPv4 is used as a
+    second, non-RIPE source — these are real router interfaces that generally
+    answer traceroute. Addresses guessed from announced prefixes are still not
+    used, since they rarely answer and burn the full prober budget.
+    """
+    ip = _get_atlas_probe_ip(asn)
+    if ip:
+        return ip, "atlas"
+    ip = ixp.netixlan_ipv4_for_asn(asn)
+    if ip:
+        return ip, "peeringdb"
+    return None, None
+
+
 def get_test_ip_for_asn(asn: str) -> str | None:
     """Return a live IPv4 trace target in the ASN, or None.
 
-    Only a connected RIPE Atlas probe address qualifies — it is known to be
-    alive. Addresses guessed from announced prefixes rarely answer and burn
-    the full prober budget before failing, so that fallback was removed.
+    A connected RIPE Atlas probe address is tried first (known alive); when
+    none exists, a PeeringDB netixlan IXP interface IPv4 is returned as a
+    fallback. See get_test_target_for_asn for the origin of the returned IP.
     """
-    return _get_atlas_probe_ip(asn)
+    return get_test_target_for_asn(asn)[0]

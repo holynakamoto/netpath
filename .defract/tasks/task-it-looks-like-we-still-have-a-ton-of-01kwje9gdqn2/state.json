@@ -1,11 +1,11 @@
 {
   "id": "task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
-  "status": "active",
-  "stage": "review",
+  "status": "completed",
+  "stage": "release",
   "phase": 3,
   "totalPhases": 3,
   "createdAt": "2026-07-02T22:13:19Z",
-  "updatedAt": "2026-07-02T23:02:23Z",
+  "updatedAt": "2026-07-02T23:27:37Z",
   "events": [
     {
       "models": {
@@ -639,6 +639,116 @@
       "type": "stage_work_complete",
       "worktree_head": "58e5c212bfac14ba36b0c8d458fc6734750e1e73",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 3,
+      "timestamp": "2026-07-02T23:26:14Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "review",
+      "timestamp": "2026-07-02T23:26:13Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "3fa70dba635e9afddf0b462cccdac547881b80ae",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "review",
+      "stale_worktree_head": "58e5c212bfac14ba36b0c8d458fc6734750e1e73",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-02T23:26:14Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "review",
+      "timestamp": "2026-07-02T23:26:14Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "review",
+      "timestamp": "2026-07-02T23:26:14Z",
+      "to": "release",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-02T23:26:14Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "haiku",
+      "session_id": "01kwjjf0t4sdh7s4s6ahm3gheg",
+      "stage": "release",
+      "timestamp": "2026-07-02T23:26:14Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "from": "review",
+      "timestamp": "2026-07-02T23:26:14Z",
+      "to": "release",
+      "type": "stage_handoff"
+    },
+    {
+      "note": "Release stage: run production build, commit and push approved changes, record release notes",
+      "phase": 3,
+      "stage": "release",
+      "timestamp": "2026-07-02T23:26:29Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Release validated — build passes, code pushed, all acceptance criteria met",
+      "revision": 1,
+      "stage": "release",
+      "timestamp": "2026-07-02T23:27:18Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "alternatives_considered": [
+        "Release and PR mode (not applicable; project uses merge mode)",
+        "Hold for additional manual testing (not required; all ACs verified, build/tests passing)"
+      ],
+      "decision": "Release complete — task ready for merge",
+      "rationale": "Production build passes, review approved on 2026-07-02 with all 9 acceptance criteria met (9/9), code committed across 3 phases and pushed to origin/feature/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2 with upstream tracking. Merge mode active — orchestrator will merge feature branch into main after release completion signal.",
+      "timestamp": "2026-07-02T23:27:20Z",
+      "type": "decision"
+    },
+    {
+      "stage": "release",
+      "summary": "Release complete: production build passed, feature branch pushed to origin with upstream tracking, all 9 acceptance criteria verified, release notes recorded. Merge mode active — orchestrator will merge into main.",
+      "timestamp": "2026-07-02T23:27:25Z",
+      "type": "stage_work_complete",
+      "worktree_head": "3fa70dba635e9afddf0b462cccdac547881b80ae",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "files_changed": 266,
+      "lines_added": 331,
+      "lines_removed": 67,
+      "timestamp": "2026-07-02T23:27:36Z",
+      "type": "worktree_merged"
+    },
+    {
+      "timestamp": "2026-07-02T23:27:36Z",
+      "type": "worktree_removed"
+    },
+    {
+      "branch": "feature/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
+      "timestamp": "2026-07-02T23:27:37Z",
+      "type": "remote_branch_deleted"
+    },
+    {
+      "actor": null,
+      "timestamp": "2026-07-02T23:27:37Z",
+      "type": "task_completed"
     }
   ],
   "needsArchitecture": false,
@@ -657,25 +767,16 @@
   },
   "stageApprovals": {
     "implementation": "2026-07-02T22:58:33Z",
+    "review": "2026-07-02T23:26:13Z",
     "scope": "2026-07-02T22:30:51Z"
   },
+  "completedAt": "2026-07-02T23:27:37Z",
   "stageContent": {
+    "review": "## Verdict\n\n**Verdict:** APPROVE\n**Files reviewed:** 6 files changed across 3 phases\n\nAll 9 acceptance criteria pass. Coverage default is 50, PeeringDB netixlan fallback is correctly wired, Radar backfill renders for uncovered rows when a token is present and is suppressed without one, and partial speedtest behavior is unit-tested. Both pytest (153/153) and ruff pass.\n\n### Automated Checks\n\n| Check | Result | Details |\n|-------|--------|---------|\n| Test suite (pytest) | PASS | 153 passed, 0 failed, 0 skipped |\n| Lint (ruff) | PASS | All checks passed |\n\n### Acceptance Criteria (9/9 passed)\n\n- [x] AC-1: Running `netpath coverage` with no `--top` flag prints up to 50 ranked country rows and a title reading \"Top 50 Countries\"; verified against the default at `cli.py:960`. — PASS: cli.py:980 — `top: int = typer.Option(50, \"--top\", \"-t\", ...)`. Title at cli.py:997: `f\"[bold]Globalping Coverage — Top {top} Countries[/bold]\"`. Default produces 50-row table titled \"Top 50 Countries\".\n- [x] AC-2: Running `netpath coverage --top 10` still prints exactly 10 rows with a \"Top 10\" title (override preserved). — PASS: cli.py:992 — `ranked = sorted(...)[:top]` slices to `top`. Title interpolates `top`, so `--top 10` yields `[:10]` and \"Top 10 Countries\".\n- [x] AC-3: For an ASN with IXP presence in PeeringDB but no other live target, `get_test_ip_for_asn` returns a PeeringDB `netixlan` IPv4; verified by a unit test mocking the PeeringDB response. — PASS: tests/test_country.py:70-87 — `test_get_test_ip_falls_back_to_peeringdb_netixlan` mocks Atlas to empty and `ixp.requests.get` to return `{\"data\": [{\"ipaddr4\": null}, {\"ipaddr4\": \"80.249.208.100\", ...}]}`. Asserts ip==\"80.249.208.100\" and origin==\"peeringdb\".\n- [x] AC-4: For an ASN absent from PeeringDB `netixlan`, `get_test_ip_for_asn` behaves exactly as today (no regression); verified by a unit test. — PASS: tests/test_country.py:90-100 — `test_get_test_ip_no_peeringdb_presence_unchanged` mocks both Atlas and PeeringDB to return empty. Asserts `(ip, origin) == (None, None)`.\n- [x] AC-5: In `country` mode, an ISP that gains a PeeringDB target shows a trace section with a note indicating the target's origin. — PASS: cli.py:756-762 — `origin_label = \"PeeringDB IXP trace target\" if target_origin == \"peeringdb\" else \"Atlas probe trace target\"`. Printed as `f\"→ {test_ip}  ({origin_label} — no iperf3 server in {asn_str})\"`.\n- [x] AC-6: In `country` mode with a Cloudflare token, an ISP that is still remote-only / no-coverage but exists in Radar shows a Radar panel in its section and Radar figures in the summary tree. — PASS: cli.py:786-794 and 802-810 — both branches call `_fetch_rum(asn_str, cf_token)` and `display.rum_only_panel` when non-None, storing `\"rum\": _rum` on the summary row. display.py:567 and 579 call `_render_rum_subrow` for these rows.\n- [x] AC-7: In `country` mode with no Cloudflare token, remote-only and no-coverage rows render exactly as today (no empty Radar values). — PASS: With no token, `_fetch_rum` returns None. `if _rum:` at cli.py:787/803 is False — no panel printed. `_render_rum_subrow` at display.py:448-450: `if not rum: return` — nothing rendered.\n- [x] AC-8: With `speedtest._upload` mocked to raise and `_download` mocked to succeed, `run()` returns the download plus a recorded upload error instead of raising; verified by a unit test. Both-fail case preserves the warning with no panel. — PASS: speedtest.py:94-102 — independent try/except per direction; failures set `result[\"errors\"][direction]`. tests/test_speedtest.py:11-26 asserts upload-fails/download-succeeds returns partial (no raise). Lines 44-57 assert both-fail records both errors.\n- [x] AC-9: `pytest` and `ruff check src tests` both pass. — PASS: pytest: 153 passed, 0 failed, 0 skipped. ruff check src tests: All checks passed.\n\n### Code Quality (Refactor Review)\n\nNo code quality issues found in changed files.\n\n### Security Assessment (Security Review)\n\nNo security issues found in changed files.\n\n### Decisions Made During Implementation\n\n- Coverage default raised from 20 to 50 via a one-line `typer.Option` default change; title already interpolated `top` so no further changes needed.\n- speedtest.run() redesigned to attempt each direction independently and return {download, upload, server, errors}, mirroring the probe_errors convention; both callers updated.\n- Radar backfill for remote-only/no-coverage rows calls the existing _fetch_rum() directly rather than routing through _measure(), avoiding unwanted trace probes toward dead targets.\n- PeeringDB netixlan lookup added to ixp.py reusing existing PeeringDB HTTP client + module-level cache pattern; get_test_target_for_asn added as origin-aware primitive; get_test_ip_for_asn wraps it to preserve the plain-string contract.\n- Existing RIPE Atlas probe lookup preserved as primary target source; PeeringDB netixlan is fallback only — removing Atlas entirely was not confirmed.\n\n## Required Changes\n\nNone.\n",
     "implementation": "## Phase 1: Expand coverage to top 50\n\nRaised the `coverage` command's `--top` default from 20 to 50 (`src/netpath/cli.py`). The table title already interpolates `top`, so no title change was needed.\n\n**Files changed:** `src/netpath/cli.py` (one line).\n\n## Phase 2: Fill uncovered/remote-only ISP data and salvage partial baselines\n\nClosed two concrete output gaps from the pasted `country US` run.\n\n**Resilient baseline speedtest (R7/R8):**\n- `speedtest.run()` no longer raises when one direction fails. It attempts download and upload independently and returns `{\"download\": {...}|None, \"upload\": {...}|None, \"server\": ..., \"errors\": {direction: reason}}`, mirroring the `probe_errors` convention.\n- `speedtest.extract_stats()` returns `(upload|None, download|None)` so callers render whatever succeeded.\n- Both consumers updated: the baseline block (`cli.py`) and the `_measure()` speedtest fallback (`cli.py`). A successful download now survives an upload timeout in every path. Both-directions-fail preserves the original warning with no panel.\n- `display.baseline_panel(upload, download, errors=...)` now tolerates a None direction and marks the failed one as `failed` rather than dropping the whole panel.\n\n**Radar backfill for blank rows (R5/R6):**\n- The two short-circuit branches (`remote_only`, `skip_reason`/no-coverage) now call the existing `_fetch_rum(asn_str, cf_token)` before `continue`. When Radar data returns, `display.rum_only_panel` prints it in the per-ISP section and the Radar dict is stored on the summary row under a `rum` key (matching what `_measure` sets).\n- `display.country_summary` renders a compact Radar figures subrow (`_render_rum_subrow` / `_rum_summary_str`) beneath remote-only and no-coverage rows when `rum` is present. With no token, `_fetch_rum` returns None and rows render exactly as before — no empty values.\n\n**Tests:** `tests/test_speedtest.py` — upload-fails/download-succeeds returns partial (no raise), download-fails/upload-succeeds, both-fail records both errors, both-succeed.\n\n**Files changed:** `src/netpath/speedtest.py`, `src/netpath/cli.py`, `src/netpath/display.py`, `tests/test_speedtest.py`.\n\n## Phase 3: PeeringDB netixlan trace-target discovery\n\nAdded a second, non-RIPE source of reachable trace targets (R2-R4).\n\n**PeeringDB netixlan lookup (`src/netpath/ixp.py`):**\n- `_load_netixlan(asn)` fetches `https://www.peeringdb.com/api/netixlan?asn=N` (bare integer via `normalize_asn(asn)[2:]`) and caches the record list per-ASN in a module-level `_NETIXLAN_CACHE` dict, reusing the same PeeringDB access/caching pattern as the IXP prefix classifier already in this module. Any failure yields an empty list.\n- `netixlan_ipv4_for_asn(asn)` returns the first record with a usable `ipaddr4` (deterministic selection), or None.\n\n**Target discovery (`src/netpath/country.py`):**\n- New `get_test_target_for_asn(asn) -> (ipv4, origin)` tries a connected RIPE Atlas probe first (origin `\"atlas\"`), then falls back to a PeeringDB netixlan IPv4 (origin `\"peeringdb\"`), else `(None, None)`. Prefix-guessing remains removed.\n- `get_test_ip_for_asn(asn)` now wraps `get_test_target_for_asn` and returns just the IPv4 — its plain-string contract is unchanged, so existing behavior and the acceptance-criteria tests hold.\n\n**Origin note (`src/netpath/cli.py`):**\n- The per-ISP trace target note now reads `PeeringDB IXP trace target` vs `Atlas probe trace target` based on the origin returned by `get_test_target_for_asn`, so the user can see where the target came from.\n\n**Tests (`tests/test_country.py`):**\n- New: PeeringDB fallback returns the netixlan IPv4 with origin `\"peeringdb\"`; ASN absent from netixlan returns `(None, None)` (no regression); per-ASN caching (second lookup served from cache, one HTTP call).\n- Updated the existing Atlas-empty / Atlas-error / null-address tests to also stub the PeeringDB layer so they stay offline and assert the no-target path.\n\n**Files changed:** `src/netpath/ixp.py`, `src/netpath/country.py`, `src/netpath/cli.py`, `tests/test_country.py`.\n\n**Note:** existing RIPE Atlas target lookup was left in place (Atlas tried first, PeeringDB as fallback) per the flagged open question in the scope — removing RIPE entirely was not confirmed.\n\n**Verification:** 153 tests pass (150 + 3 new); `ruff check src tests` clean. Live PeeringDB reachability and the in-`country`-mode origin note are covered in the manual test list.",
-    "review": "## Verdict\n\n**Verdict:** APPROVE\n**Files reviewed:** 6 files changed across 3 phases\n\nAll 9 acceptance criteria pass. Coverage default is 50, PeeringDB netixlan fallback is correctly wired, Radar backfill renders for uncovered rows when a token is present and is suppressed without one, and partial speedtest behavior is unit-tested. Both pytest (153/153) and ruff pass.\n\n### Automated Checks\n\n| Check | Result | Details |\n|-------|--------|---------|\n| Test suite (pytest) | PASS | 153 passed, 0 failed, 0 skipped |\n| Lint (ruff) | PASS | All checks passed |\n\n### Acceptance Criteria (9/9 passed)\n\n- [x] AC-1: Running `netpath coverage` with no `--top` flag prints up to 50 ranked country rows and a title reading \"Top 50 Countries\"; verified against the default at `cli.py:960`. — PASS: cli.py:980 — `top: int = typer.Option(50, \"--top\", \"-t\", ...)`. Title at cli.py:997: `f\"[bold]Globalping Coverage — Top {top} Countries[/bold]\"`. Default produces 50-row table titled \"Top 50 Countries\".\n- [x] AC-2: Running `netpath coverage --top 10` still prints exactly 10 rows with a \"Top 10\" title (override preserved). — PASS: cli.py:992 — `ranked = sorted(...)[:top]` slices to `top`. Title interpolates `top`, so `--top 10` yields `[:10]` and \"Top 10 Countries\".\n- [x] AC-3: For an ASN with IXP presence in PeeringDB but no other live target, `get_test_ip_for_asn` returns a PeeringDB `netixlan` IPv4; verified by a unit test mocking the PeeringDB response. — PASS: tests/test_country.py:70-87 — `test_get_test_ip_falls_back_to_peeringdb_netixlan` mocks Atlas to empty and `ixp.requests.get` to return `{\"data\": [{\"ipaddr4\": null}, {\"ipaddr4\": \"80.249.208.100\", ...}]}`. Asserts ip==\"80.249.208.100\" and origin==\"peeringdb\".\n- [x] AC-4: For an ASN absent from PeeringDB `netixlan`, `get_test_ip_for_asn` behaves exactly as today (no regression); verified by a unit test. — PASS: tests/test_country.py:90-100 — `test_get_test_ip_no_peeringdb_presence_unchanged` mocks both Atlas and PeeringDB to return empty. Asserts `(ip, origin) == (None, None)`.\n- [x] AC-5: In `country` mode, an ISP that gains a PeeringDB target shows a trace section with a note indicating the target's origin. — PASS: cli.py:756-762 — `origin_label = \"PeeringDB IXP trace target\" if target_origin == \"peeringdb\" else \"Atlas probe trace target\"`. Printed as `f\"→ {test_ip}  ({origin_label} — no iperf3 server in {asn_str})\"`.\n- [x] AC-6: In `country` mode with a Cloudflare token, an ISP that is still remote-only / no-coverage but exists in Radar shows a Radar panel in its section and Radar figures in the summary tree. — PASS: cli.py:786-794 and 802-810 — both branches call `_fetch_rum(asn_str, cf_token)` and `display.rum_only_panel` when non-None, storing `\"rum\": _rum` on the summary row. display.py:567 and 579 call `_render_rum_subrow` for these rows.\n- [x] AC-7: In `country` mode with no Cloudflare token, remote-only and no-coverage rows render exactly as today (no empty Radar values). — PASS: With no token, `_fetch_rum` returns None. `if _rum:` at cli.py:787/803 is False — no panel printed. `_render_rum_subrow` at display.py:448-450: `if not rum: return` — nothing rendered.\n- [x] AC-8: With `speedtest._upload` mocked to raise and `_download` mocked to succeed, `run()` returns the download plus a recorded upload error instead of raising; verified by a unit test. Both-fail case preserves the warning with no panel. — PASS: speedtest.py:94-102 — independent try/except per direction; failures set `result[\"errors\"][direction]`. tests/test_speedtest.py:11-26 asserts upload-fails/download-succeeds returns partial (no raise). Lines 44-57 assert both-fail records both errors.\n- [x] AC-9: `pytest` and `ruff check src tests` both pass. — PASS: pytest: 153 passed, 0 failed, 0 skipped. ruff check src tests: All checks passed.\n\n### Code Quality (Refactor Review)\n\nNo code quality issues found in changed files.\n\n### Security Assessment (Security Review)\n\nNo security issues found in changed files.\n\n### Decisions Made During Implementation\n\n- Coverage default raised from 20 to 50 via a one-line `typer.Option` default change; title already interpolated `top` so no further changes needed.\n- speedtest.run() redesigned to attempt each direction independently and return {download, upload, server, errors}, mirroring the probe_errors convention; both callers updated.\n- Radar backfill for remote-only/no-coverage rows calls the existing _fetch_rum() directly rather than routing through _measure(), avoiding unwanted trace probes toward dead targets.\n- PeeringDB netixlan lookup added to ixp.py reusing existing PeeringDB HTTP client + module-level cache pattern; get_test_target_for_asn added as origin-aware primitive; get_test_ip_for_asn wraps it to preserve the plain-string contract.\n- Existing RIPE Atlas probe lookup preserved as primary target source; PeeringDB netixlan is fallback only — removing Atlas entirely was not confirmed.\n\n## Required Changes\n\nNone.\n"
+    "release": "## Release Notes\n\n### What was built\n\n- Expanded the coverage overview from a top 20 to top 50 countries ranking, giving a fuller picture of global Globalping probe availability with the ability to override via `--top N`\n- Added resilient partial baseline speedtest so a successful download is no longer discarded when upload times out (and vice versa)\n- Backfilled Cloudflare Radar quality data (RUM) for network providers that have no reachable target, closing blank rows in country probe summaries\n- Integrated PeeringDB IXP interconnection interface IPs as a second, non-RIPE source of reachable trace targets, extending measurement coverage to providers previously shown as \"no coverage\"\n- Added per-target origin labeling so users can see whether a trace target came from RIPE Atlas probes or PeeringDB IXP peering\n\n### Key decisions\n\n- Coverage default raised via single-line `typer.Option` change; title already interpolates the top count so no additional title work needed\n- Speedtest redesigned to attempt each direction independently and return partial results with per-direction errors, mirroring the existing `probe_errors` convention\n- Radar backfill for uncovered/remote-only rows uses the existing `_fetch_rum()` path directly, avoiding unwanted trace probes toward dead targets\n- PeeringDB netixlan lookup reuses the existing PeeringDB HTTP client and module-level caching pattern in ixp.py rather than adding a second client\n- Existing RIPE Atlas probe lookup preserved as primary target source; PeeringDB is fallback-only to maintain backward compatibility\n\n### Changes by phase\n\n- **Phase 1: Expand coverage to top 50** — Raised `coverage` command `--top` default from 20 to 50; title interpolates dynamically so `--top 10` yields \"Top 10 Countries\" as before. Files: cli.py (1 line).\n- **Phase 2: Fill uncovered/remote-only ISP data and salvage partial baselines** — Made speedtest.run() return partial results with per-direction errors instead of raising on a single failure. Backfilled Cloudflare Radar (RUM) for remote-only and no-coverage ISP rows via existing _fetch_rum path, rendering both per-ISP panels and summary-tree figures. Updated baseline display to show succeeded directions and mark failed ones. Files: speedtest.py, cli.py, display.py, tests/test_speedtest.py.\n- **Phase 3: PeeringDB netixlan trace-target discovery** — Added netixlan_ipv4_for_asn in ixp.py with per-ASN in-process caching. Extended country.get_test_ip_for_asn to try RIPE Atlas probe first, then fall back to PeeringDB IXP interface IPv4. Updated CLI trace-target note to indicate origin (Atlas probe vs PeeringDB IXP). Files: ixp.py, country.py, cli.py, tests/test_country.py.\n\n## Verification\n\n- Production build: PASS (sdist + wheel built successfully)\n- Code pushed: feature/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2 → origin (upstream tracking configured)\n- Test suite: 153 passed, 0 failed, 0 skipped\n- Lint (ruff): All checks passed\n- Acceptance criteria: 9/9 passed\n\n### Automated Checks Summary\n\n| Check | Result |\n|-------|--------|\n| Test suite (pytest) | PASS (153/153) |\n| Lint (ruff) | PASS |\n| Production build | PASS |\n| Code push | PASS |"
   },
   "stages": {
-    "release": {
-      "status": "not_started"
-    },
-    "review": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-02T22:58:34Z"
-    },
-    "implementation": {
-      "status": "approved",
-      "approvedAt": "2026-07-02T22:58:33Z",
-      "startedAt": "2026-07-02T22:41:09Z"
-    },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T22:30:51Z",
@@ -686,11 +787,23 @@
     },
     "design": {
       "status": "skipped"
+    },
+    "implementation": {
+      "status": "approved",
+      "approvedAt": "2026-07-02T22:58:33Z",
+      "startedAt": "2026-07-02T22:41:09Z"
+    },
+    "release": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-07-02T23:26:14Z"
+    },
+    "review": {
+      "status": "approved",
+      "approvedAt": "2026-07-02T23:26:13Z",
+      "startedAt": "2026-07-02T22:58:34Z"
     }
   },
-  "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
-  "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T22:58:34Z",
+  "worktreeLastSyncedAt": "2026-07-02T23:26:14Z",
   "reviewPayload": {
     "verdict": "approve",
     "summary": "All 9 acceptance criteria pass. Coverage default is 50, PeeringDB netixlan fallback is correctly wired, Radar backfill renders for uncovered rows when a token is present and is suppressed without one, and partial speedtest behavior is unit-tested. Both pytest (153/153) and ruff pass.",
@@ -808,12 +921,12 @@
     ]
   },
   "stageModels": {
-    "review": "sonnet",
-    "design": "sonnet",
-    "scope_full": "opus",
-    "release": "haiku",
     "architecture": "opus",
+    "review": "sonnet",
+    "release": "haiku",
+    "scope_full": "opus",
     "implementation": "opus",
+    "design": "sonnet",
     "scope_initial": "haiku"
   }
 }

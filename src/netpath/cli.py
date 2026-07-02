@@ -388,15 +388,19 @@ def _measure(host: str, port: int, target_asn: str,
 
         # ── Speedtest fallback ────────────────────────────────────────────
         # This measures user → Cloudflare, NOT user → target ASN.
-        try:
-            st_result = speedtest.run(duration=duration)
-            upload, download = speedtest.extract_stats(st_result)
+        st_result = speedtest.run(duration=duration)
+        upload, download = speedtest.extract_stats(st_result)
+        if download is not None:
             result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
+            result["_speedtest_download"] = download
+        if upload is not None:
             result["upload_mbps"] = upload.get("bps", 0) / 1e6
             result["_speedtest_upload"] = upload
-            result["_speedtest_download"] = download
-        except RuntimeError as e:
-            result["probe_errors"]["speedtest"] = str(e)
+        st_errors = st_result.get("errors", {})
+        if st_errors:
+            result["probe_errors"]["speedtest"] = "; ".join(
+                f"{d}: {e}" for d, e in st_errors.items()
+            )
 
         result["verdict"] = diagnose(result)
         return result
@@ -661,15 +665,18 @@ def country(
     # Run HTTP speedtest ONCE as the user's own baseline before per-ISP tests
     if not skip_throughput:
         display.console.print("[dim]Measuring your connection baseline (speed.cloudflare.com)…[/dim]")
-        try:
-            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                          console=display.console, transient=True) as p:
-                p.add_task("speed.cloudflare.com ↑↓", total=None)
-                st_result = speedtest.run(duration=duration)
-            ul, dl = speedtest.extract_stats(st_result)
-            display.baseline_panel(ul, dl)
-        except RuntimeError as e:
-            display.warn(f"Baseline speedtest failed: {e}")
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                      console=display.console, transient=True) as p:
+            p.add_task("speed.cloudflare.com ↑↓", total=None)
+            st_result = speedtest.run(duration=duration)
+        ul, dl = speedtest.extract_stats(st_result)
+        errors = st_result.get("errors", {})
+        if ul is None and dl is None:
+            # Both directions failed — preserve the original warning behavior.
+            msg = "; ".join(f"{d}: {e}" for d, e in errors.items()) or "unknown error"
+            display.warn(f"Baseline speedtest failed: {msg}")
+        else:
+            display.baseline_panel(ul, dl, errors=errors)
 
     # Warm the server cache once — all subsequent find_servers_in_asn calls are free
     display.console.print("[dim]Fetching + resolving iperf3 server list…[/dim]")
@@ -742,12 +749,17 @@ def country(
                 compare_v6=True,
             )
         else:
-            test_ip = country_mod.get_test_ip_for_asn(asn_str)
+            test_ip, target_origin = country_mod.get_test_target_for_asn(asn_str)
             if test_ip:
                 if not no_remote:
                     _gp_test_ips[asn_str] = test_ip
+                origin_label = (
+                    "PeeringDB IXP trace target"
+                    if target_origin == "peeringdb"
+                    else "Atlas probe trace target"
+                )
                 display.console.print(
-                    f"  [dim]→ {test_ip}  (Atlas probe trace target — no iperf3 server in {asn_str})[/dim]\n"
+                    f"  [dim]→ {test_ip}  ({origin_label} — no iperf3 server in {asn_str})[/dim]\n"
                 )
                 meta = {"HOST": test_ip, "SITE": isp_name, "COUNTRY": code,
                         "asn": asn_str, "port": 5201}
@@ -771,10 +783,14 @@ def country(
                     f"  [dim]→ remote-only — no live trace target in {asn_str}; "
                     f"Globalping probes will measure toward your public IP[/dim]\n"
                 )
+                _rum = _fetch_rum(asn_str, cf_token)
+                if _rum:
+                    display.rum_only_panel(_rum, asn_str)
                 summary_rows.append({
                     "asn": asn_str,
                     "name": display.clean_asn_name(isp_name),
                     "remote_only": True,
+                    "rum": _rum,
                 })
                 continue
             else:
@@ -783,10 +799,14 @@ def country(
                 else:
                     reason = "no iperf3 server, Atlas probe, or usable Globalping coverage"
                 display.console.print(f"  [dim]→ no coverage — {reason}[/dim]\n")
+                _rum = _fetch_rum(asn_str, cf_token)
+                if _rum:
+                    display.rum_only_panel(_rum, asn_str)
                 summary_rows.append({
                     "asn": asn_str,
                     "name": display.clean_asn_name(isp_name),
                     "skip_reason": reason,
+                    "rum": _rum,
                 })
                 continue
 
@@ -957,7 +977,7 @@ _COUNTRY_NAMES: dict[str, str] = {
 @app.command()
 def coverage(
     gp_token: Optional[str] = _GP_TOK,
-    top: int = typer.Option(20, "--top", "-t", help="Number of top countries to show"),
+    top: int = typer.Option(50, "--top", "-t", help="Number of top countries to show"),
     globe: bool = typer.Option(False, "--globe", "-g", help="Render choropleth globe after fetching"),
 ):
     """Show Globalping probe coverage ranked by country."""
