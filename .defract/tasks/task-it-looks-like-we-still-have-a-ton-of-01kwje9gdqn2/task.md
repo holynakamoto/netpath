@@ -348,4 +348,27 @@ Closed two concrete output gaps from the pasted `country US` run.
 
 **Files changed:** `src/netpath/speedtest.py`, `src/netpath/cli.py`, `src/netpath/display.py`, `tests/test_speedtest.py`.
 
-**Verification:** 150 tests pass (146 baseline + 4 new); `ruff check src tests` clean. Radar backfill (needs a live token) and both-fail panel suppression are covered in the manual test list.
+## Phase 3: PeeringDB netixlan trace-target discovery
+
+Added a second, non-RIPE source of reachable trace targets (R2-R4).
+
+**PeeringDB netixlan lookup (`src/netpath/ixp.py`):**
+- `_load_netixlan(asn)` fetches `https://www.peeringdb.com/api/netixlan?asn=N` (bare integer via `normalize_asn(asn)[2:]`) and caches the record list per-ASN in a module-level `_NETIXLAN_CACHE` dict, reusing the same PeeringDB access/caching pattern as the IXP prefix classifier already in this module. Any failure yields an empty list.
+- `netixlan_ipv4_for_asn(asn)` returns the first record with a usable `ipaddr4` (deterministic selection), or None.
+
+**Target discovery (`src/netpath/country.py`):**
+- New `get_test_target_for_asn(asn) -> (ipv4, origin)` tries a connected RIPE Atlas probe first (origin `"atlas"`), then falls back to a PeeringDB netixlan IPv4 (origin `"peeringdb"`), else `(None, None)`. Prefix-guessing remains removed.
+- `get_test_ip_for_asn(asn)` now wraps `get_test_target_for_asn` and returns just the IPv4 — its plain-string contract is unchanged, so existing behavior and the acceptance-criteria tests hold.
+
+**Origin note (`src/netpath/cli.py`):**
+- The per-ISP trace target note now reads `PeeringDB IXP trace target` vs `Atlas probe trace target` based on the origin returned by `get_test_target_for_asn`, so the user can see where the target came from.
+
+**Tests (`tests/test_country.py`):**
+- New: PeeringDB fallback returns the netixlan IPv4 with origin `"peeringdb"`; ASN absent from netixlan returns `(None, None)` (no regression); per-ASN caching (second lookup served from cache, one HTTP call).
+- Updated the existing Atlas-empty / Atlas-error / null-address tests to also stub the PeeringDB layer so they stay offline and assert the no-target path.
+
+**Files changed:** `src/netpath/ixp.py`, `src/netpath/country.py`, `src/netpath/cli.py`, `tests/test_country.py`.
+
+**Note:** existing RIPE Atlas target lookup was left in place (Atlas tried first, PeeringDB as fallback) per the flagged open question in the scope — removing RIPE entirely was not confirmed.
+
+**Verification:** 153 tests pass (150 + 3 new); `ruff check src tests` clean. Live PeeringDB reachability and the in-`country`-mode origin note are covered in the manual test list.
