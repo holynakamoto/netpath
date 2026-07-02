@@ -3,7 +3,7 @@ defract:
   id: task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws
   type: bug
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 2
   priority: normal
@@ -260,4 +260,33 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Fixed `find_servers_in_asn()` to run the liveness check across all ASN-matching candidates before truncating to `max_count`, preventing dead servers earlier in the list from blocking discovery of live ones
+- Replaced the TCP-only `_is_alive()` check with `_is_iperf3_alive()` that runs a 1-second iperf3 protocol test (`iperf3 -c host -t 1 -J`), with automatic TCP fallback when iperf3 is absent from PATH
+- Added `--atlas-key` / `NETPATH_ATLAS_KEY` option to the `country` subcommand for opt-in RIPE Atlas measurement mode
+- Created `src/netpath/atlas.py` with all Atlas API logic: probe discovery, credit budget check, measurement scheduling, polling, and RTT/AS-path result parsing
+- Extended `display.py` to render `[Atlas]` RTT and outbound AS-path sub-rows conditionally; non-Atlas layout is pixel-identical
+
+### Key decisions
+- iperf3 protocol validation uses a 1-second live test measurement rather than TCP banner inspection — deep validation without excessive latency
+- Atlas integration lives in a new `atlas.py` module following the single-purpose measurement module convention (not country.py or cli.py)
+- Atlas probe discovery runs before the regular sweep so the budget check uses exact per-ASN probe counts, not worst-case estimates
+- All Atlas measurements are scheduled after the regular sweep completes, then polled in one shared 600-second window — faster than inline per-ASN schedule+poll
+
+### Changes by phase
+- **Phase 1: Fix iperf3 server selection bugs** — Moved `max_count` truncation after liveness filter in `servers.py`; replaced `_is_alive` with `_is_iperf3_alive` using `subprocess.run` with TCP fallback; added 10 new tests in `tests/test_servers.py` covering all acceptance criteria
+- **Phase 2: RIPE Atlas measurement mode** — Created `atlas.py` with `get_public_ip`, `find_probes_in_asn`, `check_budget`, `schedule_measurements`, `poll_until_done`, `fetch_results`, `parse_ping_rtt`, `parse_traceroute_as_path`; extended `cli.py` country command with pre-sweep probe discovery + budget check + post-sweep schedule/poll/merge; extended `display.py` with conditional `_render_atlas_subrow`
+
+## Verification
+
+- Production build: PASS — `python -m build` produced sdist and wheel successfully
+- Test suite: PASS — 70/70 passed, 0 failed
+- Lint: PASS — `ruff check src tests` reports no errors
+- Review: APPROVE — all 14 acceptance criteria passed (2026-07-02)
+- Code pushed: feature/task-auditing-iperf3-ripe-atlas-endpoint-01kwfw7s6vws pushed to origin
 
