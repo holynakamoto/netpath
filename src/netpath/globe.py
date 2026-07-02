@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import math
 import tempfile
 import webbrowser
 from pathlib import Path
@@ -11,6 +12,55 @@ from netpath.display import LATENCY_GREEN_MS, LATENCY_YELLOW_MS, console
 
 _BATCH_URL = "http://ip-api.com/batch"
 _BATCH_SIZE = 100
+
+_A2_TO_A3: dict[str, str] = {
+    "AD": "AND", "AE": "ARE", "AF": "AFG", "AG": "ATG", "AI": "AIA",
+    "AL": "ALB", "AM": "ARM", "AO": "AGO", "AQ": "ATA", "AR": "ARG",
+    "AS": "ASM", "AT": "AUT", "AU": "AUS", "AW": "ABW", "AZ": "AZE",
+    "BA": "BIH", "BB": "BRB", "BD": "BGD", "BE": "BEL", "BF": "BFA",
+    "BG": "BGR", "BH": "BHR", "BI": "BDI", "BJ": "BEN", "BM": "BMU",
+    "BN": "BRN", "BO": "BOL", "BR": "BRA", "BS": "BHS", "BT": "BTN",
+    "BW": "BWA", "BY": "BLR", "BZ": "BLZ", "CA": "CAN", "CD": "COD",
+    "CF": "CAF", "CG": "COG", "CH": "CHE", "CI": "CIV", "CK": "COK",
+    "CL": "CHL", "CM": "CMR", "CN": "CHN", "CO": "COL", "CR": "CRI",
+    "CU": "CUB", "CV": "CPV", "CW": "CUW", "CY": "CYP", "CZ": "CZE",
+    "DE": "DEU", "DJ": "DJI", "DK": "DNK", "DM": "DMA", "DO": "DOM",
+    "DZ": "DZA", "EC": "ECU", "EE": "EST", "EG": "EGY", "ER": "ERI",
+    "ES": "ESP", "ET": "ETH", "FI": "FIN", "FJ": "FJI", "FK": "FLK",
+    "FM": "FSM", "FO": "FRO", "FR": "FRA", "GA": "GAB", "GB": "GBR",
+    "GD": "GRD", "GE": "GEO", "GF": "GUF", "GG": "GGY", "GH": "GHA",
+    "GI": "GIB", "GL": "GRL", "GM": "GMB", "GN": "GIN", "GP": "GLP",
+    "GQ": "GNQ", "GR": "GRC", "GT": "GTM", "GU": "GUM", "GW": "GNB",
+    "GY": "GUY", "HK": "HKG", "HN": "HND", "HR": "HRV", "HT": "HTI",
+    "HU": "HUN", "ID": "IDN", "IE": "IRL", "IL": "ISR", "IM": "IMN",
+    "IN": "IND", "IQ": "IRQ", "IR": "IRN", "IS": "ISL", "IT": "ITA",
+    "JE": "JEY", "JM": "JAM", "JO": "JOR", "JP": "JPN", "KE": "KEN",
+    "KG": "KGZ", "KH": "KHM", "KI": "KIR", "KM": "COM", "KN": "KNA",
+    "KP": "PRK", "KR": "KOR", "KW": "KWT", "KY": "CYM", "KZ": "KAZ",
+    "LA": "LAO", "LB": "LBN", "LC": "LCA", "LI": "LIE", "LK": "LKA",
+    "LR": "LBR", "LS": "LSO", "LT": "LTU", "LU": "LUX", "LV": "LVA",
+    "LY": "LBY", "MA": "MAR", "MC": "MCO", "MD": "MDA", "ME": "MNE",
+    "MG": "MDG", "MH": "MHL", "MK": "MKD", "ML": "MLI", "MM": "MMR",
+    "MN": "MNG", "MO": "MAC", "MQ": "MTQ", "MR": "MRT", "MS": "MSR",
+    "MT": "MLT", "MU": "MUS", "MV": "MDV", "MW": "MWI", "MX": "MEX",
+    "MY": "MYS", "MZ": "MOZ", "NA": "NAM", "NC": "NCL", "NE": "NER",
+    "NG": "NGA", "NI": "NIC", "NL": "NLD", "NO": "NOR", "NP": "NPL",
+    "NR": "NRU", "NZ": "NZL", "OM": "OMN", "PA": "PAN", "PE": "PER",
+    "PF": "PYF", "PG": "PNG", "PH": "PHL", "PK": "PAK", "PL": "POL",
+    "PR": "PRI", "PS": "PSE", "PT": "PRT", "PW": "PLW", "PY": "PRY",
+    "QA": "QAT", "RE": "REU", "RO": "ROU", "RS": "SRB", "RU": "RUS",
+    "RW": "RWA", "SA": "SAU", "SB": "SLB", "SC": "SYC", "SD": "SDN",
+    "SE": "SWE", "SG": "SGP", "SH": "SHN", "SI": "SVN", "SK": "SVK",
+    "SL": "SLE", "SM": "SMR", "SN": "SEN", "SO": "SOM", "SR": "SUR",
+    "SS": "SSD", "ST": "STP", "SV": "SLV", "SX": "SXM", "SY": "SYR",
+    "SZ": "SWZ", "TD": "TCD", "TG": "TGO", "TH": "THA", "TJ": "TJK",
+    "TL": "TLS", "TM": "TKM", "TN": "TUN", "TO": "TON", "TR": "TUR",
+    "TT": "TTO", "TV": "TUV", "TW": "TWN", "TZ": "TZA", "UA": "UKR",
+    "UG": "UGA", "US": "USA", "UY": "URY", "UZ": "UZB", "VA": "VAT",
+    "VC": "VCT", "VE": "VEN", "VG": "VGB", "VI": "VIR", "VN": "VNM",
+    "VU": "VUT", "WS": "WSM", "YE": "YEM", "YT": "MYT", "ZA": "ZAF",
+    "ZM": "ZMB", "ZW": "ZWE",
+}
 
 
 def _is_private(host: str) -> bool:
@@ -203,3 +253,102 @@ def render(hubs_by_asn: dict[str, list[dict]]) -> None:
             console.print(f"  [dim]Globe saved — open manually: {out}[/dim]")
     except Exception as e:
         console.print(f"  [yellow]Globe write failed: {e}[/yellow]")
+
+
+def _build_coverage_html(a3_codes: list[str], raw_values: list[int], log_values: list[float]) -> str:
+    codes_js = json.dumps(a3_codes)
+    log_js = json.dumps(log_values)
+    raw_js = json.dumps(raw_values)
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>netpath — Atlas coverage globe</title>
+  <style>body{{margin:0;background:#0a0a1a}}#g{{width:100vw;height:100vh}}</style>
+</head>
+<body>
+  <div id="g"></div>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script>
+var raw = {raw_js};
+var trace = {{
+  type: 'choropleth',
+  locationmode: 'ISO-3',
+  locations: {codes_js},
+  z: {log_js},
+  text: raw.map(String),
+  zmin: 0,
+  colorscale: [
+    [0, '#1a1a2e'], [0.05, '#16213e'], [0.15, '#0f3460'],
+    [0.4, '#533483'], [0.7, '#e94560'], [1.0, '#ff9800']
+  ],
+  colorbar: {{
+    title: 'Probes + Anchors<br>(log scale)',
+    bgcolor: 'rgba(0,0,0,0.6)',
+    tickfont: {{color: '#ccc'}},
+    titlefont: {{color: '#ccc'}}
+  }},
+  marker: {{line: {{color: '#333', width: 0.5}}}},
+  hovertemplate: '%{{location}}: %{{text}} probes+anchors<extra></extra>'
+}};
+var layout = {{
+  geo: {{
+    showframe: false,
+    showcoastlines: true,
+    coastlinecolor: '#555',
+    projection: {{type: 'natural earth'}},
+    bgcolor: '#0a0a1a',
+    showland: true,
+    landcolor: '#1a1a2e',
+    showocean: true,
+    oceancolor: '#0a0a1a',
+    showcountries: true,
+    countrycolor: '#333'
+  }},
+  paper_bgcolor: '#0a0a1a',
+  font: {{color: '#ccc'}},
+  title: {{text: 'RIPE Atlas Coverage by Country', font: {{color: '#ccc', size: 18}}}}
+}};
+Plotly.newPlot('g', [trace], layout, {{responsive: true}});
+  </script>
+</body>
+</html>"""
+
+
+def render_coverage(coverage: dict[str, int]) -> None:
+    """Render a choropleth globe showing Atlas probe+anchor density by country."""
+    if not coverage:
+        console.print(Panel(
+            "  No coverage data to visualize.",
+            title="[bold yellow]Globe[/bold yellow]",
+            border_style="yellow",
+            expand=False,
+        ))
+        return
+
+    a3_codes: list[str] = []
+    raw_values: list[int] = []
+    for cc, total in coverage.items():
+        a3 = _A2_TO_A3.get(cc)
+        if a3:
+            a3_codes.append(a3)
+            raw_values.append(total)
+
+    if not a3_codes:
+        console.print(Panel(
+            "  No countries could be mapped to ISO-3 codes — globe skipped.",
+            title="[bold yellow]Globe[/bold yellow]",
+            border_style="yellow",
+            expand=False,
+        ))
+        return
+
+    log_values = [math.log1p(v) for v in raw_values]
+    html = _build_coverage_html(a3_codes, raw_values, log_values)
+    try:
+        out = Path(tempfile.mkdtemp()) / "netpath-coverage.html"
+        out.write_text(html, encoding="utf-8")
+        if not webbrowser.open(out.as_uri()):
+            console.print(f"  [dim]Coverage globe saved — open manually: {out}[/dim]")
+    except Exception as e:
+        console.print(f"  [yellow]Coverage globe write failed: {e}[/yellow]")

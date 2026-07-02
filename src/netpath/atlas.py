@@ -4,11 +4,14 @@ measurement scheduling, result polling, and result parsing."""
 import time
 
 import requests
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from .asn import cymru_bulk_lookup
+from .asn import cymru_bulk_lookup_rich
+from .display import clean_asn_name, console
 from .utils import _with_retry
 
 _BASE = "https://atlas.ripe.net/api/v4"
+_ANCHORS_BASE = "https://atlas.ripe.net/api/v2"
 _PING_CREDITS = 1
 _TRACE_CREDITS = 10
 _TERMINAL = {"stopped", "forced to stop", "no suitable probes", "failed", "denied"}
@@ -42,6 +45,22 @@ def find_probes_in_asn(asn: str, atlas_key: str) -> list[int]:
         ))
         r.raise_for_status()
         return [p["id"] for p in r.json().get("results", [])]
+    except Exception:
+        return []
+
+
+def find_anchors_in_asn(asn: str, atlas_key: str) -> list[int]:
+    """Return probe IDs for Atlas anchors inside the given ASN. Returns [] on failure."""
+    asn_num = asn.lstrip("ASas")
+    try:
+        r = _with_retry(lambda: requests.get(
+            f"{_ANCHORS_BASE}/anchors/",
+            params={"asn_v4": asn_num, "status": 1, "page_size": 100},
+            headers=_hdr(atlas_key),
+            timeout=15,
+        ))
+        r.raise_for_status()
+        return [a["probe"] for a in r.json().get("results", []) if a.get("probe")]
     except Exception:
         return []
 
@@ -199,6 +218,52 @@ def parse_ping_rtt(results: list[dict]) -> dict[str, float] | None:
     }
 
 
+def fetch_coverage_by_country(api_key: str) -> dict[str, dict]:
+    """
+    Paginate Atlas probes and anchors endpoints to build per-country counts.
+    Returns {country_code: {"probes": int, "anchors": int}}.
+    Shows a Rich progress spinner during the fetch.
+    """
+    coverage: dict[str, dict] = {}
+
+    def _accumulate(start_url: str, key: str) -> None:
+        url: str | None = start_url
+        while url:
+            try:
+                captured = url
+                r = _with_retry(lambda u=captured: requests.get(
+                    u, headers=_hdr(api_key), timeout=30
+                ))
+                r.raise_for_status()
+                data = r.json()
+            except Exception:
+                break
+            for item in data.get("results", []):
+                cc = item.get("country_code", "")
+                if cc:
+                    entry = coverage.setdefault(cc, {"probes": 0, "anchors": 0})
+                    entry[key] += 1
+            url = data.get("next")
+
+    with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                  console=console, transient=True) as p:
+        p.add_task("Fetching probe coverage by country…", total=None)
+        _accumulate(
+            f"{_ANCHORS_BASE}/probes/?status=1&fields=country_code&page_size=500",
+            "probes",
+        )
+
+    with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                  console=console, transient=True) as p:
+        p.add_task("Fetching anchor coverage by country…", total=None)
+        _accumulate(
+            f"{_ANCHORS_BASE}/anchors/?status=1&fields=country_code&page_size=200",
+            "anchors",
+        )
+
+    return coverage
+
+
 def parse_traceroute_as_path(results: list[dict]) -> list[str]:
     """
     Derive a deduplicated AS-hop sequence from Atlas traceroute results.
@@ -218,18 +283,23 @@ def parse_traceroute_as_path(results: list[dict]) -> list[str]:
     if not all_ips:
         return []
 
-    ip_to_asn = cymru_bulk_lookup(list(all_ips))
+    ip_to_info = cymru_bulk_lookup_rich(list(all_ips))
 
     for probe in results:
-        path: list[str] = []
+        path_asns: list[str] = []   # deduplicate on bare ASN number
+        path_labels: list[str] = [] # display strings like "AS1234 (Name)"
         for hop in probe.get("result", []):
             for pkt in hop.get("result", []):
                 ip = pkt.get("from", "")
-                if ip in ip_to_asn:
-                    asn = ip_to_asn[ip]
-                    if not path or path[-1] != asn:
-                        path.append(asn)
+                if ip in ip_to_info:
+                    info = ip_to_info[ip]
+                    asn = info.get("asn", "")
+                    name = clean_asn_name(info.get("name", ""))
+                    label = f"{asn} ({name})" if name else asn
+                    if not path_asns or path_asns[-1] != asn:
+                        path_asns.append(asn)
+                        path_labels.append(label)
                     break
-        if path:
-            return path
+        if path_labels:
+            return path_labels
     return []

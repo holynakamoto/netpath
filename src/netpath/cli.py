@@ -5,7 +5,9 @@ import socket
 import subprocess
 import sys
 import typer
+from rich import box
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 from netpath import __version__
 from netpath import country as country_mod
@@ -627,6 +629,7 @@ def country(
 
     # Atlas: probe discovery + budget check (before regular sweep, no credits spent)
     _atlas_probes: dict[str, list[int]] = {}   # asn → probe IDs
+    _atlas_anchor_asns: set[str] = set()       # ASNs served by anchor fallback
     _atlas_test_ips: dict[str, str] = {}        # asn → test IP for ping target
     _user_public_ip: str | None = None
 
@@ -639,6 +642,11 @@ def country(
                 _probes = atlas_mod.find_probes_in_asn(_ai["asn"], atlas_key)
                 if _probes:
                     _atlas_probes[_ai["asn"]] = _probes
+                else:
+                    _anchors = atlas_mod.find_anchors_in_asn(_ai["asn"], atlas_key)
+                    if _anchors:
+                        _atlas_probes[_ai["asn"]] = _anchors
+                        _atlas_anchor_asns.add(_ai["asn"])
 
         if _atlas_probes:
             _user_public_ip = atlas_mod.get_public_ip()
@@ -763,7 +771,7 @@ def country(
         # Record no-probe ASNs
         for _ai in top_asns:
             if _ai["asn"] not in _atlas_probes:
-                _set_atlas_error(summary_rows, _ai["asn"], "no probes available")
+                _set_atlas_error(summary_rows, _ai["asn"], "no Atlas coverage")
 
         _all_mids = [_m for _ms in _atlas_mids.values() for _m in _ms.values()]
         if _all_mids:
@@ -799,6 +807,8 @@ def country(
                 elif _statuses.get(_trace_id) == "timed_out":
                     _set_atlas_error(summary_rows, _asn_str, "timed out")
 
+                if _asn_str in _atlas_anchor_asns:
+                    _atlas_data["source"] = "atlas_anchor"
                 _row = next((r for r in summary_rows if r["asn"] == _asn_str), None)
                 if _row is not None:
                     _row["atlas"] = _atlas_data
@@ -806,7 +816,7 @@ def country(
     elif atlas_key:
         # No probes found or public IP unavailable — record for all ASNs
         for _ai in top_asns:
-            _set_atlas_error(summary_rows, _ai["asn"], "no probes available")
+            _set_atlas_error(summary_rows, _ai["asn"], "no Atlas coverage")
 
     display.country_summary(code, summary_rows)
     if globe and hubs_for_globe:
@@ -816,6 +826,109 @@ def country(
     exit_code = _worst_exit_code(verdicts)
     if exit_code:
         raise typer.Exit(exit_code)
+
+
+_COUNTRY_NAMES: dict[str, str] = {
+    "AD": "Andorra", "AE": "United Arab Emirates", "AF": "Afghanistan",
+    "AL": "Albania", "AM": "Armenia", "AO": "Angola", "AR": "Argentina",
+    "AT": "Austria", "AU": "Australia", "AZ": "Azerbaijan",
+    "BA": "Bosnia and Herzegovina", "BD": "Bangladesh", "BE": "Belgium",
+    "BG": "Bulgaria", "BH": "Bahrain", "BN": "Brunei", "BO": "Bolivia",
+    "BR": "Brazil", "BY": "Belarus", "CA": "Canada", "CH": "Switzerland",
+    "CL": "Chile", "CM": "Cameroon", "CN": "China", "CO": "Colombia",
+    "CR": "Costa Rica", "CU": "Cuba", "CY": "Cyprus", "CZ": "Czechia",
+    "DE": "Germany", "DK": "Denmark", "DO": "Dominican Republic",
+    "DZ": "Algeria", "EC": "Ecuador", "EE": "Estonia", "EG": "Egypt",
+    "ES": "Spain", "ET": "Ethiopia", "FI": "Finland", "FJ": "Fiji",
+    "FR": "France", "GB": "United Kingdom", "GE": "Georgia",
+    "GH": "Ghana", "GR": "Greece", "GT": "Guatemala", "HK": "Hong Kong",
+    "HN": "Honduras", "HR": "Croatia", "HU": "Hungary", "ID": "Indonesia",
+    "IE": "Ireland", "IL": "Israel", "IN": "India", "IQ": "Iraq",
+    "IR": "Iran", "IS": "Iceland", "IT": "Italy", "JM": "Jamaica",
+    "JO": "Jordan", "JP": "Japan", "KE": "Kenya", "KG": "Kyrgyzstan",
+    "KH": "Cambodia", "KR": "South Korea", "KW": "Kuwait", "KZ": "Kazakhstan",
+    "LB": "Lebanon", "LI": "Liechtenstein", "LK": "Sri Lanka",
+    "LT": "Lithuania", "LU": "Luxembourg", "LV": "Latvia", "LY": "Libya",
+    "MA": "Morocco", "MC": "Monaco", "MD": "Moldova", "ME": "Montenegro",
+    "MK": "North Macedonia", "ML": "Mali", "MM": "Myanmar", "MN": "Mongolia",
+    "MT": "Malta", "MX": "Mexico", "MY": "Malaysia", "MZ": "Mozambique",
+    "NA": "Namibia", "NG": "Nigeria", "NL": "Netherlands", "NO": "Norway",
+    "NP": "Nepal", "NZ": "New Zealand", "OM": "Oman", "PA": "Panama",
+    "PE": "Peru", "PH": "Philippines", "PK": "Pakistan", "PL": "Poland",
+    "PT": "Portugal", "PY": "Paraguay", "QA": "Qatar", "RO": "Romania",
+    "RS": "Serbia", "RU": "Russia", "RW": "Rwanda", "SA": "Saudi Arabia",
+    "SE": "Sweden", "SG": "Singapore", "SI": "Slovenia", "SK": "Slovakia",
+    "SM": "San Marino", "SN": "Senegal", "SO": "Somalia", "SR": "Suriname",
+    "SV": "El Salvador", "SY": "Syria", "TH": "Thailand", "TJ": "Tajikistan",
+    "TN": "Tunisia", "TR": "Turkey", "TT": "Trinidad and Tobago",
+    "TW": "Taiwan", "TZ": "Tanzania", "UA": "Ukraine", "UG": "Uganda",
+    "US": "United States", "UY": "Uruguay", "UZ": "Uzbekistan",
+    "VE": "Venezuela", "VN": "Vietnam", "YE": "Yemen",
+    "ZA": "South Africa", "ZM": "Zambia", "ZW": "Zimbabwe",
+}
+
+
+@app.command(name="atlas-profile")
+def atlas_profile(
+    atlas_key: str | None = typer.Option(
+        None, "--atlas-key",
+        envvar="NETPATH_ATLAS_KEY",
+        help="RIPE Atlas API key (or set NETPATH_ATLAS_KEY)",
+    ),
+    top: int = typer.Option(20, "--top", "-t", help="Number of top countries to show"),
+    globe: bool = typer.Option(False, "--globe", "-g", help="Render choropleth globe after fetching"),
+):
+    """Show RIPE Atlas probe and anchor coverage ranked by country."""
+    if not atlas_key:
+        display.error(
+            "No Atlas API key provided. Set NETPATH_ATLAS_KEY or pass --atlas-key.\n"
+            "  Get a free key at: https://atlas.ripe.net/keys/"
+        )
+        raise typer.Exit(1)
+
+    display.header(__version__)
+    coverage = atlas_mod.fetch_coverage_by_country(atlas_key)
+
+    if not coverage:
+        display.warn("No coverage data returned from the Atlas API.")
+        raise typer.Exit(1)
+
+    ranked = sorted(
+        coverage.items(),
+        key=lambda x: x[1]["probes"] + x[1]["anchors"],
+        reverse=True,
+    )[:top]
+
+    table = Table(
+        box=box.ROUNDED,
+        border_style="dim",
+        title=f"[bold]Atlas Coverage — Top {top} Countries[/bold]",
+    )
+    table.add_column("#", style="dim", justify="right")
+    table.add_column("Code", justify="center")
+    table.add_column("Country", min_width=22)
+    table.add_column("Probes", justify="right")
+    table.add_column("Anchors", justify="right")
+    table.add_column("Total", justify="right", style="bold")
+
+    for rank, (cc, data) in enumerate(ranked, 1):
+        probes = data["probes"]
+        anchors = data["anchors"]
+        total = probes + anchors
+        table.add_row(
+            str(rank),
+            cc,
+            _COUNTRY_NAMES.get(cc, cc),
+            str(probes),
+            str(anchors),
+            str(total),
+        )
+
+    display.console.print(table)
+
+    if globe:
+        globe_coverage = {cc: d["probes"] + d["anchors"] for cc, d in coverage.items()}
+        globe_mod.render_coverage(globe_coverage)
 
 
 def run():

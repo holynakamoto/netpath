@@ -5,7 +5,8 @@ import shutil
 import statistics
 import subprocess
 
-from .asn import cymru_bulk_lookup
+from .asn import cymru_bulk_lookup_rich
+from .display import clean_asn_name
 from .types import Hub
 
 
@@ -30,6 +31,25 @@ def _enrich_percentiles(hub: dict) -> None:
     hub["p50"] = round(avg, 2)
     hub["p95"] = round(avg + 1.645 * std, 2)
     hub["p99"] = round(avg + 2.326 * std, 2)
+
+
+def _enrich_names(hubs: list[dict]) -> None:
+    """Batch-populate hub['asn_name'] from Cymru rich lookup. Silently skips on failure."""
+    ips = [h.get("host", "") for h in hubs if h.get("host") not in ("???", "", None)]
+    if not ips:
+        return
+    try:
+        rich_info = cymru_bulk_lookup_rich(ips)
+        for hub in hubs:
+            ip = hub.get("host", "")
+            if ip and ip not in ("???", "", None) and ip in rich_info:
+                raw_name = rich_info[ip].get("name", "")
+                if raw_name:
+                    hub["asn_name"] = clean_asn_name(raw_name)
+                if hub.get("ASN", "AS???") == "AS???":
+                    hub["ASN"] = rich_info[ip].get("asn", "AS???")
+    except Exception:
+        pass
 
 
 def available() -> bool:
@@ -66,6 +86,7 @@ def run(host: str, cycles: int = 10, passes: int = 1) -> "list[Hub] | list[list[
             hubs = data["report"]["hubs"]
             for hub in hubs:
                 _enrich_percentiles(hub)
+            _enrich_names(hubs)
             return hubs
         except (json.JSONDecodeError, KeyError) as e:
             raise RuntimeError(f"Failed to parse mtr output: {e}")
@@ -226,11 +247,5 @@ def run_traceroute(host: str, probes: int = 5, prefer_tcp: bool = False) -> list
             except RuntimeError:
                 pass  # pcap unavailable or path still filtered — keep UDP result
 
-    ips = [h["host"] for h in hubs if h["host"] != "???"]
-    if ips:
-        ip_asn = cymru_bulk_lookup(ips)
-        for hub in hubs:
-            if hub["host"] != "???":
-                hub["ASN"] = ip_asn.get(hub["host"], "AS???")
-
+    _enrich_names(hubs)
     return hubs

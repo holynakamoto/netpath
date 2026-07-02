@@ -5,6 +5,7 @@ Hub = TypedDict("Hub", {
     "count": int,
     "host": str,
     "ASN": str,
+    "asn_name": str,
     "Loss%": float,
     "Avg": float,
     "Best": float,

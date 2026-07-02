@@ -148,7 +148,7 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
     )
     table.add_column("#", style="dim", width=3, justify="right")
     table.add_column("Host", min_width=18)
-    table.add_column("ASN", min_width=9)
+    table.add_column("ASN", min_width=20)
     table.add_column("Type", width=8)
     table.add_column("Loss", justify="right", width=7)
     table.add_column("Avg", justify="right", width=9)
@@ -180,7 +180,14 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
             continue
 
         # AS boundary: highlight the hop where we enter a new AS
-        asn_text = Text(asn if asn != "AS???" else "—")
+        asn_name_val = hub.get("asn_name", "")
+        if asn == "AS???":
+            asn_display = "—"
+        elif asn_name_val:
+            asn_display = f"{asn} ({asn_name_val[:20]})"
+        else:
+            asn_display = asn
+        asn_text = Text(asn_display)
         hub_asn_norm = normalize_asn(asn) if asn and asn != "AS???" else None
         is_dest = target_norm and hub_asn_norm == target_norm
         if asn != "AS???" and asn != prev_asn and prev_asn is not None:
@@ -255,23 +262,27 @@ def dual_stack_columns(hubs_v4: list[dict], hubs_v6: list[dict] | None, target_a
 
 
 def as_path_summary(hubs: list[dict]):
-    asns = []
+    path: list[tuple[str, str]] = []  # (bare_asn, display_label)
     for hub in hubs:
         asn = hub.get("ASN", "")
-        if asn and asn != "AS???" and (not asns or asns[-1] != asn):
-            asns.append(asn)
+        if not asn or asn == "AS???":
+            continue
+        name = hub.get("asn_name", "")
+        label = f"{asn} ({name})" if name else asn
+        if not path or path[-1][0] != asn:
+            path.append((asn, label))
 
-    if not asns:
+    if not path:
         return
 
     parts = []
-    for i, asn in enumerate(asns):
+    for i, (_, label) in enumerate(path):
         if i == 0:
-            parts.append(f"[dim]{asn}[/dim]")
-        elif i == len(asns) - 1:
-            parts.append(f"[bold green]{asn}[/bold green]")
+            parts.append(f"[dim]{label}[/dim]")
+        elif i == len(path) - 1:
+            parts.append(f"[bold green]{label}[/bold green]")
         else:
-            parts.append(f"[yellow]{asn}[/yellow]")
+            parts.append(f"[yellow]{label}[/yellow]")
 
     console.print("  [dim]AS path:[/dim] " + " [dim]→[/dim] ".join(parts))
     console.print()
@@ -376,6 +387,7 @@ def _render_atlas_subrow(r: dict, is_last_in_group: bool) -> None:
     atlas = r.get("atlas", {})
     if not atlas:
         return
+    source = atlas.get("source", "probe")
     rtt = atlas.get("ping_rtt")
     path = atlas.get("outbound_as_path", [])
     parts = []
@@ -383,10 +395,14 @@ def _render_atlas_subrow(r: dict, is_last_in_group: bool) -> None:
         parts.append(f"RTT {rtt['avg']:.1f} ms avg ({rtt['min']:.1f}–{rtt['max']:.1f})")
     if path:
         parts.append("outbound: " + "→".join(path[:6]))
-    if not parts:
+    tag = "[Atlas anchor]" if source == "atlas_anchor" else "[Atlas]"
+    if not parts and source != "atlas_anchor":
         return
     cont = "   " if is_last_in_group else "  │"
-    console.print(f"  {cont}         [dim][Atlas] {', '.join(parts)}[/dim]")
+    if parts:
+        console.print(f"  {cont}         [dim]{tag} {', '.join(parts)}[/dim]")
+    else:
+        console.print(f"  {cont}         [dim]{tag}[/dim]")
 
 
 def country_summary(code: str, results: list[dict]):
