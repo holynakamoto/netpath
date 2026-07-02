@@ -1,11 +1,11 @@
 {
   "id": "task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 3,
   "createdAt": "2026-07-02T09:01:37Z",
-  "updatedAt": "2026-07-02T09:16:57Z",
+  "updatedAt": "2026-07-02T09:55:30Z",
   "events": [
     {
       "base_branch": "main",
@@ -144,6 +144,97 @@
       "type": "stage_work_complete",
       "worktree_head": "8c521e586002b870a683e01109a154e17187fea0",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 3,
+      "timestamp": "2026-07-02T09:50:12Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-07-02T09:50:12Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "888852280b19eaf5f89cccb6966db3283fd1da65",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "8c521e586002b870a683e01109a154e17187fea0",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-02T09:50:12Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-07-02T09:50:12Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-07-02T09:50:12Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-02T09:50:12Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwh3rv5zdvvjynfhyc6dszge",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T09:50:13Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwh1hcvcrs5vgx8rcj7pc325",
+      "timed_out": false,
+      "timestamp": "2026-07-02T09:50:13Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting Phase 1: ASN org name enrichment — reading source files before writing",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T09:50:23Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: ASN org name enrichment",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-07-02T09:53:39Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-07-02T09:53:58Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-07-02T09:55:27Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-07-02T09:55:30Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": false,
@@ -160,28 +251,33 @@
     "classifiedBy": "scope-agent",
     "rationale": "CLI-only feature across 7 files — no design stage needed (follows existing Rich table patterns) and no architecture stage needed (all three additions build directly on established patterns: cymru_bulk_lookup_rich() exists, Atlas scheduling pipeline exists, globe.py exists). Tier is full due to new subcommand, cross-cutting enrichment changes, and README docs spanning the entire Atlas feature surface."
   },
+  "stageApprovals": {
+    "scope": "2026-07-02T09:50:12Z"
+  },
   "stages": {
-    "implementation": {
-      "status": "not_started"
-    },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-02T09:11:11Z"
-    },
     "review": {
       "status": "not_started"
     },
-    "architecture": {
-      "status": "skipped"
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T09:50:13Z"
     },
     "design": {
       "status": "skipped"
     },
     "release": {
       "status": "not_started"
+    },
+    "architecture": {
+      "status": "skipped"
+    },
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-02T09:50:12Z",
+      "startedAt": "2026-07-02T09:11:11Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T09:11:11Z"
+  "worktreeLastSyncedAt": "2026-07-02T09:50:12Z"
 }
