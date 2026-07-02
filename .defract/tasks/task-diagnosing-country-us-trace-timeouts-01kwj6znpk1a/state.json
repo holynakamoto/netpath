@@ -2,10 +2,10 @@
   "id": "task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a",
   "status": "active",
   "stage": "implementation",
-  "phase": 0,
+  "phase": 1,
   "totalPhases": 2,
   "createdAt": "2026-07-02T20:05:36Z",
-  "updatedAt": "2026-07-02T20:22:44Z",
+  "updatedAt": "2026-07-02T20:36:03Z",
   "events": [
     {
       "base_branch": "main",
@@ -280,6 +280,53 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "56d7f7a4118673f2cae93d6a340042b24167d444",
       "worktree_status_digest": "1e7d2b56948ffd2c6f12a3107255e92234790a1d0f6fb3bf2abf91642d83ce1f"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Live-target selection and coverage labelling",
+      "timestamp": "2026-07-02T20:32:17Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 0,
+      "timestamp": "2026-07-02T20:32:17Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-02T20:32:18Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwj8ghw1tchxen6wad7np9n7",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T20:32:18Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting phase 2: partial-path recovery on trace timeout",
+      "phase": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T20:32:32Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 2: Partial-path recovery on trace timeout",
+      "percentage": 0,
+      "phase": 2,
+      "timestamp": "2026-07-02T20:32:39Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing TraceTimeout partial-harvest in mtr.py and _measure() handling",
+      "percentage": 20,
+      "phase": 2,
+      "timestamp": "2026-07-02T20:36:03Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": false,
@@ -306,20 +353,20 @@
     "design": {
       "status": "skipped"
     },
-    "architecture": {
-      "status": "skipped"
-    },
     "review": {
       "status": "not_started"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T20:32:18Z"
+    },
+    "architecture": {
+      "status": "skipped"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T20:17:20Z",
       "startedAt": "2026-07-02T20:06:20Z"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-02T20:17:21Z"
     },
     "release": {
       "status": "not_started"
@@ -327,5 +374,5 @@
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T20:17:21Z"
+  "worktreeLastSyncedAt": "2026-07-02T20:32:18Z"
 }
