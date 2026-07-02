@@ -5,7 +5,7 @@
   "phase": 2,
   "totalPhases": 3,
   "createdAt": "2026-07-02T09:01:37Z",
-  "updatedAt": "2026-07-02T11:01:47Z",
+  "updatedAt": "2026-07-02T11:21:02Z",
   "events": [
     {
       "base_branch": "main",
@@ -519,6 +519,46 @@
       "phase": 3,
       "timestamp": "2026-07-02T11:01:47Z",
       "type": "progress_report"
+    },
+    {
+      "exit_code": 0,
+      "session_id": "01kwh7j4bvg6mvc68d02ecn3ex",
+      "timed_out": false,
+      "timestamp": "2026-07-02T11:16:14Z",
+      "type": "agent_exited"
+    },
+    {
+      "base_branch": "main",
+      "conflict_message": "merge failed: Your local changes to the following files would be overwritten by merge:\n  src/netpath/atlas.py src/netpath/cli.py src/netpath/globe.py",
+      "timestamp": "2026-07-02T11:17:30Z",
+      "type": "worktree_sync_conflict"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwh8rp9sa5xx1rq5kdnrjhs3",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T11:17:31Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 0,
+      "session_id": "01kwh8rp9sa5xx1rq5kdnrjhs3",
+      "timed_out": false,
+      "timestamp": "2026-07-02T11:20:52Z",
+      "type": "agent_exited"
+    },
+    {
+      "base_branch": "main",
+      "conflict_message": "merge failed: Your local changes to the following files would be overwritten by merge:\n  src/netpath/atlas.py src/netpath/cli.py src/netpath/globe.py",
+      "timestamp": "2026-07-02T11:21:02Z",
+      "type": "worktree_sync_conflict"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwh8z4yrfjnf8s3fzystspbm",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T11:21:02Z",
+      "type": "stage_agent_started"
     }
   ],
   "needsArchitecture": false,
@@ -542,9 +582,11 @@
     "implementation": "## Phase 1: ASN org name enrichment\n\n**Files changed:**\n- `src/netpath/types.py` — added `asn_name: str` to `Hub` TypedDict (total=False, so optional)\n- `src/netpath/mtr.py` — replaced `cymru_bulk_lookup` import with `cymru_bulk_lookup_rich`; added `clean_asn_name` import from `display`; added `_enrich_names()` helper that batch-looks up org names and populates `hub[\"asn_name\"]` (and fills `hub[\"ASN\"]` as fallback when mtr didn't resolve it); called from both `_single_pass()` (mtr mode) and `run_traceroute()` (traceroute fallback mode)\n- `src/netpath/atlas.py` — replaced `cymru_bulk_lookup` with `cymru_bulk_lookup_rich`; added `clean_asn_name` import; `parse_traceroute_as_path()` now returns `[\"AS1234 (Name)\", ...]` formatted strings, deduplicating on bare ASN number\n- `src/netpath/display.py` — `_build_hub_table()` ASN column now shows `\"AS15169 (Google)\"` format (name truncated to 20 chars), column min_width raised to 20; `as_path_summary()` deduplicates on bare ASN, renders `\"AS{N} (Name)\"` labels in the path line\n\n**Deviations from plan:**\n- `cymru_bulk_lookup` removed from `mtr.py` entirely (replaced by `cymru_bulk_lookup_rich`) rather than calling both — avoids two Cymru TCP connections per `run_traceroute` call\n- Two test mocks in `tests/test_country.py` patched the now-removed `netpath.mtr.cymru_bulk_lookup` symbol; updated to patch `cymru_bulk_lookup_rich` instead\n\n**Test results:** 70/70 passed, ruff clean\n\n## Phase 2: Atlas anchor fallback\n\n**Files changed:**\n- `src/netpath/atlas.py` — added `_ANCHORS_BASE = \"https://atlas.ripe.net/api/v2\"` constant; added `find_anchors_in_asn(asn, atlas_key) -> list[int]` that queries `/api/v2/anchors/?asn_v4={asn}&status=1&page_size=100` and returns the `probe` IDs from each anchor record\n- `src/netpath/cli.py` — added `_atlas_anchor_asns: set[str]` alongside `_atlas_probes`; extended the Atlas discovery loop to call `find_anchors_in_asn` when `find_probes_in_asn` returns empty; adds ASN to `_atlas_anchor_asns` when anchor fallback is used; tags `_atlas_data[\"source\"] = \"atlas_anchor\"` in the results section when the ASN was anchor-served; changed both \"no probes available\" messages to \"no Atlas coverage\"\n- `src/netpath/display.py` — updated `_render_atlas_subrow` to read `atlas[\"source\"]` and render `[Atlas anchor]` tag instead of `[Atlas]` when source is \"atlas_anchor\"; shows the `[Atlas anchor]` tag even when no RTT/path data is present (unlike the probe case which returns early on empty parts)\n- `tests/test_atlas.py` — new file with 5 unit tests for `find_anchors_in_asn`: returns probe IDs, strips AS prefix, skips records without probe field, returns empty on error, returns empty on empty results\n\n**Deviations from plan:**\n- Anchor discovery runs in the same progress spinner as probe discovery (one pass per ASN: try probes, fallback to anchors) rather than two separate passes — avoids choppy UX and is more efficient\n\n**Test results:** 75/75 passed, ruff clean"
   },
   "stages": {
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-02T10:56:27Z"
+    "review": {
+      "status": "not_started"
+    },
+    "release": {
+      "status": "not_started"
     },
     "design": {
       "status": "skipped"
@@ -552,16 +594,14 @@
     "architecture": {
       "status": "skipped"
     },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T11:21:02Z"
+    },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T09:50:12Z",
       "startedAt": "2026-07-02T09:11:11Z"
-    },
-    "release": {
-      "status": "not_started"
-    },
-    "review": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",
