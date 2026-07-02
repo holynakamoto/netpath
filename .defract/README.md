@@ -9,10 +9,10 @@ This project uses [defract](https://defract.dev) for structured AI-assisted deve
 | Auditing iperf3 + RIPE Atlas endpoint validity | release | active |
 | Country AS-path visual + Binat RTT anomaly | implementation | cancelled |
 | Incomplete paths still showing in ZA country sweep | release | active |
-| It looks like we still have a ton of gaps in our output data I want to cover ... | scope | active |
 | Migrate from RIPE Atlas to Globalping and drop the API key requirement | release | active |
 | Trace only valid probe targets in country mode | release | active |
 | Automated PyPI Publishing with VCS Versioning | release | completed |
+| Expand coverage command to top 50 countries and address output data gaps | release | completed |
 | Fixing incomplete paths + richer path metrics | release | completed |
 | Globe AS-path latency viz + pip/uv install | release | completed |
 | Improve RIPE Atlas probe selection and traceroute depth in country mode | release | completed |
