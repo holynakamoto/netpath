@@ -10,6 +10,7 @@ This project uses [defract](https://defract.dev) for structured AI-assisted deve
 | Country AS-path visual + Binat RTT anomaly | implementation | cancelled |
 | Incomplete paths still showing in ZA country sweep | release | active |
 | Migrate from RIPE Atlas to Globalping and drop the API key requirement | release | active |
+| Netpath review: mtr fallback, host lists, Globalping verdicts | scope | active |
 | Trace only valid probe targets in country mode | release | active |
 | Automated PyPI Publishing with VCS Versioning | release | completed |
 | Expand coverage command to top 50 countries and address output data gaps | release | completed |
