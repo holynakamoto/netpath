@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from netpath.mtr import _all_stars, _compare_as_paths, _parse_traceroute_output
+from netpath.mtr import _all_stars, _compare_as_paths, _parse_traceroute_output, run_traceroute
 from netpath.pmtu import probe as pmtu_probe
 
 NORMAL_MULTI_HOP = """\
@@ -132,6 +132,44 @@ def test_compare_as_paths_empty():
     result = _compare_as_paths([])
     assert result["ecmp_paths"] == 1
     assert result["path_changes"] == 0
+
+
+# run_traceroute probe-count tests
+
+def _run_traceroute_capturing_cmd(probes):
+    captured = {}
+
+    def mock_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["timeout"] = kwargs.get("timeout")
+        return type("R", (), {"returncode": 0, "stdout": NORMAL_MULTI_HOP, "stderr": ""})()
+
+    with patch("netpath.mtr.subprocess.run", side_effect=mock_run), \
+         patch("netpath.mtr._enrich_names"):
+        run_traceroute("8.8.8.8", probes=probes)
+    return captured
+
+
+def test_run_traceroute_threads_probe_count():
+    """probes=3 is passed through to the traceroute command as -q 3."""
+    captured = _run_traceroute_capturing_cmd(3)
+    q_idx = captured["cmd"].index("-q")
+    assert captured["cmd"][q_idx + 1] == "3"
+
+
+def test_run_traceroute_caps_probe_count_at_five():
+    """probes=10 is capped to -q 5 to bound runtime."""
+    captured = _run_traceroute_capturing_cmd(10)
+    q_idx = captured["cmd"].index("-q")
+    assert captured["cmd"][q_idx + 1] == "5"
+
+
+def test_run_traceroute_timeout_scales_with_probes():
+    """The subprocess timeout grows with the effective probe count."""
+    timeout_3 = _run_traceroute_capturing_cmd(3)["timeout"]
+    timeout_5 = _run_traceroute_capturing_cmd(10)["timeout"]
+    assert timeout_3 is not None and timeout_5 is not None
+    assert timeout_5 > timeout_3
 
 
 # pmtu.probe tests

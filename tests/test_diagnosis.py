@@ -88,6 +88,99 @@ def test_jitter_below_threshold_is_healthy():
     assert result["verdict"] == "Healthy"
 
 
+def test_high_jitter_suppressed_below_min_samples():
+    """jitter from only 2 probes yields an informational signal, not a High Jitter warning."""
+    result = diagnose({"jitter_ms": 20.0, "probe_count": 2, "hubs": []})
+    assert result["verdict"] == "Healthy"
+    assert result["severity"] == "ok"
+    assert any(s["condition"] == "jitter_low_sample" for s in result["signals"])
+    assert not any(s["condition"] == "high_jitter" for s in result["signals"])
+
+
+def test_high_jitter_fires_at_min_samples():
+    """probe_count=5 is enough samples — the warning fires normally."""
+    result = diagnose({"jitter_ms": 20.0, "probe_count": 5, "hubs": []})
+    assert result["verdict"] == "High Jitter"
+    assert result["severity"] == "warning"
+
+
+def test_high_jitter_unchanged_at_mtr_default_samples():
+    """probe_count=10 (mtr default cycles) keeps the existing warning behavior."""
+    result = diagnose({"jitter_ms": 20.0, "probe_count": 10, "hubs": []})
+    assert result["verdict"] == "High Jitter"
+    assert result["severity"] == "warning"
+
+
+def test_remote_clean_jitter_suppresses_local_high_jitter():
+    """Clean near-target figures suppress a High Jitter warning sourced from the local trace."""
+    result = diagnose({
+        "jitter_ms": 20.0, "probe_count": 10, "hubs": [],
+        "globalping": {"ping_jitter_ms": 1.2, "ping_loss_pct": 0.0, "ping_packets": 16},
+    })
+    assert result["verdict"] == "Healthy"
+    assert not any(s["condition"] == "high_jitter" for s in result["signals"])
+    notes = [s for s in result["signals"] if s["condition"] == "jitter_remote_clean"]
+    assert notes and notes[0]["severity"] == "ok"
+    assert "near-target" in notes[0]["detail"]
+
+
+def test_remote_high_jitter_fires_citing_remote_figure():
+    """Near-target jitter above the threshold fires High Jitter citing the remote value."""
+    result = diagnose({
+        "jitter_ms": 2.0, "probe_count": 10, "hubs": [],
+        "globalping": {"ping_jitter_ms": 25.0, "ping_packets": 16},
+    })
+    assert result["verdict"] == "High Jitter"
+    assert result["severity"] == "warning"
+    sig = next(s for s in result["signals"] if s["condition"] == "high_jitter")
+    assert "25.0" in sig["detail"]
+    assert "Near-target" in sig["detail"]
+
+
+def test_remote_loss_warning_fires_above_calibrated_threshold():
+    """Near-target loss above the calibrated threshold emits a warning naming the source."""
+    result = diagnose({
+        "hubs": [],
+        "globalping": {"ping_loss_pct": 8.0, "ping_jitter_ms": 1.0, "ping_packets": 16},
+    })
+    assert result["verdict"] == "Near-target Packet Loss"
+    assert result["severity"] == "warning"
+    sig = next(s for s in result["signals"] if s["condition"] == "remote_packet_loss")
+    assert "Near-target" in sig["detail"]
+
+
+def test_remote_jitter_suppression_does_not_hide_remote_loss():
+    """Suppressing the jitter warning must not hide a genuine near-target loss warning."""
+    result = diagnose({
+        "jitter_ms": 20.0, "probe_count": 10, "hubs": [],
+        "globalping": {"ping_jitter_ms": 1.0, "ping_loss_pct": 10.0, "ping_packets": 48},
+    })
+    conditions = [s["condition"] for s in result["signals"]]
+    assert "high_jitter" not in conditions
+    assert "remote_packet_loss" in conditions
+    assert result["verdict"] == "Near-target Packet Loss"
+
+
+def test_remote_figures_below_min_packets_fall_back_to_local():
+    """Fewer than 5 remote packets is too small a sample — local behavior applies."""
+    result = diagnose({
+        "jitter_ms": 20.0, "probe_count": 10, "hubs": [],
+        "globalping": {"ping_jitter_ms": 1.0, "ping_loss_pct": 0.0, "ping_packets": 3},
+    })
+    assert result["verdict"] == "High Jitter"
+    assert result["severity"] == "warning"
+
+
+def test_absent_or_malformed_remote_data_keeps_local_behavior():
+    """Missing, None, empty, or partial globalping data degrades to the local-trace verdict."""
+    for gp in (None, {}, "garbage", {"ping_rtt": {"avg": 4.2}}):
+        result = diagnose({
+            "jitter_ms": 20.0, "probe_count": 10, "hubs": [], "globalping": gp,
+        })
+        assert result["verdict"] == "High Jitter"
+        assert result["severity"] == "warning"
+
+
 def test_calibrated_loss_few_probes_no_alarm():
     """With probe_count < 20, 3% mid-path loss does not trigger Mid-path Packet Loss (threshold > 5%)."""
     hubs = [

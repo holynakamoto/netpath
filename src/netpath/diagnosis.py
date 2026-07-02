@@ -1,4 +1,6 @@
 JITTER_WARNING_MS = 10.0
+JITTER_MIN_SAMPLES = 5
+REMOTE_MIN_PACKETS = 5  # near-target figures drive the verdict only at this sample size
 LOSS_THRESHOLD_FEW = 5.0      # probe_count < 20
 LOSS_THRESHOLD_DEFAULT = 1.0  # probe_count 20–99
 LOSS_THRESHOLD_MANY = 0.5     # probe_count >= 100
@@ -16,6 +18,9 @@ _CONDITION_VERDICT = {
     "last_mile_congestion": "Last-mile Congestion",
     "throughput_cap": "Throughput Cap",
     "high_jitter": "High Jitter",
+    "jitter_low_sample": "Healthy",
+    "jitter_remote_clean": "Healthy",
+    "remote_packet_loss": "Near-target Packet Loss",
     "pmtu_blackhole": "PMTU Black-hole",
     "route_flapping": "Route Flapping",
     "tcp_latency": "TCP Latency",
@@ -42,6 +47,22 @@ def diagnose(result: dict) -> dict:
         download_mbps = result.get("download_mbps")
         probe_count = result.get("probe_count")
         jitter_ms = result.get("jitter_ms")
+
+        # Near-target (Globalping) figures — read defensively: the dict may be
+        # missing, None, or partial, in which case the local trace drives the checks.
+        gp = result.get("globalping")
+        gp = gp if isinstance(gp, dict) else {}
+        remote_loss = gp.get("ping_loss_pct")
+        remote_jitter = gp.get("ping_jitter_ms")
+        remote_packets = gp.get("ping_packets")
+        if not isinstance(remote_loss, (int, float)):
+            remote_loss = None
+        if not isinstance(remote_jitter, (int, float)):
+            remote_jitter = None
+        remote_valid = (
+            isinstance(remote_packets, (int, float))
+            and remote_packets >= REMOTE_MIN_PACKETS
+        )
 
         # Calibrated loss threshold — scales with sample size
         if probe_count is not None and probe_count < 20:
@@ -181,16 +202,70 @@ def diagnose(result: dict) -> dict:
                     ),
                 })
 
-        # (5) High jitter
-        if jitter_ms is not None and jitter_ms > JITTER_WARNING_MS:
-            signals.append({
-                "condition": "high_jitter",
-                "severity": "warning",
-                "detail": (
-                    f"Path jitter of {jitter_ms:.1f} ms exceeds the "
-                    f"{JITTER_WARNING_MS:.1f} ms threshold, indicating unstable latency."
-                ),
-            })
+        # (5) High jitter — a near-target measurement with a sufficient sample
+        # drives the check; otherwise the local trace does, and it requires
+        # enough samples to judge stability.
+        if remote_valid and remote_jitter is not None:
+            if remote_jitter > JITTER_WARNING_MS:
+                signals.append({
+                    "condition": "high_jitter",
+                    "severity": "warning",
+                    "detail": (
+                        f"Near-target jitter of {remote_jitter:.1f} ms, measured from "
+                        f"probes inside the target network, exceeds the "
+                        f"{JITTER_WARNING_MS:.1f} ms threshold, indicating unstable latency."
+                    ),
+                })
+            elif jitter_ms is not None and jitter_ms > JITTER_WARNING_MS:
+                signals.append({
+                    "condition": "jitter_remote_clean",
+                    "severity": "ok",
+                    "detail": (
+                        f"Local trace jitter of {jitter_ms:.1f} ms reflects the long-haul "
+                        f"approach path; the near-target measurement shows "
+                        f"{remote_jitter:.1f} ms jitter, so no jitter alarm is raised."
+                    ),
+                })
+        elif jitter_ms is not None and jitter_ms > JITTER_WARNING_MS:
+            if probe_count is not None and probe_count < JITTER_MIN_SAMPLES:
+                signals.append({
+                    "condition": "jitter_low_sample",
+                    "severity": "ok",
+                    "detail": (
+                        f"Path jitter of {jitter_ms:.1f} ms was measured from only "
+                        f"{probe_count} probe(s) — too few samples to judge latency "
+                        "stability, so no jitter alarm is raised."
+                    ),
+                })
+            else:
+                signals.append({
+                    "condition": "high_jitter",
+                    "severity": "warning",
+                    "detail": (
+                        f"Path jitter of {jitter_ms:.1f} ms exceeds the "
+                        f"{JITTER_WARNING_MS:.1f} ms threshold, indicating unstable latency."
+                    ),
+                })
+
+        # (5b) Near-target packet loss — genuine loss inside the target network,
+        # surfaced independently of the jitter suppression above.
+        if remote_valid and remote_loss is not None:
+            if remote_packets < 20:
+                remote_loss_threshold = LOSS_THRESHOLD_FEW
+            elif remote_packets >= 100:
+                remote_loss_threshold = LOSS_THRESHOLD_MANY
+            else:
+                remote_loss_threshold = LOSS_THRESHOLD_DEFAULT
+            if remote_loss > remote_loss_threshold:
+                signals.append({
+                    "condition": "remote_packet_loss",
+                    "severity": "warning",
+                    "detail": (
+                        f"Near-target measurement from probes inside the target network "
+                        f"shows {remote_loss:.1f}% packet loss, exceeding the "
+                        f"{remote_loss_threshold:.1f}% threshold."
+                    ),
+                })
 
         # (6) PMTU black-hole
         pmtu = result.get("pmtu") or {}

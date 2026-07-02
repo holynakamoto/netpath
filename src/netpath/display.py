@@ -388,12 +388,20 @@ def _render_globalping_subrow(r: dict, is_last_in_group: bool) -> None:
     if not gp:
         return
     rtt = gp.get("ping_rtt")
+    loss = gp.get("ping_loss_pct")
+    jitter = gp.get("ping_jitter_ms")
     path = gp.get("outbound_as_path", [])
     parts = []
     if rtt:
         parts.append(f"RTT {rtt['avg']:.1f} ms avg ({rtt['min']:.1f}–{rtt['max']:.1f})")
+    if loss is not None:
+        parts.append(f"loss {loss:.1f}%")
+    if jitter is not None:
+        parts.append(f"jitter {jitter:.1f} ms")
     if path:
         parts.append("outbound: " + "→".join(path[:6]))
+    if (loss is not None or jitter is not None) and (r.get("verdict") or {}).get("verdict"):
+        parts.append(f"verdict {r['verdict']['verdict']} (near-target)")
     if not parts:
         return
     cont = "   " if is_last_in_group else "  │"

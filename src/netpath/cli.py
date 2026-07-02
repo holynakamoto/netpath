@@ -13,7 +13,7 @@ from rich.table import Table
 from netpath import __version__
 from netpath import country as country_mod
 from netpath import display, globalping as globalping_mod, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
-from netpath import mtr, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest
+from netpath import mtr, paris, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
 from netpath.types import MeasurementResult
@@ -152,11 +152,22 @@ def _check_deps(no_throughput: bool) -> bool:
     return no_throughput
 
 
+def _fallback_trace(host: str, cycles: int, prefer_tcp: bool = False) -> tuple[list[dict], str]:
+    """mtr lacks raw-socket access — prefer a Paris prober, else system traceroute."""
+    binary = paris.detect()
+    if binary is not None:
+        try:
+            return paris.run(host, probes=cycles, binary=binary), binary
+        except paris.ParisError:
+            pass  # permission denied, timeout, bad output — fall through silently
+    return mtr.run_traceroute(host, probes=cycles, prefer_tcp=prefer_tcp), "traceroute"
+
+
 def _trace(host: str, cycles: int, prefer_tcp: bool = False) -> tuple[list[dict], str]:
     try:
         return mtr.run(host, cycles=cycles), "mtr"
     except mtr.MtrPermissionError:
-        return mtr.run_traceroute(host, probes=cycles, prefer_tcp=prefer_tcp), "traceroute"
+        return _fallback_trace(host, cycles, prefer_tcp=prefer_tcp)
 
 
 def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
@@ -248,8 +259,8 @@ def _measure(host: str, port: int, target_asn: str,
                 hubs = all_passes[0] if all_passes else []
                 result["_trace_method"] = "mtr"
             except mtr.MtrPermissionError:
-                hubs = mtr.run_traceroute(host, probes=cycles, prefer_tcp=prefer_tcp)
-                result["_trace_method"] = "traceroute"
+                hubs, method = _fallback_trace(host, cycles, prefer_tcp=prefer_tcp)
+                result["_trace_method"] = method
             except RuntimeError as e:
                 result["probe_errors"]["v4_trace"] = str(e)
                 return result
@@ -264,6 +275,11 @@ def _measure(host: str, port: int, target_asn: str,
 
         result["as_path"] = _extract_as_path(hubs)
         result["hubs"] = hubs
+
+        if result["_trace_method"] == "traceroute":
+            result["probe_count"] = min(cycles, mtr.TRACEROUTE_MAX_PROBES)
+        elif result["_trace_method"] in paris.SUPPORTED_BINARIES:
+            result["probe_count"] = min(cycles, paris.PARIS_MAX_PROBES)
 
         for _h in reversed(hubs):
             if _h.get("host") not in ("???", None, "") and _h.get("StDev") is not None:
@@ -395,6 +411,11 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
 
     if result.get("_trace_method") == "traceroute" and not json_mode:
         display.console.print("  [dim](mtr unavailable — using traceroute + Cymru ASN lookup)[/dim]\n")
+    elif result.get("_trace_method") in paris.SUPPORTED_BINARIES and not json_mode:
+        display.console.print(
+            f"  [dim](mtr unavailable — using {result['_trace_method']} Paris traceroute"
+            " + Cymru ASN lookup)[/dim]\n"
+        )
 
     if not json_mode:
         if compare_v6 and result.get("hubs_v6") is not None:
@@ -791,11 +812,17 @@ def country(
                 _gp_data: dict = {"measurement_ids": _mids}
 
                 if _statuses.get(_ping_id) == "finished":
-                    _rtt = globalping_mod.parse_ping_rtt(
-                        globalping_mod.fetch_results(_ping_id, gp_token)
-                    )
+                    _ping_results = globalping_mod.fetch_results(_ping_id, gp_token)
+                    _rtt = globalping_mod.parse_ping_rtt(_ping_results)
                     if _rtt:
                         _gp_data["ping_rtt"] = _rtt
+                    _stats = globalping_mod.parse_ping_stats(_ping_results)
+                    if _stats:
+                        if "loss_pct" in _stats:
+                            _gp_data["ping_loss_pct"] = _stats["loss_pct"]
+                        if "jitter_ms" in _stats:
+                            _gp_data["ping_jitter_ms"] = _stats["jitter_ms"]
+                        _gp_data["ping_packets"] = _stats["packets"]
                 elif _statuses.get(_ping_id) == "timed_out":
                     _set_globalping_error(summary_rows, _asn_str, "timed out")
 
@@ -816,6 +843,17 @@ def country(
         # No probes found or public IP unavailable — record for all ASNs
         for _ai in top_asns:
             _set_globalping_error(summary_rows, _ai["asn"], "no Globalping coverage")
+
+    # Re-derive verdicts for rows that gained near-target figures — diagnose()
+    # already ran inside _measure() before the Globalping merge, so the summary
+    # table and exit code would otherwise ignore the remote data.
+    for _row in summary_rows:
+        _gp = _row.get("globalping") or {}
+        if _row.get("verdict") and (
+            _gp.get("ping_loss_pct") is not None
+            or _gp.get("ping_jitter_ms") is not None
+        ):
+            _row["verdict"] = diagnose(_row)
 
     display.country_summary(code, summary_rows)
     if globe and hubs_for_globe:

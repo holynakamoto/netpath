@@ -106,6 +106,17 @@ def test_schedule_measurements_posts_ping_and_mtr():
     assert mtr_body["locations"] == [{"magic": "AS15169"}]
 
 
+def test_schedule_measurements_requests_16_ping_packets():
+    """schedule_measurements() asks for 16 packets so loss/jitter stats are meaningful."""
+    from netpath.globalping import schedule_measurements
+    responses = [_json_response({"id": "p"}), _json_response({"id": "m"})]
+    with patch("netpath.globalping.requests.post",
+               side_effect=responses) as mock_post:
+        schedule_measurements("AS15169", "8.8.8.8", "203.0.113.7")
+    ping_body = mock_post.call_args_list[0][1]["json"]
+    assert ping_body["measurementOptions"] == {"packets": 16}
+
+
 def test_schedule_measurements_accepts_bare_asn_number():
     """schedule_measurements() normalises '15169' to magic 'AS15169'."""
     from netpath.globalping import schedule_measurements
@@ -210,6 +221,65 @@ def test_parse_ping_rtt_returns_none_when_no_valid_stats():
     assert parse_ping_rtt(
         [{"result": {"stats": {"min": None, "avg": None, "max": None}}}]
     ) is None
+
+
+# --- parse_ping_stats ---
+
+def _ping_stats_result(rtts: list[float], total: int, drop: int) -> dict:
+    return {"result": {
+        "stats": {"total": total, "rcv": len(rtts), "drop": drop},
+        "timings": [{"ttl": 55, "rtt": r} for r in rtts],
+    }}
+
+
+def test_parse_ping_stats_returns_loss_and_jitter():
+    """parse_ping_stats() extracts loss %, jitter (StDev of timings), and packet count."""
+    from netpath.globalping import parse_ping_stats
+    results = [_ping_stats_result([10.0, 12.0, 14.0, 16.0, 18.0], total=6, drop=1)]
+    assert parse_ping_stats(results) == {
+        "loss_pct": 16.67, "jitter_ms": 3.16, "packets": 5,
+    }
+
+
+def test_parse_ping_stats_aggregates_jitter_via_median():
+    """parse_ping_stats() takes the median per-probe StDev, robust to one bad probe."""
+    from netpath.globalping import parse_ping_stats
+    results = [
+        _ping_stats_result([10.0, 10.0, 10.0], total=3, drop=0),
+        _ping_stats_result([10.0, 12.0, 14.0], total=3, drop=0),
+        _ping_stats_result([0.0, 50.0, 100.0], total=3, drop=0),
+    ]
+    assert parse_ping_stats(results)["jitter_ms"] == 2.0
+
+
+def test_parse_ping_stats_aggregates_loss_across_probes():
+    """parse_ping_stats() computes loss from summed drop/total counts."""
+    from netpath.globalping import parse_ping_stats
+    results = [
+        _ping_stats_result([1.0] * 12, total=16, drop=4),
+        _ping_stats_result([1.0] * 16, total=16, drop=0),
+    ]
+    assert parse_ping_stats(results)["loss_pct"] == 12.5
+
+
+def test_parse_ping_stats_counts_received_timings_across_probes():
+    """parse_ping_stats() reports how many received timings the jitter rests on."""
+    from netpath.globalping import parse_ping_stats
+    results = [
+        _ping_stats_result([10.0, 12.0], total=2, drop=0),
+        _ping_stats_result([14.0], total=2, drop=1),
+    ]
+    parsed = parse_ping_stats(results)
+    assert parsed["packets"] == 3
+    assert parsed["jitter_ms"] == 1.41  # only the 2-timing probe yields a StDev
+
+
+def test_parse_ping_stats_returns_none_on_no_usable_data():
+    """parse_ping_stats() returns None on empty or stat-less results."""
+    from netpath.globalping import parse_ping_stats
+    assert parse_ping_stats([]) is None
+    assert parse_ping_stats([{"result": {"stats": {}, "timings": []}}]) is None
+    assert parse_ping_stats([{"result": None}]) is None
 
 
 # --- parse_mtr_as_path ---

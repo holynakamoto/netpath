@@ -124,7 +124,7 @@ def test_run_traceroute_prefer_tcp_calls_tcp_first():
          patch("netpath.mtr.cymru_bulk_lookup_rich", return_value={}):
         mtr_mod.run_traceroute("1.2.3.4", prefer_tcp=True)
 
-    assert mock_cmd.call_args_list[0] == call("1.2.3.4", tcp=True)
+    assert mock_cmd.call_args_list[0] == call("1.2.3.4", tcp=True, probes=5)
 
 
 def test_run_traceroute_prefer_tcp_falls_back_to_udp_on_allstars():
@@ -143,6 +143,6 @@ def test_run_traceroute_prefer_tcp_falls_back_to_udp_on_allstars():
          patch("netpath.mtr.cymru_bulk_lookup_rich", return_value={}):
         result = mtr_mod.run_traceroute("1.2.3.4", prefer_tcp=True)
 
-    assert mock_cmd.call_args_list[0] == call("1.2.3.4", tcp=True)
-    assert mock_cmd.call_args_list[1] == call("1.2.3.4", tcp=False)
+    assert mock_cmd.call_args_list[0] == call("1.2.3.4", tcp=True, probes=5)
+    assert mock_cmd.call_args_list[1] == call("1.2.3.4", tcp=False, probes=5)
     assert result[0]["host"] == "1.2.3.4"

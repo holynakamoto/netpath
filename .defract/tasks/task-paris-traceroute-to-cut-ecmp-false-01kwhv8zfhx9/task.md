@@ -3,7 +3,7 @@ defract:
   id: task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9
   type: bug
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 3
   priority: normal
@@ -255,3 +255,33 @@ No security issues found in changed files.
 
 None.
 
+## Release
+
+## Release Notes
+
+### What was built
+- The fallback path prober now honors the requested per-hop probe count (capped at 5) with a scaled subprocess timeout, eliminating the hardcoded -q 2 two-sample quantization artifact that drove High Jitter false positives
+- The jitter verdict engine refuses to fire a High Jitter warning when the figure rests on fewer than 5 samples, emitting an ok-severity informational note instead
+- A new paris.py module provides best-effort Paris-style route-pinned probing (dublin-traceroute preferred, then scamper) with silent fall-through to the system traceroute on any failure — no new hard prerequisite
+- Country sweeps now request 16-packet Globalping pings and parse near-target loss and jitter; the verdict engine uses remote figures when a sufficient sample exists, suppressing long-haul High Jitter false positives and surfacing genuine near-target loss independently
+- Country sweep summary tables and process exit codes reflect post-merge near-target verdicts rather than the local-trace view, making them trustworthy for monitoring
+
+### Key decisions
+- All three levers from the brief are in scope as separate phases: raise the fallback sample count, add best-effort Paris-capable prober support, and gate country-sweep verdicts on Globalping near-target loss/jitter
+- Remote-figure verdict gating lives inside the pure diagnose() function via new keys on the result dict; country mode re-runs diagnose() on rows that gained remote data after the Globalping merge, before the summary table and exit-code computation
+- diagnose() treats probe_count=None as unknown rather than too few, preserving every existing test and the mtr path (cycles=10) unchanged
+- dublin-traceroute is invoked once per probe with --npaths=1 and runs aggregated per TTL; _trace_method carries the Paris binary name rather than a generic "paris" value
+- The minimum-sample gate for near-target figures (REMOTE_MIN_PACKETS=5) lives in diagnose(); the near-target loss check reuses the existing calibrated loss-threshold tiers
+
+### Changes by phase
+- **Phase 1: Meaningful samples in the fallback prober** — mtr.py gains TRACEROUTE_MAX_PROBES=5 and threads the probes parameter through all _run_traceroute_cmd call sites with a scaled timeout; cli.py corrects probe_count for traceroute-sourced traces; diagnosis.py adds JITTER_MIN_SAMPLES=5 gate emitting ok-severity jitter_low_sample signal when below threshold. 6 new tests; 109 passed, ruff clean.
+- **Phase 2: Consistent-route probing via a Paris-capable prober** — New paris.py module with dublin-traceroute and scamper runners, pure Hub-shaped parsers (_parse_dublin_outputs, _parse_scamper_output), and silent ParisError fall-through on any failure; cli.py gains _fallback_trace() helper implementing the mtr->paris->traceroute chain; _trace_method carries the prober name. 20 new tests; 129 passed, ruff clean.
+- **Phase 3: Near-target measurements drive country-sweep verdicts** — globalping.py raises ping to 16 packets (_PING_PACKETS) and adds parse_ping_stats() returning loss_pct, jitter_ms, and packets; diagnosis.py adds remote jitter gating (jitter_remote_clean suppression and high_jitter via remote) plus independent near-target loss check (remote_packet_loss); cli.py merges figures into globalping dicts and re-runs diagnose() before the country summary and exit code; display.py shows near-target loss/jitter and appends verdict source label. 12 new tests; 141 passed, ruff clean.
+
+## Verification
+
+- Production build: PASS (uv build — netpath-0.11.1.dev18+gad796919c sdist + wheel)
+- Review approved: 2026-07-02T19:28:22Z, 8/8 acceptance criteria passed
+- Test suite: 141 passed, 0 failed, 0 skipped
+- Lint: ruff check src tests — all checks passed
+- Branch pushed: feature/task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9 -> origin

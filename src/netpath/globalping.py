@@ -4,6 +4,7 @@ result polling, result parsing, and coverage by country.
 No authentication is required. An optional Bearer token raises the
 per-IP rate limit tier."""
 
+import statistics
 import time
 
 import requests
@@ -12,6 +13,7 @@ from .utils import _with_retry
 
 _BASE = "https://api.globalping.io/v1"
 _PROBE_LIMIT = 3
+_PING_PACKETS = 16  # API per-measurement maximum; enough for loss/jitter stats
 _POLL_INTERVAL = 2.0
 _POLL_TIMEOUT = 60
 
@@ -91,7 +93,7 @@ def schedule_measurements(
             "target": target_ip,
             "locations": locations,
             "limit": _PROBE_LIMIT,
-            "measurementOptions": {"packets": 3},
+            "measurementOptions": {"packets": _PING_PACKETS},
         },
         headers=_hdr(token),
         timeout=30,
@@ -193,6 +195,51 @@ def parse_ping_rtt(results: list[dict]) -> dict[str, float] | None:
         "avg": round(sum(avgs) / len(avgs), 2),
         "max": round(max(maxs), 2),
     }
+
+
+def parse_ping_stats(results: list[dict]) -> dict | None:
+    """
+    Extract aggregate loss and jitter from Globalping ping results.
+
+    Loss aggregates dropped/sent packet counts across probes. Jitter is
+    computed per probe as the standard deviation of its packet timings and
+    aggregated across probes via the median (robust to one bad probe).
+
+    Returns {"loss_pct": float, "jitter_ms": float, "packets": int} where
+    "packets" is the number of received timings the jitter rests on; the
+    loss_pct / jitter_ms keys are present only when computable. Returns
+    None if no probe produced usable data.
+    """
+    total_sent = 0
+    total_dropped = 0
+    received = 0
+    jitters: list[float] = []
+    for item in results:
+        res = item.get("result") or {}
+        if not isinstance(res, dict):
+            continue
+        stats = res.get("stats") or {}
+        total, drop = stats.get("total"), stats.get("drop")
+        if (isinstance(total, (int, float)) and isinstance(drop, (int, float))
+                and total > 0):
+            total_sent += int(total)
+            total_dropped += int(drop)
+        timings = res.get("timings") or []
+        rtts = [
+            t.get("rtt") for t in timings
+            if isinstance(t, dict) and isinstance(t.get("rtt"), (int, float))
+        ]
+        received += len(rtts)
+        if len(rtts) >= 2:
+            jitters.append(statistics.stdev(rtts))
+    if total_sent == 0 and received == 0:
+        return None
+    parsed: dict = {"packets": received}
+    if total_sent > 0:
+        parsed["loss_pct"] = round(100.0 * total_dropped / total_sent, 2)
+    if jitters:
+        parsed["jitter_ms"] = round(statistics.median(jitters), 2)
+    return parsed
 
 
 def _hostname_domain(hostname: str | None) -> str:

@@ -195,19 +195,25 @@ def _all_stars(hubs: list[dict]) -> bool:
     return bool(hubs) and all(h["host"] == "???" for h in hubs)
 
 
-def _run_traceroute_cmd(host: str, tcp: bool = False) -> list[dict]:
+TRACEROUTE_MAX_PROBES = 5
+
+
+def _run_traceroute_cmd(host: str, tcp: bool = False, probes: int = 2) -> list[dict]:
     """
     Run one traceroute pass.
-    Parameters tuned for fast failure: 1s wait, 15 hops, 2 probes → 30s worst case.
+    Parameters tuned for bounded runtime: 1s wait, 30 hops, probes capped at
+    TRACEROUTE_MAX_PROBES; the subprocess timeout scales with the probe count.
     tcp=True uses TCP SYN to port 443 (requires pcap — may fail on macOS without privs).
     """
-    cmd = ["/usr/sbin/traceroute", "-n", "-w", "1", "-m", "30", "-q", "2"]
+    effective_probes = max(1, min(probes, TRACEROUTE_MAX_PROBES))
+    cmd = ["/usr/sbin/traceroute", "-n", "-w", "1", "-m", "30", "-q", str(effective_probes)]
     if tcp:
         cmd += ["-P", "tcp", "-p", "443"]
     cmd.append(host)
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(cmd, capture_output=True, text=True,
+                                timeout=30 * effective_probes + 15)
     except subprocess.TimeoutExpired:
         raise RuntimeError("traceroute timed out")
 
@@ -229,19 +235,19 @@ def run_traceroute(host: str, probes: int = 5, prefer_tcp: bool = False) -> list
     if prefer_tcp:
         tcp_hubs = None
         try:
-            tcp_hubs = _run_traceroute_cmd(host, tcp=True)
+            tcp_hubs = _run_traceroute_cmd(host, tcp=True, probes=probes)
         except RuntimeError:
             pass
         if tcp_hubs is not None and not _all_stars(tcp_hubs):
             hubs = tcp_hubs
         else:
-            hubs = _run_traceroute_cmd(host, tcp=False)
+            hubs = _run_traceroute_cmd(host, tcp=False, probes=probes)
     else:
-        hubs = _run_traceroute_cmd(host, tcp=False)
+        hubs = _run_traceroute_cmd(host, tcp=False, probes=probes)
 
         if _all_stars(hubs):
             try:
-                tcp_hubs = _run_traceroute_cmd(host, tcp=True)
+                tcp_hubs = _run_traceroute_cmd(host, tcp=True, probes=probes)
                 if not _all_stars(tcp_hubs):
                     hubs = tcp_hubs
             except RuntimeError:
