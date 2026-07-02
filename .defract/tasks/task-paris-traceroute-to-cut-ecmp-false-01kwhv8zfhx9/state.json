@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 3,
   "createdAt": "2026-07-02T16:40:58Z",
-  "updatedAt": "2026-07-02T16:42:15Z",
+  "updatedAt": "2026-07-02T16:54:36Z",
   "events": [
     {
       "base_branch": "main",
@@ -41,29 +41,105 @@
       "type": "stage_work_complete",
       "worktree_head": "9fbfd5a54dbdeab53c8e48ef55525c462db0ec5f",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-02T16:49:12Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwhvr1s6am2hje6khjccab2n",
+      "stage": "scope",
+      "timestamp": "2026-07-02T16:49:13Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Writing full scope (revision 2) after approved intent check",
+      "phase": 0,
+      "stage": "scope",
+      "timestamp": "2026-07-02T16:49:30Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Full scope: 11 requirements across fallback sampling, Paris-capable probing, and near-target verdict gating; 8 acceptance criteria; 3 implementation phases with files and verification",
+      "revision": 2,
+      "timestamp": "2026-07-02T16:53:42Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Fixes existing broken behavior (false High Jitter verdicts) with no UI beyond existing terminal tables — skip design. Work follows established single-purpose module conventions (new paris.py mirrors pmtu.py/latency.py, diagnosis gating mirrors the rate-limited-hop pattern) and touches ~6 files across trace, diagnosis, and remote-measurement layers without new system boundaries — skip architecture; detailed phases with Files and Verification carry the design.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "bug-fix",
+      "tier": "standard",
+      "timestamp": "2026-07-02T16:53:55Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "All three levers from the brief are in scope as separate phases: raise the fallback sample count, add best-effort Paris-capable prober support, and gate country-sweep verdicts on Globalping near-target loss/jitter.",
+      "rationale": "The levers address independent failure modes — sample-size quantization, ECMP flow divergence, and vantage-point bias — and each is independently shippable. Paris probers need the same raw-socket privileges that already force mtr into the fallback on unprivileged macOS, so phase 2 is strictly best-effort (silent fall-through to system traceroute) and phases 1 and 3 must eliminate the false positives on their own.",
+      "timestamp": "2026-07-02T16:54:15Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Remote-figure verdict gating lives inside the pure diagnose() function via new keys on the result dict (ping_loss_pct, ping_jitter_ms in the existing per-row globalping dict); country mode re-runs diagnose() on rows that gained remote data after the Globalping merge, before the summary table and exit-code computation. The jitter threshold (JITTER_WARNING_MS = 10.0) is unchanged.",
+      "rationale": "Follows the established project rule that context-dependent signal re-classification belongs in diagnosis.py (the pure-function module), not in transport modules or cli.py. Re-diagnosis is required because Globalping results merge after diagnose() already ran inside _measure(); without it the summary verdicts and exit code would ignore the near-target data. Keeping the threshold fixed keeps the change about input quality, not calibration drift.",
+      "timestamp": "2026-07-02T16:54:26Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope pushed as revision 2: 11 requirements, 8 acceptance criteria, 3 phases. Phase 1 fixes the fallback prober to honor the requested probe count (the probes parameter is currently ignored and -q 2 is hardcoded) and gates the High Jitter check on sample size. Phase 2 adds a best-effort paris.py module (dublin-traceroute, then scamper) into the fallback chain with silent fall-through. Phase 3 raises Globalping ping to 16 packets, parses near-target loss/jitter, and re-derives country-sweep verdicts after the remote merge so the summary and exit code reflect near-target quality. Workflow: bug-fix / standard, no design or architecture stage.",
+      "timestamp": "2026-07-02T16:54:36Z",
+      "type": "stage_work_complete",
+      "worktree_head": "c7ad6cc3479eeb208cdf2695ef593176316691be",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "bug-fix",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Fixes existing broken behavior (false High Jitter verdicts) with no UI beyond existing terminal tables — skip design. Work follows established single-purpose module conventions (new paris.py mirrors pmtu.py/latency.py, diagnosis gating mirrors the rate-limited-hop pattern) and touches ~6 files across trace, diagnosis, and remote-measurement layers without new system boundaries — skip architecture; detailed phases with Files and Verification carry the design."
+  },
   "stages": {
+    "release": {
+      "status": "not_started"
+    },
     "review": {
       "status": "not_started"
     },
-    "architecture": {
-      "status": "not_started"
-    },
-    "release": {
-      "status": "not_started"
+    "design": {
+      "status": "skipped"
     },
     "implementation": {
       "status": "not_started"
     },
+    "architecture": {
+      "status": "skipped"
+    },
     "scope": {
       "status": "awaiting_approval",
-      "startedAt": "2026-07-02T16:40:59Z"
-    },
-    "design": {
-      "status": "not_started"
+      "startedAt": "2026-07-02T16:49:13Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-07-02T16:49:12Z"
 }
