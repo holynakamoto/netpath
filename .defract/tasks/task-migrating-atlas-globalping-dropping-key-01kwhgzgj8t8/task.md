@@ -3,7 +3,7 @@ defract:
   id: task-migrating-atlas-globalping-dropping-key-01kwhgzgj8t8
   type: bug
   status: active
-  stage: implementation
+  stage: review
   phase: 0
   total_phases: 2
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 # Migrate from RIPE Atlas to Globalping and drop the API key requirement
 
@@ -152,3 +153,16 @@ Conventions to follow: `_with_retry` for all HTTP calls, display-free pure parse
 **Deviations/refinements:** AS-path labels take their readable name from the hop hostname's registered domain ("AS174 (cogentco.com)") since Globalping provides no AS organisation names (decision logged). Errors from measurement creation propagate as requests.HTTPError with the response attached so Phase 2 can branch on 422/429/401 (decision logged).
 
 **Checks:** full suite 101 passed (baseline was 75, no pre-existing failures), `ruff check src tests` clean, `python -c "from netpath import globalping"` imports cleanly. No existing files touched — no user-visible change yet.
+
+## Phase 2: Switch the CLI over and delete Atlas — complete
+
+**Files changed:**
+- `src/netpath/cli.py` — Atlas import replaced with `globalping as globalping_mod` (plus `requests` for HTTPError branching). `_set_atlas_error` is now `_set_globalping_error` writing the `globalping` probe_errors key. The `country` command drops `--atlas-key`/`NETPATH_ATLAS_KEY` and gains `--gp-token` (envvar `NETPATH_GLOBALPING_TOKEN`, shared `_GP_TOK` option in the `--cf-token` style) and `--no-remote` (styled after `--no-throughput`). Pre-sweep discovery is one `fetch_probes()` inventory call aggregated client-side (no per-ASN queries, no budget check). Post-sweep block schedules ping+mtr per covered ASN, polls with the 2 s/60 s cadence, and merges results under a `globalping` row key; HTTPError branches: 422 → "no Globalping coverage", 429 → "rate limit reached — pass --gp-token for higher limits", 401 → clear error naming the token, remaining ASNs marked "invalid Globalping token", scheduling stops but the sweep completes. `atlas-profile` is now `coverage`: zero-config, no key-check exit, probes-only table (no anchors column), `--top`/`--globe` unchanged.
+- `src/netpath/display.py` — `_render_atlas_subrow` is now `_render_globalping_subrow`: reads the `globalping` key, prints a `[Globalping]` tag; the `[Atlas anchor]` variant and `source` handling are gone.
+- `src/netpath/globe.py` — choropleth titled "Globalping Coverage by Country"; colorbar/hover say "Probes" (no anchors); `render_coverage` interface unchanged.
+- `README.md` — country options updated (`--no-remote`, `--gp-token`), "Probe coverage" section for `netpath coverage`, and the RIPE Atlas section replaced by a "Globalping" section (zero-config default, `[Globalping]` output example, optional-token subsection, `netpath coverage` usage) plus an "Upgrading from earlier versions" note.
+- Deleted: `src/netpath/atlas.py`, `tests/test_atlas.py`.
+
+**Deviation (decision logged):** the acceptance grep (`grep -ri atlas … README.md` must be empty) and the stale-env-var edge case (README note naming `NETPATH_ATLAS_KEY`) conflict literally. The grep criterion wins; the migration note describes the removed key-and-credits backend and says the old flag/env var are obsolete and silently ignored, without the literal string.
+
+**Checks:** full suite 96 passed (101 minus the 5 deleted Atlas tests), `ruff check src tests` clean, acceptance grep returns nothing, `netpath country --help` shows `--gp-token`/`--no-remote` with no Atlas/credit mention, `netpath coverage --help` works, and a live `netpath coverage --top 5` smoke test returned a ranked probe table with no token set.

@@ -1,11 +1,11 @@
 {
   "id": "task-migrating-atlas-globalping-dropping-key-01kwhgzgj8t8",
   "status": "active",
-  "stage": "implementation",
-  "phase": 1,
+  "stage": "review",
+  "phase": 2,
   "totalPhases": 2,
   "createdAt": "2026-07-02T13:41:03Z",
-  "updatedAt": "2026-07-02T15:21:29Z",
+  "updatedAt": "2026-07-02T15:27:07Z",
   "events": [
     {
       "base_branch": "main",
@@ -341,6 +341,183 @@
       "phase": 2,
       "timestamp": "2026-07-02T15:21:29Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 2,
+      "timestamp": "2026-07-02T15:23:49Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Full check suite passed; recording results",
+      "percentage": 80,
+      "phase": 2,
+      "timestamp": "2026-07-02T15:24:16Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "Full suite: 96 passed in 0.07s (baseline this phase was 101; the 5 tests in the deleted tests/test_atlas.py account for the drop). ruff check src tests: clean. grep -ri atlas over cli.py/display.py/globe.py/README.md: no matches. Live smoke: netpath coverage --top 5 returned a ranked probe table with no token set; country --help shows --gp-token and --no-remote, no --atlas-key.",
+      "failed": 0,
+      "passed": 96,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-07-02T15:24:18Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Name NETPATH_ATLAS_KEY literally in the note (fails the acceptance grep)",
+        "Drop the migration note entirely (loses the upgrade guidance the edge case asks for)"
+      ],
+      "decision": "Implementation: the README migration note avoids the literal word \"Atlas\" (and the NETPATH_ATLAS_KEY variable name) to satisfy the acceptance-criteria grep; it describes the removed backend as \"a backend that required an API key and a credit balance\" and tells users the old key flag and environment variable are obsolete and silently ignored.",
+      "phase": 2,
+      "rationale": "Two task requirements conflict literally: the acceptance criterion (repeated in Phase 2 verification) requires `grep -ri atlas README.md` to return no matches, while the stale-env-var edge case asks the README migration note to name the obsolete variable, which necessarily contains the string ATLAS. The grep criterion is the mechanically verified one and appears twice, so it wins; the migration note still fulfils its intent — telling upgrading users that the old key flag and env var are gone and ignorable — without the literal string.",
+      "timestamp": "2026-07-02T15:24:24Z",
+      "type": "decision"
+    },
+    {
+      "change_summary": "Phase 2 complete: Switch the CLI over and delete Atlas",
+      "revision": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T15:24:55Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "description": "Phase 2 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 2,
+      "timestamp": "2026-07-02T15:25:04Z",
+      "type": "progress_report"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/cli.py",
+        "src/netpath/display.py",
+        "src/netpath/globe.py",
+        "README.md",
+        "src/netpath/atlas.py (deleted)",
+        "tests/test_atlas.py (deleted)"
+      ],
+      "phase": 1,
+      "summary": "Switched the CLI to Globalping and deleted the Atlas backend. country now runs remote in-network measurements by default with no key: one probe-inventory request determines coverage, ping+mtr are scheduled per covered ASN, results merge under a \"globalping\" row key, and --no-remote opts out; --gp-token / NETPATH_GLOBALPING_TOKEN optionally raises the rate limit. 422/429/401 map to per-ASN probe_errors entries (the 429 message points at --gp-token; 401 surfaces a clear token error without aborting the sweep). atlas-profile is now the zero-config coverage command with a probes-only table. display shows a [Globalping] subrow (anchor variant removed), the globe choropleth is retitled, and the README's Atlas section is replaced by a Globalping section plus an upgrade note. atlas.py and test_atlas.py deleted; grep -ri atlas over cli/display/globe/README is empty; 96 tests pass, ruff clean.",
+      "timestamp": "2026-07-02T15:25:09Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "In a clean environment (no `NETPATH_GLOBALPING_TOKEN` set, stale `NETPATH_ATLAS_KEY` may remain and must be silently ignored), run `.venv/bin/netpath country ZA --top 5 --no-throughput` and confirm you see \"Discovering Globalping probes\" and either a `[Globalping]` subrow under covered ISPs in the summary or a per-ASN \"no Globalping coverage\" partial-results note in the diagnosis panel"
+        },
+        {
+          "description": "Run `.venv/bin/netpath coverage --top 10` with no token set and confirm a ranked per-country probe table appears (US and DE near the top), then run `.venv/bin/netpath coverage --top 20 --globe` and confirm the browser opens a choropleth titled \"Globalping Coverage by Country\" with a probes-only colorbar"
+        },
+        {
+          "description": "Run `.venv/bin/netpath country ZA --top 5 --no-throughput --no-remote` and confirm no Globalping status lines appear anywhere in the output"
+        },
+        {
+          "description": "Run `.venv/bin/netpath --help`, `.venv/bin/netpath country --help`, and `.venv/bin/netpath coverage --help` and confirm none of them mention Atlas, a required API key, or credits, and that `country --help` lists `--gp-token` and `--no-remote` but no `--atlas-key`"
+        },
+        {
+          "description": "Run `grep -ri atlas src/netpath/cli.py src/netpath/display.py src/netpath/globe.py README.md` and confirm it prints nothing, and confirm `src/netpath/atlas.py` and `tests/test_atlas.py` no longer exist"
+        },
+        {
+          "description": "Run `.venv/bin/python -m pytest -q` and `.venv/bin/python -m ruff check src tests` and confirm 96 tests pass and lint is clean"
+        },
+        {
+          "description": "Read the \"Upgrading from earlier versions\" section in `README.md` and confirm the migration guidance is acceptable given it deliberately avoids the literal old service and env-var names to keep the acceptance grep clean (decision logged this phase)"
+        }
+      ],
+      "phase": 1,
+      "phase_title": "Switch the CLI over and delete Atlas",
+      "timestamp": "2026-07-02T15:25:23Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 2,
+      "phase_title": "Switch the CLI over and delete Atlas",
+      "server_phase": 1,
+      "timestamp": "2026-07-02T15:25:34Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 1,
+      "phase_title": "Switch the CLI over and delete Atlas",
+      "timestamp": "2026-07-02T15:25:34Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "1255545d6e4be516d395104f6a0a4e6debf56068",
+      "worktree_status_digest": "6496a0a0b8687ac0970c936bdcce9e9e46a1cc56998b5fc830c778cb02e443b6"
+    },
+    {
+      "approved_by": "user",
+      "phase": 1,
+      "phase_title": "Switch the CLI over and delete Atlas",
+      "timestamp": "2026-07-02T15:27:06Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 1,
+      "timestamp": "2026-07-02T15:27:06Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "stage": "implementation",
+      "summary": "All phases approved — implementation ready for review.",
+      "timestamp": "2026-07-02T15:27:06Z",
+      "type": "stage_work_complete",
+      "worktree_head": "a4051afaa8fe4416811415824c48f5e01d3ac54c",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-02T15:27:07Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T15:27:06Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "3adfe5578f3294cbc00066fb43066d4008622018",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "implementation",
+      "stale_worktree_head": "a4051afaa8fe4416811415824c48f5e01d3ac54c",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-02T15:27:07Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T15:27:07Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "implementation",
+      "timestamp": "2026-07-02T15:27:07Z",
+      "to": "review",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-02T15:27:07Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwhq1qrz64xfbq093dvy4n4r",
+      "stage": "review",
+      "timestamp": "2026-07-02T15:27:07Z",
+      "type": "stage_agent_started"
     }
   ],
   "needsArchitecture": false,
@@ -358,15 +535,13 @@
     "rationale": "Backend swap with no UI work — terminal label and README text changes only, so design is skipped. Architecture is skipped because the new Globalping module is a one-for-one replacement of atlas.py inside an existing, well-understood boundary (discover, schedule, poll, parse) and the scope already carries detailed per-phase Files and Verification. Standard tier: about 7 files, builds entirely on existing module and error-handling patterns."
   },
   "stageApprovals": {
-    "scope": "2026-07-02T14:57:36Z"
+    "scope": "2026-07-02T14:57:36Z",
+    "implementation": "2026-07-02T15:27:06Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Build the Globalping backend module — complete\n\n**Files created:**\n- `src/netpath/globalping.py` — the complete Globalping integration: `get_public_ip()` (carried over from atlas.py unchanged), `fetch_probes()` (single GET /v1/probes inventory), `count_probes_by_asn()` and `coverage_by_country()` (pure client-side aggregation over the inventory, satisfying R2's one-request coverage model), `schedule_measurements()` (POST /v1/measurements: ping to the per-ASN test IP plus mtr back to the user's public IP, `locations: [{\"magic\": \"AS{n}\"}]`, `limit: 3`), `poll_until_done()` (2 s interval, 60 s default timeout, unfinished measurements marked \"timed_out\"), `fetch_results()`, `parse_ping_rtt()` (min-of-mins / mean-of-avgs / max-of-maxes across probes), and `parse_mtr_as_path()` (consecutive-ASN dedup using the per-hop `asn` field — no Cymru lookup).\n- `tests/test_globalping.py` — 26 tests in the same mock-`requests` style as the deleted-in-phase-2 test_atlas.py: inventory fetch and error paths, Bearer-header injection and its absence without a token (acceptance-criterion test), ASN/country coverage counting, ping+mtr scheduling body shape, AS-prefix normalisation, 422 propagation, poll terminal/timeout behavior, RTT aggregation with null-stats (100 % loss) handling, mtr path dedup/labeling/fall-through, and ipify parsing.\n\n**Schema verification (required by the phase before locking parsers):** confirmed against the live OpenAPI spec at api.globalping.io/v1/spec.yaml — mtr hops carry `asn` as an array of integers plus `resolvedHostname` (no network-name field), ping stats live at `result.stats.{min,avg,max}`, result items are `{probe, result}`, top-level status is `in-progress`/`finished`, 422 means no matching probes, 429 rate limit.\n\n**Deviations/refinements:** AS-path labels take their readable name from the hop hostname's registered domain (\"AS174 (cogentco.com)\") since Globalping provides no AS organisation names (decision logged). Errors from measurement creation propagate as requests.HTTPError with the response attached so Phase 2 can branch on 422/429/401 (decision logged).\n\n**Checks:** full suite 101 passed (baseline was 75, no pre-existing failures), `ruff check src tests` clean, `python -c \"from netpath import globalping\"` imports cleanly. No existing files touched — no user-visible change yet."
+    "implementation": "## Phase 1: Build the Globalping backend module — complete\n\n**Files created:**\n- `src/netpath/globalping.py` — the complete Globalping integration: `get_public_ip()` (carried over from atlas.py unchanged), `fetch_probes()` (single GET /v1/probes inventory), `count_probes_by_asn()` and `coverage_by_country()` (pure client-side aggregation over the inventory, satisfying R2's one-request coverage model), `schedule_measurements()` (POST /v1/measurements: ping to the per-ASN test IP plus mtr back to the user's public IP, `locations: [{\"magic\": \"AS{n}\"}]`, `limit: 3`), `poll_until_done()` (2 s interval, 60 s default timeout, unfinished measurements marked \"timed_out\"), `fetch_results()`, `parse_ping_rtt()` (min-of-mins / mean-of-avgs / max-of-maxes across probes), and `parse_mtr_as_path()` (consecutive-ASN dedup using the per-hop `asn` field — no Cymru lookup).\n- `tests/test_globalping.py` — 26 tests in the same mock-`requests` style as the deleted-in-phase-2 test_atlas.py: inventory fetch and error paths, Bearer-header injection and its absence without a token (acceptance-criterion test), ASN/country coverage counting, ping+mtr scheduling body shape, AS-prefix normalisation, 422 propagation, poll terminal/timeout behavior, RTT aggregation with null-stats (100 % loss) handling, mtr path dedup/labeling/fall-through, and ipify parsing.\n\n**Schema verification (required by the phase before locking parsers):** confirmed against the live OpenAPI spec at api.globalping.io/v1/spec.yaml — mtr hops carry `asn` as an array of integers plus `resolvedHostname` (no network-name field), ping stats live at `result.stats.{min,avg,max}`, result items are `{probe, result}`, top-level status is `in-progress`/`finished`, 422 means no matching probes, 429 rate limit.\n\n**Deviations/refinements:** AS-path labels take their readable name from the hop hostname's registered domain (\"AS174 (cogentco.com)\") since Globalping provides no AS organisation names (decision logged). Errors from measurement creation propagate as requests.HTTPError with the response attached so Phase 2 can branch on 422/429/401 (decision logged).\n\n**Checks:** full suite 101 passed (baseline was 75, no pre-existing failures), `ruff check src tests` clean, `python -c \"from netpath import globalping\"` imports cleanly. No existing files touched — no user-visible change yet.\n\n## Phase 2: Switch the CLI over and delete Atlas — complete\n\n**Files changed:**\n- `src/netpath/cli.py` — Atlas import replaced with `globalping as globalping_mod` (plus `requests` for HTTPError branching). `_set_atlas_error` is now `_set_globalping_error` writing the `globalping` probe_errors key. The `country` command drops `--atlas-key`/`NETPATH_ATLAS_KEY` and gains `--gp-token` (envvar `NETPATH_GLOBALPING_TOKEN`, shared `_GP_TOK` option in the `--cf-token` style) and `--no-remote` (styled after `--no-throughput`). Pre-sweep discovery is one `fetch_probes()` inventory call aggregated client-side (no per-ASN queries, no budget check). Post-sweep block schedules ping+mtr per covered ASN, polls with the 2 s/60 s cadence, and merges results under a `globalping` row key; HTTPError branches: 422 → \"no Globalping coverage\", 429 → \"rate limit reached — pass --gp-token for higher limits\", 401 → clear error naming the token, remaining ASNs marked \"invalid Globalping token\", scheduling stops but the sweep completes. `atlas-profile` is now `coverage`: zero-config, no key-check exit, probes-only table (no anchors column), `--top`/`--globe` unchanged.\n- `src/netpath/display.py` — `_render_atlas_subrow` is now `_render_globalping_subrow`: reads the `globalping` key, prints a `[Globalping]` tag; the `[Atlas anchor]` variant and `source` handling are gone.\n- `src/netpath/globe.py` — choropleth titled \"Globalping Coverage by Country\"; colorbar/hover say \"Probes\" (no anchors); `render_coverage` interface unchanged.\n- `README.md` — country options updated (`--no-remote`, `--gp-token`), \"Probe coverage\" section for `netpath coverage`, and the RIPE Atlas section replaced by a \"Globalping\" section (zero-config default, `[Globalping]` output example, optional-token subsection, `netpath coverage` usage) plus an \"Upgrading from earlier versions\" note.\n- Deleted: `src/netpath/atlas.py`, `tests/test_atlas.py`.\n\n**Deviation (decision logged):** the acceptance grep (`grep -ri atlas … README.md` must be empty) and the stale-env-var edge case (README note naming `NETPATH_ATLAS_KEY`) conflict literally. The grep criterion wins; the migration note describes the removed key-and-credits backend and says the old flag/env var are obsolete and silently ignored, without the literal string.\n\n**Checks:** full suite 96 passed (101 minus the 5 deleted Atlas tests), `ruff check src tests` clean, acceptance grep returns nothing, `netpath country --help` shows `--gp-token`/`--no-remote` with no Atlas/credit mention, `netpath coverage --help` works, and a live `netpath coverage --top 5` smoke test returned a ranked probe table with no token set."
   },
   "stages": {
-    "release": {
-      "status": "not_started"
-    },
     "design": {
       "status": "skipped"
     },
@@ -376,17 +551,22 @@
       "startedAt": "2026-07-02T13:46:19Z"
     },
     "implementation": {
-      "status": "in_progress",
+      "status": "approved",
+      "approvedAt": "2026-07-02T15:27:06Z",
       "startedAt": "2026-07-02T15:17:54Z"
+    },
+    "review": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T15:27:07Z"
     },
     "architecture": {
       "status": "skipped"
     },
-    "review": {
+    "release": {
       "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-migrating-atlas-globalping-dropping-key-01kwhgzgj8t8",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T15:17:54Z"
+  "worktreeLastSyncedAt": "2026-07-02T15:27:07Z"
 }
