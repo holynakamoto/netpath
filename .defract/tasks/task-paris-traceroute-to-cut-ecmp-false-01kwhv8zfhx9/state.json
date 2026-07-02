@@ -5,7 +5,7 @@
   "phase": 2,
   "totalPhases": 3,
   "createdAt": "2026-07-02T16:40:58Z",
-  "updatedAt": "2026-07-02T17:32:33Z",
+  "updatedAt": "2026-07-02T17:39:35Z",
   "events": [
     {
       "base_branch": "main",
@@ -499,6 +499,116 @@
       "phase": 3,
       "timestamp": "2026-07-02T17:32:33Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 3,
+      "timestamp": "2026-07-02T17:35:35Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 3,
+      "timestamp": "2026-07-02T17:37:58Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 3,
+      "timestamp": "2026-07-02T17:38:12Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "Baseline was 129 passed. Added 12 tests: 6 in tests/test_globalping.py (16-packet scheduling payload; parse_ping_stats loss/jitter extraction, median jitter aggregation across probes, loss aggregation from drop/total counts, received-timing packet count, None on unusable data) and 6 in tests/test_diagnosis.py (clean remote figures suppress local High Jitter with an ok-severity note, remote jitter above threshold fires citing the near-target value, near-target loss warning above the calibrated threshold, suppression does not hide remote loss, below-min-packet remote sample falls back to local behavior, absent/malformed globalping data keeps local behavior). ruff check src tests: all checks passed.",
+      "failed": 0,
+      "passed": 141,
+      "phase": 2,
+      "skipped": 0,
+      "timestamp": "2026-07-02T17:38:15Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Enforcing the 5-packet minimum in cli.py by only merging figures when the sample is large enough — rejected because diagnose() must already read the keys defensively, and splitting the policy across two modules makes the pure function's behavior untestable in isolation",
+        "A dedicated remote-loss threshold constant — rejected in favor of the existing calibrated tiers the scope explicitly points to"
+      ],
+      "decision": "Implementation: the minimum-sample gate for near-target figures lives in diagnose() as REMOTE_MIN_PACKETS = 5, keyed on a new ping_packets value (count of received timings) that parse_ping_stats() reports alongside loss_pct and jitter_ms; the near-target loss check reuses the existing calibrated loss-threshold tiers applied to the remote packet count; country-mode re-diagnosis is a small inline loop gated on rows that have a verdict and at least one remote figure.",
+      "phase": 3,
+      "rationale": "Putting the gate inside the pure diagnose() function keeps the \"at least 5 packets\" edge case testable without I/O and means cli.py merges whatever parsed without policy logic. Received timings (not sent packets) is the honest sample size for a jitter StDev. Reusing the LOSS_THRESHOLD_FEW/DEFAULT/MANY tiers on the remote count (16 packets x 3 probes lands in the 20-99 tier when all arrive) avoids inventing a second calibration scheme. Gating re-diagnosis on the presence of a verdict key preserves the existing exit-code contract for skipped ASNs, and gating on remote figures makes the loop a no-op for uncovered ASNs (R11).",
+      "timestamp": "2026-07-02T17:38:31Z",
+      "type": "decision"
+    },
+    {
+      "change_summary": "Phase 3 complete: Near-target measurements drive country-sweep verdicts",
+      "revision": 3,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T17:38:58Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "description": "Phase 3 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 3,
+      "timestamp": "2026-07-02T17:39:05Z",
+      "type": "progress_report"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/globalping.py",
+        "src/netpath/diagnosis.py",
+        "src/netpath/cli.py",
+        "src/netpath/display.py",
+        "tests/test_globalping.py",
+        "tests/test_diagnosis.py"
+      ],
+      "phase": 2,
+      "summary": "Country sweeps now judge each ISP by near-target Globalping figures when a sufficient sample exists. Globalping ping requests 16 packets and the new parse_ping_stats() extracts loss (summed drop/total), jitter (median of per-probe timing StDevs), and the received-packet count. diagnose() reads the figures defensively: a valid remote sample (>= REMOTE_MIN_PACKETS = 5 packets) drives the High Jitter check — suppressing a local long-haul warning with an ok-severity near-target note, or firing the warning citing the remote value — and a new independent Near-target Packet Loss warning fires above the calibrated loss tiers. Country mode re-runs diagnose() on rows that gained remote figures before the summary and exit code; the summary subrow shows near-target loss/jitter and the remote-sourced verdict. 12 new tests; 141 passed; ruff clean.",
+      "timestamp": "2026-07-02T17:39:10Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `netpath country IN --top 3` from this US host and confirm the run completes, schedules Globalping measurements, and the summary's `[Globalping]` subrows now show `loss X%` and `jitter Y ms` next to the RTT for covered ASNs."
+        },
+        {
+          "description": "In the same run, confirm ISPs whose near-target jitter is clean no longer carry a `High Jitter` verdict in the summary: the subrow should read `verdict Healthy (near-target)` even where the per-ISP panel printed earlier in the sweep showed High Jitter from the local trace."
+        },
+        {
+          "description": "Confirm the exit code reflects the post-merge verdicts: after the run, `echo $?` should be `0` when all near-target-covered ISPs resolved to Healthy and no other warnings fired."
+        },
+        {
+          "description": "Run `netpath country IN --top 3 --no-remote` and confirm verdicts behave exactly as after phases 1 and 2 (local-trace behavior, no `[Globalping]` subrows, no crash in the summary)."
+        },
+        {
+          "description": "While a country run is scheduling, note one printed measurement ID and fetch it with `curl -s https://api.globalping.io/v1/measurements/{id} | head -c 400` — confirm the ping request carried 16 packets."
+        },
+        {
+          "description": "Pick an ASN with no Globalping coverage in the run output (marked `no Globalping coverage`) and confirm its summary row and verdict are unchanged from the local-trace view — no near-target labels appear for it."
+        }
+      ],
+      "phase": 2,
+      "phase_title": "Near-target measurements drive country-sweep verdicts",
+      "timestamp": "2026-07-02T17:39:25Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 3,
+      "phase_title": "Near-target measurements drive country-sweep verdicts",
+      "server_phase": 2,
+      "timestamp": "2026-07-02T17:39:35Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 2,
+      "phase_title": "Near-target measurements drive country-sweep verdicts",
+      "timestamp": "2026-07-02T17:39:35Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "f54c3263415b4609080db0deede9931f236e7d9e",
+      "worktree_status_digest": "caff86e69b9dd4884e4e2945a58163becd9f7151a80ff6f2416b7caddfd7597c"
     }
   ],
   "needsArchitecture": false,
@@ -519,16 +629,9 @@
     "scope": "2026-07-02T17:06:38Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Meaningful samples in the fallback prober\n\n**What was built:**\n\n- `src/netpath/mtr.py` — `_run_traceroute_cmd` gains a `probes` parameter (default 2, matching the old hardcoded behavior) with a public `TRACEROUTE_MAX_PROBES = 5` cap; the effective count is clamped to 1–5 and the subprocess timeout scales with it (`30 * effective + 15` seconds, so probes=2 stays near the old 60 s while probes=5 gets 165 s headroom for a slow filtered path). `run_traceroute` now threads its `probes` parameter into all four `_run_traceroute_cmd` call sites (TCP-first, UDP fallback, UDP-first, TCP retry).\n- `src/netpath/cli.py` — after the trace section in `_measure()`, when `_trace_method` is `\"traceroute\"` the result's `probe_count` is corrected from `cycles` to the effective fallback count `min(cycles, mtr.TRACEROUTE_MAX_PROBES)`, covering all three trace branches (dual-stack, ECMP, plain).\n- `src/netpath/diagnosis.py` — new `JITTER_MIN_SAMPLES = 5` constant; check (5) now emits an ok-severity `jitter_low_sample` informational signal instead of the High Jitter warning when `probe_count` is present and below 5. `probe_count=None` (unknown) keeps legacy warning behavior. `jitter_low_sample` maps to \"Healthy\" in the condition-verdict table, mirroring the rate-limited-hop pattern.\n\n**Tests:** 3 new cases in `tests/test_mtr.py` (probe threading via mocked `subprocess.run`, cap at 5, timeout scaling) and 3 in `tests/test_diagnosis.py` (suppression at probe_count=2, warning at 5 and at 10). Two exact-call assertions in `tests/test_country.py` updated for the new `probes` kwarg. Suite: 109 passed, ruff clean.\n\n**Deviations from plan:** none.\n\n## Phase 2: Consistent-route probing via a Paris-capable prober\n\n**What was built:**\n\n- `src/netpath/paris.py` (new) — single-purpose module for Paris-style route-pinned probing. `detect()` returns the first installed supported binary (`dublin-traceroute` preferred, then `scamper`) or None; `available()` wraps it. `run(host, probes, binary)` caps probes at `PARIS_MAX_PROBES = 5`, dispatches to the binary-specific runner, and raises `ParisError` on any failure — non-zero exit (covers raw-socket permission denial), timeout, unreadable or empty output, missing binary — so callers can fall through silently. Successful runs get Cymru name enrichment via the shared `mtr._enrich_names`.\n  - dublin-traceroute runner: invokes the binary once per probe with `--npaths=1` and a temp-dir `--output-file`, so every sample per TTL rides the same pinned flow (aggregating a single multi-path invocation would reintroduce ECMP diversity); `_parse_dublin_outputs` aggregates the runs per TTL into `Hub`-shaped dicts.\n  - scamper runner: one invocation of `scamper -O json -I \"trace -P icmp-paris -q {probes} -Q -w 1 -m 30 {host}\"`; `_parse_scamper_output` parses the line-delimited JSON, groups replies by `probe_ttl`, computes fractional loss from `attempts`, and fills unanswered TTLs up to `hop_count` as `???` hops.\n  - Both parsers are pure module-private functions producing hop dicts with `count`, `host`, `ASN`, `Loss%`, `Avg`, `Best`, `Wrst`, `StDev`, `p50`, `p95`, `p99` — matching the `Hub` TypedDict and the existing traceroute parser's conventions.\n- `src/netpath/cli.py` — new `_fallback_trace()` helper implements the mtr → paris → traceroute chain; `_trace()` and the ECMP branch's `MtrPermissionError` handler both use it. `_trace_method` carries the Paris binary name, so `_measure()` corrects `probe_count` to `min(cycles, paris.PARIS_MAX_PROBES)` for Paris-sourced traces, and `_run_test()` prints \"(mtr unavailable — using {binary} Paris traceroute + Cymru ASN lookup)\" naming the prober.\n\n**Tests:** 20 new cases in `tests/test_paris.py`: detection order, dublin parser (aggregation, fractional loss, unresponsive hops, empty payload), scamper parser (grouping, gap fill, fractional loss, missing trace object), `run()` (no binary, probe cap, Paris command construction, permission and OS errors mapped to `ParisError`), and the `cli._trace` fallback chain (Paris selected on mtr permission error, traceroute when Paris absent or failing, mtr untouched when it works). Suite: 129 passed, ruff clean.\n\n**Deviations from plan:** none."
+    "implementation": "## Phase 1: Meaningful samples in the fallback prober\n\n**What was built:**\n\n- `src/netpath/mtr.py` — `_run_traceroute_cmd` gains a `probes` parameter (default 2, matching the old hardcoded behavior) with a public `TRACEROUTE_MAX_PROBES = 5` cap; the effective count is clamped to 1–5 and the subprocess timeout scales with it (`30 * effective + 15` seconds, so probes=2 stays near the old 60 s while probes=5 gets 165 s headroom for a slow filtered path). `run_traceroute` now threads its `probes` parameter into all four `_run_traceroute_cmd` call sites (TCP-first, UDP fallback, UDP-first, TCP retry).\n- `src/netpath/cli.py` — after the trace section in `_measure()`, when `_trace_method` is `\"traceroute\"` the result's `probe_count` is corrected from `cycles` to the effective fallback count `min(cycles, mtr.TRACEROUTE_MAX_PROBES)`, covering all three trace branches (dual-stack, ECMP, plain).\n- `src/netpath/diagnosis.py` — new `JITTER_MIN_SAMPLES = 5` constant; check (5) now emits an ok-severity `jitter_low_sample` informational signal instead of the High Jitter warning when `probe_count` is present and below 5. `probe_count=None` (unknown) keeps legacy warning behavior. `jitter_low_sample` maps to \"Healthy\" in the condition-verdict table, mirroring the rate-limited-hop pattern.\n\n**Tests:** 3 new cases in `tests/test_mtr.py` (probe threading via mocked `subprocess.run`, cap at 5, timeout scaling) and 3 in `tests/test_diagnosis.py` (suppression at probe_count=2, warning at 5 and at 10). Two exact-call assertions in `tests/test_country.py` updated for the new `probes` kwarg. Suite: 109 passed, ruff clean.\n\n**Deviations from plan:** none.\n\n## Phase 2: Consistent-route probing via a Paris-capable prober\n\n**What was built:**\n\n- `src/netpath/paris.py` (new) — single-purpose module for Paris-style route-pinned probing. `detect()` returns the first installed supported binary (`dublin-traceroute` preferred, then `scamper`) or None; `available()` wraps it. `run(host, probes, binary)` caps probes at `PARIS_MAX_PROBES = 5`, dispatches to the binary-specific runner, and raises `ParisError` on any failure — non-zero exit (covers raw-socket permission denial), timeout, unreadable or empty output, missing binary — so callers can fall through silently. Successful runs get Cymru name enrichment via the shared `mtr._enrich_names`.\n  - dublin-traceroute runner: invokes the binary once per probe with `--npaths=1` and a temp-dir `--output-file`, so every sample per TTL rides the same pinned flow (aggregating a single multi-path invocation would reintroduce ECMP diversity); `_parse_dublin_outputs` aggregates the runs per TTL into `Hub`-shaped dicts.\n  - scamper runner: one invocation of `scamper -O json -I \"trace -P icmp-paris -q {probes} -Q -w 1 -m 30 {host}\"`; `_parse_scamper_output` parses the line-delimited JSON, groups replies by `probe_ttl`, computes fractional loss from `attempts`, and fills unanswered TTLs up to `hop_count` as `???` hops.\n  - Both parsers are pure module-private functions producing hop dicts with `count`, `host`, `ASN`, `Loss%`, `Avg`, `Best`, `Wrst`, `StDev`, `p50`, `p95`, `p99` — matching the `Hub` TypedDict and the existing traceroute parser's conventions.\n- `src/netpath/cli.py` — new `_fallback_trace()` helper implements the mtr → paris → traceroute chain; `_trace()` and the ECMP branch's `MtrPermissionError` handler both use it. `_trace_method` carries the Paris binary name, so `_measure()` corrects `probe_count` to `min(cycles, paris.PARIS_MAX_PROBES)` for Paris-sourced traces, and `_run_test()` prints \"(mtr unavailable — using {binary} Paris traceroute + Cymru ASN lookup)\" naming the prober.\n\n**Tests:** 20 new cases in `tests/test_paris.py`: detection order, dublin parser (aggregation, fractional loss, unresponsive hops, empty payload), scamper parser (grouping, gap fill, fractional loss, missing trace object), `run()` (no binary, probe cap, Paris command construction, permission and OS errors mapped to `ParisError`), and the `cli._trace` fallback chain (Paris selected on mtr permission error, traceroute when Paris absent or failing, mtr untouched when it works). Suite: 129 passed, ruff clean.\n\n**Deviations from plan:** none.\n\n## Phase 3: Near-target measurements drive country-sweep verdicts\n\n**What was built:**\n\n- `src/netpath/globalping.py` — ping scheduling now requests `_PING_PACKETS = 16` packets (the API per-measurement maximum) instead of 3. New pure parser `parse_ping_stats(results)` returns `{\"loss_pct\", \"jitter_ms\", \"packets\"}`: loss aggregates summed `drop`/`total` counts across probes, jitter is the per-probe StDev of its packet `timings` aggregated across probes via the median (robust to one bad probe), and `packets` is the count of received timings the jitter rests on. Returns None when no probe carried usable data; each key is present only when computable.\n- `src/netpath/diagnosis.py` — new `REMOTE_MIN_PACKETS = 5` constant. `diagnose()` reads the per-row `globalping` dict defensively (missing, None, non-dict, or partial all degrade to local behavior). When a valid remote sample exists (`ping_packets >= 5`) and `ping_jitter_ms` is present, the remote figure drives check (5): above 10 ms it fires `high_jitter` citing the near-target value; otherwise a local jitter that would have warned is suppressed with an ok-severity `jitter_remote_clean` note naming the near-target source. A new check (5b) fires a `remote_packet_loss` warning (verdict \"Near-target Packet Loss\") when `ping_loss_pct` exceeds the existing calibrated loss tiers applied to the remote packet count — independent of the jitter suppression, so clean remote jitter cannot hide genuine near-target loss.\n- `src/netpath/cli.py` — the Globalping merge fetches ping results once and feeds both `parse_ping_rtt` and `parse_ping_stats`, storing `ping_loss_pct`, `ping_jitter_ms`, and `ping_packets` in the per-row `globalping` dict. Before `display.country_summary()` and the exit-code computation, a re-diagnosis loop re-runs `diagnose(row)` for rows that have a verdict and gained at least one remote figure — skipped ASNs (no `verdict` key) and uncovered ASNs are untouched, preserving the existing exit-code contract.\n- `src/netpath/display.py` — the Globalping subrow in the country summary now shows `loss X%` and `jitter Y ms` next to the RTT, and appends `verdict {V} (near-target)` when remote figures exist, so the authoritative post-merge verdict and its source are visible where the per-ISP panels printed earlier may disagree.\n\n**Tests:** 6 new cases in `tests/test_globalping.py` (16-packet payload, stats extraction, median jitter aggregation, cross-probe loss aggregation, received-timing count, None on unusable data) and 6 in `tests/test_diagnosis.py` (clean-remote suppression with the near-target note, remote-jitter warning citing the remote figure, near-target loss warning, suppression/loss independence, below-minimum remote sample falls back to local, absent/malformed remote data keeps local behavior). Suite: 141 passed, ruff clean.\n\n**Deviations from plan:** none."
   },
   "stages": {
-    "release": {
-      "status": "not_started"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-02T17:31:57Z"
-    },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T17:06:38Z",
@@ -537,11 +640,18 @@
     "architecture": {
       "status": "skipped"
     },
-    "review": {
+    "release": {
       "status": "not_started"
     },
     "design": {
       "status": "skipped"
+    },
+    "review": {
+      "status": "not_started"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T17:31:57Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9",
