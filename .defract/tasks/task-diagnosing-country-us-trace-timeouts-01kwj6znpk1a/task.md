@@ -3,7 +3,7 @@ defract:
   id: task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a
   type: bug
   status: active
-  stage: review
+  stage: release
   phase: 0
   total_phases: 2
   priority: normal
@@ -227,4 +227,36 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Removed the announced-prefix address-guessing fallback from `country.get_test_ip_for_asn()` so country sweeps no longer trace dead hosts that burn the full prober budget and produce spurious incomplete-path warnings
+- Added a live-target ladder in the country loop: iperf3 server first, then connected RIPE Atlas probe IP, then remote-only Globalping measurement using the tester's public IP, then fast "no coverage" skip
+- ISPs with no live target are labelled "no coverage" and excluded from exit-code and verdict tallies; remote-only ISPs get their own labelled group in the summary
+- Added `TraceTimeout` partial-path recovery in `mtr.py`: when a traceroute subprocess is killed at its time budget, the hops collected before the kill are parsed and surfaced rather than discarded, so timed-out traces still yield useful path data
+- Aligned the compare_v6 outer future wait to the sum of the worst-case inner subprocess budgets so the outer wait can no longer pre-empt a recovered partial path
+
+### Key decisions
+- Remove the announced-prefix guessing fallback from `get_test_ip_for_asn()` entirely; a connected RIPE Atlas probe address becomes the only non-server local trace target
+- Surface partial trace output via a dedicated `TraceTimeout(RuntimeError)` exception carrying the parsed hubs, raised from a Popen-based `_run_traceroute_cmd()`
+- Remote-only ISPs (Globalping probes but no local live target) use the tester's public IP as the Globalping ping target, and no local trace is attempted
+- Remote-only rows do not populate `_gp_test_ips`; the Globalping scheduling loop falls back to `_user_public_ip` inline, and the old unreachable "no test IP available" branch was removed
+- A `TraceTimeout` raised by any traceroute pass propagates immediately out of `run_traceroute()` — no further pass runs after a timed-out one, since a full time budget has already been spent
+- The compare_v6 outer future wait is computed as the sum of the worst-case inner budgets (mtr + Paris + two traceroute passes + 15 s slack)
+
+### Changes by phase
+- **Phase 1: Live-target selection and coverage labelling** — `get_test_ip_for_asn()` returns Atlas probe IP or None (prefix guessing removed); country loop implements the target ladder with remote-only and no-coverage branches; `country_summary()` renders the two new row groups with distinct labels; additive `remote_only` and `skip_reason` TypedDict keys; four test_country.py tests updated (141 passed)
+- **Phase 2: Partial-path recovery on trace timeout** — `TraceTimeout` exception added mirroring `MtrPermissionError` pattern; `_run_traceroute_cmd()` switched to Popen + communicate for partial-stdout harvest on kill; all three `_measure()` trace branches catch `TraceTimeout` and adopt partial hubs; `path_table()` and `dual_stack_columns()` print a truncation note when `truncated=True`; additive `trace_truncated` TypedDict key; five new tests added across test_mtr.py and test_diagnosis.py (146 passed)
+
+## Verification
+
+### Production Build
+- `uv tool run --from build pyproject-build` — PASS: `netpath-0.12.1.dev15+g6d12cabd2.tar.gz` and `netpath-0.12.1.dev15+g6d12cabd2-py3-none-any.whl` built successfully
+
+### Automated Checks (from review)
+- `pytest` — PASS: 146 passed, 0 failed
+- `ruff check src tests` — PASS: clean
 
