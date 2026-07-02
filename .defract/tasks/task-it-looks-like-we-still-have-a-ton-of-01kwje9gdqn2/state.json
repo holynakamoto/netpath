@@ -2,10 +2,10 @@
   "id": "task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
   "status": "active",
   "stage": "implementation",
-  "phase": 0,
+  "phase": 1,
   "totalPhases": 3,
   "createdAt": "2026-07-02T22:13:19Z",
-  "updatedAt": "2026-07-02T22:31:54Z",
+  "updatedAt": "2026-07-02T22:37:02Z",
   "events": [
     {
       "models": {
@@ -225,6 +225,174 @@
       "skipped": 0,
       "timestamp": "2026-07-02T22:31:54Z",
       "type": "test_results"
+    },
+    {
+      "change_summary": "Phase 1 complete: coverage default raised to 50",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T22:32:01Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/cli.py"
+      ],
+      "phase": 0,
+      "summary": "Raised coverage command --top default from 20 to 50. Title already interpolates top so no title change needed. All 146 tests pass, ruff clean.",
+      "timestamp": "2026-07-02T22:32:05Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `netpath coverage` with no flag and confirm the table title reads `Globalping Coverage — Top 50 Countries` and lists up to 50 ranked country rows."
+        },
+        {
+          "description": "Run `netpath coverage --top 10` and confirm exactly 10 rows appear with a `Top 10 Countries` title (override still works)."
+        },
+        {
+          "description": "Run `netpath coverage -t 5` and confirm the short flag also overrides to 5 rows / `Top 5 Countries`."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Expand coverage to top 50",
+      "timestamp": "2026-07-02T22:32:11Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Expand coverage to top 50",
+      "server_phase": 0,
+      "timestamp": "2026-07-02T22:32:15Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Expand coverage to top 50",
+      "timestamp": "2026-07-02T22:32:15Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "150792621dd1db3d37f2fea463351f93b494454e",
+      "worktree_status_digest": "994233fe04fb27b8a5c26622d0a786fb5be0b6771c8623214dc6dd1e7628d51e"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Expand coverage to top 50",
+      "timestamp": "2026-07-02T22:33:01Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [
+        0,
+        1,
+        2
+      ],
+      "phase": 0,
+      "timestamp": "2026-07-02T22:33:01Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-02T22:33:02Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "model": "opus",
+      "session_id": "01kwjfdkgwc7n7g4w5kwnyff8x",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T22:33:02Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Phase 2: backfill Radar for uncovered/remote-only ISP rows + resilient partial baseline speedtest",
+      "phase": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T22:33:17Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 2: fill uncovered/remote-only rows + salvage partial baselines",
+      "percentage": 0,
+      "phase": 2,
+      "timestamp": "2026-07-02T22:33:18Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running check suite",
+      "percentage": 80,
+      "phase": 2,
+      "timestamp": "2026-07-02T22:36:12Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "146 baseline + 4 new tests/test_speedtest.py partial-baseline tests. ruff check src tests clean.",
+      "failed": 0,
+      "passed": 150,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-07-02T22:36:23Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Keep run() raising and only salvage partial results in the baseline caller — rejected because it leaves the _measure() fallback still discarding a good direction and duplicates try/except logic."
+      ],
+      "decision": "Implementation: speedtest.run() now never raises on a single-direction failure — it returns {download, upload, server, errors} with per-direction results (None on failure). extract_stats() returns (upload|None, download|None). Both the baseline caller and the _measure() speedtest fallback were updated to consume partial results, so a successful download survives an upload timeout in every path (not just the baseline).",
+      "phase": 2,
+      "rationale": "Mirrors the existing probe_errors convention (per-probe error strings, best-effort partial results). Changing run() at the source rather than only patching the baseline caller means the _measure() fallback also stops discarding a good direction — a strict improvement consistent with R7 with no extra risk since _measure already tolerated a fully-failed speedtest.",
+      "timestamp": "2026-07-02T22:36:29Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 2 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 2,
+      "timestamp": "2026-07-02T22:36:34Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 2 complete: Radar backfill for uncovered/remote-only rows + resilient partial baseline",
+      "revision": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T22:36:46Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/speedtest.py",
+        "src/netpath/cli.py",
+        "src/netpath/display.py",
+        "tests/test_speedtest.py"
+      ],
+      "phase": 1,
+      "summary": "Backfilled Cloudflare Radar for remote-only/no-coverage ISP rows (per-ISP panel + summary-tree figures via _fetch_rum, no live target), and made speedtest.run() return partial results so a failed direction no longer discards the one that succeeded. Baseline panel now shows the succeeded direction and marks the failed one; both-fail preserves the warning. 150 tests pass, ruff clean.",
+      "timestamp": "2026-07-02T22:36:52Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `NETPATH_CF_TOKEN=<radar:read token> netpath country US` and confirm at least one formerly `remote-only` or `no coverage` ISP now prints a `Cloudflare Radar` panel in its section, and shows a `Radar: ↓ … ↑ … idle …` line under that ISP in the `US summary` tree."
+        },
+        {
+          "description": "Run `netpath country US` with NO `NETPATH_CF_TOKEN` set and confirm remote-only / no-coverage rows render exactly as before — bare labels, no empty Radar values or panels."
+        },
+        {
+          "description": "Simulate a partial baseline: on a link where the upload times out (or throttle upload), run `netpath country US` and confirm the `Your baseline · speed.cloudflare.com` panel still shows the `↓ Download` figure and marks `↑ Upload` as `failed`, instead of only printing a warning."
+        },
+        {
+          "description": "Confirm the both-directions-fail case still behaves as before: with the network fully blocked to `speed.cloudflare.com`, `netpath country US` prints the `Baseline speedtest failed:` warning and no baseline panel."
+        },
+        {
+          "description": "Run `uv run pytest -q` and confirm 150 passed, then `uv run ruff check src tests` reports `All checks passed!`."
+        }
+      ],
+      "phase": 1,
+      "phase_title": "Fill uncovered/remote-only ISP data and salvage partial baselines",
+      "timestamp": "2026-07-02T22:37:02Z",
+      "type": "manual_tests"
     }
   ],
   "needsArchitecture": false,
@@ -244,39 +412,42 @@
   "stageApprovals": {
     "scope": "2026-07-02T22:30:51Z"
   },
+  "stageContent": {
+    "implementation": "## Phase 1: Expand coverage to top 50\n\nRaised the `coverage` command's `--top` default from 20 to 50 (`src/netpath/cli.py`). The table title already interpolates `top`, so no title change was needed.\n\n**Files changed:** `src/netpath/cli.py` (one line).\n\n## Phase 2: Fill uncovered/remote-only ISP data and salvage partial baselines\n\nClosed two concrete output gaps from the pasted `country US` run.\n\n**Resilient baseline speedtest (R7/R8):**\n- `speedtest.run()` no longer raises when one direction fails. It attempts download and upload independently and returns `{\"download\": {...}|None, \"upload\": {...}|None, \"server\": ..., \"errors\": {direction: reason}}`, mirroring the `probe_errors` convention.\n- `speedtest.extract_stats()` returns `(upload|None, download|None)` so callers render whatever succeeded.\n- Both consumers updated: the baseline block (`cli.py`) and the `_measure()` speedtest fallback (`cli.py`). A successful download now survives an upload timeout in every path. Both-directions-fail preserves the original warning with no panel.\n- `display.baseline_panel(upload, download, errors=...)` now tolerates a None direction and marks the failed one as `failed` rather than dropping the whole panel.\n\n**Radar backfill for blank rows (R5/R6):**\n- The two short-circuit branches (`remote_only`, `skip_reason`/no-coverage) now call the existing `_fetch_rum(asn_str, cf_token)` before `continue`. When Radar data returns, `display.rum_only_panel` prints it in the per-ISP section and the Radar dict is stored on the summary row under a `rum` key (matching what `_measure` sets).\n- `display.country_summary` renders a compact Radar figures subrow (`_render_rum_subrow` / `_rum_summary_str`) beneath remote-only and no-coverage rows when `rum` is present. With no token, `_fetch_rum` returns None and rows render exactly as before — no empty values.\n\n**Tests:** `tests/test_speedtest.py` — upload-fails/download-succeeds returns partial (no raise), download-fails/upload-succeeds, both-fail records both errors, both-succeed.\n\n**Files changed:** `src/netpath/speedtest.py`, `src/netpath/cli.py`, `src/netpath/display.py`, `tests/test_speedtest.py`.\n\n**Verification:** 150 tests pass (146 baseline + 4 new); `ruff check src tests` clean. Radar backfill (needs a live token) and both-fail panel suppression are covered in the manual test list."
+  },
   "stages": {
     "review": {
       "status": "not_started"
+    },
+    "release": {
+      "status": "not_started"
+    },
+    "architecture": {
+      "status": "skipped"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T22:30:51Z",
       "startedAt": "2026-07-02T22:14:08Z"
     },
-    "design": {
-      "status": "skipped"
-    },
-    "release": {
-      "status": "not_started"
-    },
     "implementation": {
       "status": "in_progress",
-      "startedAt": "2026-07-02T22:30:56Z"
+      "startedAt": "2026-07-02T22:33:02Z"
     },
-    "architecture": {
+    "design": {
       "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T22:30:56Z",
+  "worktreeLastSyncedAt": "2026-07-02T22:33:02Z",
   "stageModels": {
-    "architecture": "opus",
-    "design": "sonnet",
-    "release": "haiku",
-    "scope_initial": "haiku",
-    "review": "sonnet",
     "scope_full": "opus",
+    "scope_initial": "haiku",
+    "release": "haiku",
+    "review": "sonnet",
+    "design": "sonnet",
+    "architecture": "opus",
     "implementation": "opus"
   }
 }

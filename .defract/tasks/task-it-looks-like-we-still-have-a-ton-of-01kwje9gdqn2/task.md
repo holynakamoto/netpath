@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 It looks like we still have a ton of gaps in our output data I want to cover all the gaps, also for the coverage command I want to see the top 50 countries  nickmoore@Nicks-MacBook-Air  ~  netpath coverage                                                                                                                                           ✔  440  16:04:21
@@ -322,3 +321,31 @@ Testing per project strategy: PeeringDB lookup and the partial-baseline logic ar
 ### Dependencies
 
 - The separate ASN-to-ASN path analysis task (proposed) depends on the PeeringDB endpoint discovery delivered in Phase 3.
+
+## Implementation Notes
+
+## Phase 1: Expand coverage to top 50
+
+Raised the `coverage` command's `--top` default from 20 to 50 (`src/netpath/cli.py`). The table title already interpolates `top`, so no title change was needed.
+
+**Files changed:** `src/netpath/cli.py` (one line).
+
+## Phase 2: Fill uncovered/remote-only ISP data and salvage partial baselines
+
+Closed two concrete output gaps from the pasted `country US` run.
+
+**Resilient baseline speedtest (R7/R8):**
+- `speedtest.run()` no longer raises when one direction fails. It attempts download and upload independently and returns `{"download": {...}|None, "upload": {...}|None, "server": ..., "errors": {direction: reason}}`, mirroring the `probe_errors` convention.
+- `speedtest.extract_stats()` returns `(upload|None, download|None)` so callers render whatever succeeded.
+- Both consumers updated: the baseline block (`cli.py`) and the `_measure()` speedtest fallback (`cli.py`). A successful download now survives an upload timeout in every path. Both-directions-fail preserves the original warning with no panel.
+- `display.baseline_panel(upload, download, errors=...)` now tolerates a None direction and marks the failed one as `failed` rather than dropping the whole panel.
+
+**Radar backfill for blank rows (R5/R6):**
+- The two short-circuit branches (`remote_only`, `skip_reason`/no-coverage) now call the existing `_fetch_rum(asn_str, cf_token)` before `continue`. When Radar data returns, `display.rum_only_panel` prints it in the per-ISP section and the Radar dict is stored on the summary row under a `rum` key (matching what `_measure` sets).
+- `display.country_summary` renders a compact Radar figures subrow (`_render_rum_subrow` / `_rum_summary_str`) beneath remote-only and no-coverage rows when `rum` is present. With no token, `_fetch_rum` returns None and rows render exactly as before — no empty values.
+
+**Tests:** `tests/test_speedtest.py` — upload-fails/download-succeeds returns partial (no raise), download-fails/upload-succeeds, both-fail records both errors, both-succeed.
+
+**Files changed:** `src/netpath/speedtest.py`, `src/netpath/cli.py`, `src/netpath/display.py`, `tests/test_speedtest.py`.
+
+**Verification:** 150 tests pass (146 baseline + 4 new); `ruff check src tests` clean. Radar backfill (needs a live token) and both-fail panel suppression are covered in the manual test list.
