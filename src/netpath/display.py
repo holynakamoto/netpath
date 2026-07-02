@@ -382,27 +382,22 @@ def baseline_panel(upload: dict, download: dict):
     console.print()
 
 
-def _render_atlas_subrow(r: dict, is_last_in_group: bool) -> None:
-    """Print optional Atlas RTT + outbound AS-path line beneath an ISP summary row."""
-    atlas = r.get("atlas", {})
-    if not atlas:
+def _render_globalping_subrow(r: dict, is_last_in_group: bool) -> None:
+    """Print optional Globalping RTT + outbound AS-path line beneath an ISP summary row."""
+    gp = r.get("globalping", {})
+    if not gp:
         return
-    source = atlas.get("source", "probe")
-    rtt = atlas.get("ping_rtt")
-    path = atlas.get("outbound_as_path", [])
+    rtt = gp.get("ping_rtt")
+    path = gp.get("outbound_as_path", [])
     parts = []
     if rtt:
         parts.append(f"RTT {rtt['avg']:.1f} ms avg ({rtt['min']:.1f}–{rtt['max']:.1f})")
     if path:
         parts.append("outbound: " + "→".join(path[:6]))
-    tag = "[Atlas anchor]" if source == "atlas_anchor" else "[Atlas]"
-    if not parts and source != "atlas_anchor":
+    if not parts:
         return
     cont = "   " if is_last_in_group else "  │"
-    if parts:
-        console.print(f"  {cont}         [dim]{tag} {', '.join(parts)}[/dim]")
-    else:
-        console.print(f"  {cont}         [dim]{tag}[/dim]")
+    console.print(f"  {cont}         [dim][Globalping] {', '.join(parts)}[/dim]")
 
 
 def country_summary(code: str, results: list[dict]):
@@ -477,7 +472,7 @@ def country_summary(code: str, results: list[dict]):
             line.append(f"  {connector} {star}{r['asn']:<10}  {_trim(r['name']):<26}  ")
             line.append_text(fmt_country_latency(r["verified_rtt_ms"]))
             console.print(line)
-            _render_atlas_subrow(r, ri == len(rows) - 1)
+            _render_globalping_subrow(r, ri == len(rows) - 1)
         console.print()
 
     if incomplete:
@@ -502,7 +497,7 @@ def country_summary(code: str, results: list[dict]):
             else:
                 line.append("incomplete", style="dim")
             console.print(line)
-            _render_atlas_subrow(r, ri == len(incomplete) - 1)
+            _render_globalping_subrow(r, ri == len(incomplete) - 1)
         console.print()
 
     if sorted_keys:

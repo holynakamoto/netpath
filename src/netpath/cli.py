@@ -4,6 +4,7 @@ import re
 import socket
 import subprocess
 import sys
+import requests
 import typer
 from rich import box
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -11,7 +12,7 @@ from rich.table import Table
 
 from netpath import __version__
 from netpath import country as country_mod
-from netpath import atlas as atlas_mod, display, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
+from netpath import display, globalping as globalping_mod, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
 from netpath import mtr, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
@@ -32,15 +33,18 @@ _NO_TPUT = typer.Option(False, "--no-throughput",   help="Skip throughput test")
 _CF_TOK  = typer.Option(None,  "--cf-token",
                          envvar="NETPATH_CF_TOKEN",
                          help="Cloudflare API token with radar:read (or set NETPATH_CF_TOKEN)")
+_GP_TOK  = typer.Option(None,  "--gp-token",
+                         envvar="NETPATH_GLOBALPING_TOKEN",
+                         help="Globalping token for a higher rate limit (or set NETPATH_GLOBALPING_TOKEN); optional")
 
 _SEVERITY_CODE = {"ok": 0, "warning": 1, "critical": 2}
 
 
-def _set_atlas_error(rows: list[dict], asn: str, msg: str) -> None:
-    """Record an Atlas error on the summary row matching asn."""
+def _set_globalping_error(rows: list[dict], asn: str, msg: str) -> None:
+    """Record a Globalping error on the summary row matching asn."""
     for row in rows:
         if row["asn"] == asn:
-            row.setdefault("probe_errors", {})["atlas"] = msg
+            row.setdefault("probe_errors", {})["globalping"] = msg
             return
 
 
@@ -572,11 +576,8 @@ def country(
     no_throughput: bool = _NO_TPUT,
     cf_token:      str | None = _CF_TOK,
     globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probes"),
-    atlas_key:     str | None = typer.Option(
-        None, "--atlas-key",
-        envvar="NETPATH_ATLAS_KEY",
-        help="RIPE Atlas API key for in-network measurements from inside each ISP",
-    ),
+    gp_token:      str | None = _GP_TOK,
+    no_remote:     bool = typer.Option(False, "--no-remote", help="Skip Globalping in-network measurements"),
 ):
     """Test the top N ASNs (by allocated IPv4 address space) for a country."""
     code = code.upper()
@@ -627,55 +628,35 @@ def country(
         servers._fetch_and_resolve()
     display.console.print()
 
-    # Atlas: probe discovery + budget check (before regular sweep, no credits spent)
-    _atlas_probes: dict[str, list[int]] = {}   # asn → probe IDs
-    _atlas_anchor_asns: set[str] = set()       # ASNs served by anchor fallback
-    _atlas_test_ips: dict[str, str] = {}        # asn → test IP for ping target
+    # Globalping: probe inventory (single request) before the regular sweep
+    _gp_covered_asns: set[str] = set()          # ASNs with at least one connected probe
+    _gp_test_ips: dict[str, str] = {}           # asn → test IP for ping target
     _user_public_ip: str | None = None
 
-    if atlas_key:
-        display.console.print("[dim]Discovering RIPE Atlas probes…[/dim]")
+    if not no_remote:
+        display.console.print("[dim]Discovering Globalping probes…[/dim]")
         with Progress(SpinnerColumn(), TextColumn("{task.description}"),
                       console=display.console, transient=True) as p:
-            p.add_task("Querying Atlas probe endpoints…", total=None)
-            for _ai in top_asns:
-                _probes = atlas_mod.find_probes_in_asn(_ai["asn"], atlas_key)
-                if _probes:
-                    _atlas_probes[_ai["asn"]] = _probes
-                else:
-                    _anchors = atlas_mod.find_anchors_in_asn(_ai["asn"], atlas_key)
-                    if _anchors:
-                        _atlas_probes[_ai["asn"]] = _anchors
-                        _atlas_anchor_asns.add(_ai["asn"])
+            p.add_task("Fetching Globalping probe inventory…", total=None)
+            _gp_probes = globalping_mod.fetch_probes(gp_token)
+        _gp_asn_counts = globalping_mod.count_probes_by_asn(_gp_probes)
+        for _ai in top_asns:
+            if _gp_asn_counts.get(int(normalize_asn(_ai["asn"])[2:])):
+                _gp_covered_asns.add(_ai["asn"])
 
-        if _atlas_probes:
-            _user_public_ip = atlas_mod.get_public_ip()
+        if _gp_covered_asns:
+            _user_public_ip = globalping_mod.get_public_ip()
             if _user_public_ip is None:
-                display.warn("Could not determine your public IP — Atlas measurements will be skipped")
-                _atlas_probes = {}
+                display.warn("Could not determine your public IP — Globalping measurements will be skipped")
+                _gp_covered_asns = set()
             else:
-                try:
-                    _ok, _cost, _balance = atlas_mod.check_budget(_atlas_probes, atlas_key)
-                except Exception as _e:
-                    display.error(f"Atlas credit check failed: {_e}")
-                    raise typer.Exit(1)
-
-                if not _ok:
-                    display.error(
-                        f"Insufficient Atlas credits: {_cost} needed, "
-                        f"{_balance} available. "
-                        "Aborting before any credits are spent."
-                    )
-                    raise typer.Exit(1)
-
                 display.console.print(
-                    f"[green]✓[/green] Atlas probes found in "
-                    f"{len(_atlas_probes)}/{len(top_asns)} ASNs  "
-                    f"[dim](estimated cost: {_cost} credits, balance: {_balance})[/dim]\n"
+                    f"[green]✓[/green] Globalping probes found in "
+                    f"{len(_gp_covered_asns)}/{len(top_asns)} ASNs\n"
                 )
         else:
             display.console.print(
-                "[dim]No Atlas probes found in any target ASN — skipping Atlas mode[/dim]\n"
+                "[dim]No Globalping probes found in any target ASN — skipping remote measurements[/dim]\n"
             )
 
     summary_rows: list[dict] = []
@@ -696,8 +677,8 @@ def country(
 
         if asn_servers:
             server = asn_servers[0]
-            if atlas_key:
-                _atlas_test_ips[asn_str] = server["HOST"]
+            if not no_remote:
+                _gp_test_ips[asn_str] = server["HOST"]
             can_test_throughput = not no_throughput and iperf_mod.available()
             r = _run_test(
                 host=server["HOST"], port=server["port"],
@@ -719,8 +700,8 @@ def country(
                                      "entry_transit_asn": None, "stall_hop": None})
                 continue
 
-            if atlas_key:
-                _atlas_test_ips[asn_str] = test_ip
+            if not no_remote:
+                _gp_test_ips[asn_str] = test_ip
             display.console.print(
                 f"  [dim]→ {test_ip}  (traceroute target — no iperf3 server in {asn_str})[/dim]\n"
             )
@@ -746,77 +727,95 @@ def country(
         if globe:
             hubs_for_globe[asn_str] = r.get("hubs", [])
 
-    # Atlas: schedule, poll, and merge results after all regular measurements
-    if atlas_key and _atlas_probes and _user_public_ip:
-        display.console.print("[dim]Scheduling RIPE Atlas measurements…[/dim]")
-        _atlas_mids: dict[str, dict[str, int]] = {}
+    # Globalping: schedule, poll, and merge results after all regular measurements
+    if not no_remote and _gp_covered_asns and _user_public_ip:
+        display.console.print("[dim]Scheduling Globalping measurements…[/dim]")
+        _gp_mids: dict[str, dict[str, str]] = {}
 
-        for _asn_str, _probe_ids in _atlas_probes.items():
-            _tip = _atlas_test_ips.get(_asn_str)
+        _pending_asns = [_ai["asn"] for _ai in top_asns if _ai["asn"] in _gp_covered_asns]
+        for _idx, _asn_str in enumerate(_pending_asns):
+            _tip = _gp_test_ips.get(_asn_str)
             if not _tip:
-                _set_atlas_error(summary_rows, _asn_str, "no test IP available")
+                _set_globalping_error(summary_rows, _asn_str, "no test IP available")
                 continue
             try:
-                _mids = atlas_mod.schedule_measurements(
-                    _probe_ids, _tip, _user_public_ip, atlas_key
+                _mids = globalping_mod.schedule_measurements(
+                    _asn_str, _tip, _user_public_ip, gp_token
                 )
-                _atlas_mids[_asn_str] = _mids
+                _gp_mids[_asn_str] = _mids
                 display.console.print(
-                    f"  [dim]{_asn_str}: ping #{_mids['ping']}  "
-                    f"traceroute #{_mids['traceroute']}[/dim]"
+                    f"  [dim]{_asn_str}: ping {_mids['ping']}  "
+                    f"mtr {_mids['mtr']}[/dim]"
                 )
+            except requests.HTTPError as _e:
+                _status = _e.response.status_code if _e.response is not None else None
+                if _status == 422:
+                    _set_globalping_error(summary_rows, _asn_str, "no Globalping coverage")
+                elif _status == 429:
+                    _set_globalping_error(
+                        summary_rows, _asn_str,
+                        "rate limit reached — pass --gp-token for higher limits",
+                    )
+                elif _status == 401:
+                    display.error(
+                        "Globalping rejected the token from --gp-token / "
+                        "NETPATH_GLOBALPING_TOKEN — skipping remote measurements"
+                    )
+                    for _rest in _pending_asns[_idx:]:
+                        _set_globalping_error(summary_rows, _rest, "invalid Globalping token")
+                    break
+                else:
+                    _set_globalping_error(summary_rows, _asn_str, str(_e))
             except Exception as _e:
-                _set_atlas_error(summary_rows, _asn_str, str(_e))
+                _set_globalping_error(summary_rows, _asn_str, str(_e))
 
         # Record no-probe ASNs
         for _ai in top_asns:
-            if _ai["asn"] not in _atlas_probes:
-                _set_atlas_error(summary_rows, _ai["asn"], "no Atlas coverage")
+            if _ai["asn"] not in _gp_covered_asns:
+                _set_globalping_error(summary_rows, _ai["asn"], "no Globalping coverage")
 
-        _all_mids = [_m for _ms in _atlas_mids.values() for _m in _ms.values()]
+        _all_mids = [_m for _ms in _gp_mids.values() for _m in _ms.values()]
         if _all_mids:
             display.console.print(
-                f"\n[dim]Waiting for {len(_all_mids)} Atlas measurements "
-                f"(up to 600 s)…[/dim]"
+                f"\n[dim]Waiting for {len(_all_mids)} Globalping measurements "
+                f"(up to 60 s)…[/dim]"
             )
             with Progress(SpinnerColumn(), TextColumn("{task.description}"),
                           console=display.console, transient=True) as _p:
-                _p.add_task("Polling Atlas API…", total=None)
-                _statuses = atlas_mod.poll_until_done(_all_mids, atlas_key, timeout=600)
+                _p.add_task("Polling Globalping API…", total=None)
+                _statuses = globalping_mod.poll_until_done(_all_mids, gp_token)
 
-            for _asn_str, _mids in _atlas_mids.items():
+            for _asn_str, _mids in _gp_mids.items():
                 _ping_id = _mids["ping"]
-                _trace_id = _mids["traceroute"]
-                _atlas_data: dict = {"measurement_ids": _mids}
+                _mtr_id = _mids["mtr"]
+                _gp_data: dict = {"measurement_ids": _mids}
 
-                if _statuses.get(_ping_id) == "stopped":
-                    _rtt = atlas_mod.parse_ping_rtt(
-                        atlas_mod.fetch_results(_ping_id, atlas_key)
+                if _statuses.get(_ping_id) == "finished":
+                    _rtt = globalping_mod.parse_ping_rtt(
+                        globalping_mod.fetch_results(_ping_id, gp_token)
                     )
                     if _rtt:
-                        _atlas_data["ping_rtt"] = _rtt
+                        _gp_data["ping_rtt"] = _rtt
                 elif _statuses.get(_ping_id) == "timed_out":
-                    _set_atlas_error(summary_rows, _asn_str, "timed out")
+                    _set_globalping_error(summary_rows, _asn_str, "timed out")
 
-                if _statuses.get(_trace_id) == "stopped":
-                    _path = atlas_mod.parse_traceroute_as_path(
-                        atlas_mod.fetch_results(_trace_id, atlas_key)
+                if _statuses.get(_mtr_id) == "finished":
+                    _path = globalping_mod.parse_mtr_as_path(
+                        globalping_mod.fetch_results(_mtr_id, gp_token)
                     )
                     if _path:
-                        _atlas_data["outbound_as_path"] = _path
-                elif _statuses.get(_trace_id) == "timed_out":
-                    _set_atlas_error(summary_rows, _asn_str, "timed out")
+                        _gp_data["outbound_as_path"] = _path
+                elif _statuses.get(_mtr_id) == "timed_out":
+                    _set_globalping_error(summary_rows, _asn_str, "timed out")
 
-                if _asn_str in _atlas_anchor_asns:
-                    _atlas_data["source"] = "atlas_anchor"
                 _row = next((r for r in summary_rows if r["asn"] == _asn_str), None)
                 if _row is not None:
-                    _row["atlas"] = _atlas_data
+                    _row["globalping"] = _gp_data
 
-    elif atlas_key:
+    elif not no_remote:
         # No probes found or public IP unavailable — record for all ASNs
         for _ai in top_asns:
-            _set_atlas_error(summary_rows, _ai["asn"], "no Atlas coverage")
+            _set_globalping_error(summary_rows, _ai["asn"], "no Globalping coverage")
 
     display.country_summary(code, summary_rows)
     if globe and hubs_for_globe:
@@ -868,67 +867,45 @@ _COUNTRY_NAMES: dict[str, str] = {
 }
 
 
-@app.command(name="atlas-profile")
-def atlas_profile(
-    atlas_key: str | None = typer.Option(
-        None, "--atlas-key",
-        envvar="NETPATH_ATLAS_KEY",
-        help="RIPE Atlas API key (or set NETPATH_ATLAS_KEY)",
-    ),
+@app.command()
+def coverage(
+    gp_token: str | None = _GP_TOK,
     top: int = typer.Option(20, "--top", "-t", help="Number of top countries to show"),
     globe: bool = typer.Option(False, "--globe", "-g", help="Render choropleth globe after fetching"),
 ):
-    """Show RIPE Atlas probe and anchor coverage ranked by country."""
-    if not atlas_key:
-        display.error(
-            "No Atlas API key provided. Set NETPATH_ATLAS_KEY or pass --atlas-key.\n"
-            "  Get a free key at: https://atlas.ripe.net/keys/"
-        )
-        raise typer.Exit(1)
-
+    """Show Globalping probe coverage ranked by country."""
     display.header(__version__)
-    coverage = atlas_mod.fetch_coverage_by_country(atlas_key)
+    probes = globalping_mod.fetch_probes(gp_token)
+    coverage_map = globalping_mod.coverage_by_country(probes)
 
-    if not coverage:
-        display.warn("No coverage data returned from the Atlas API.")
+    if not coverage_map:
+        display.warn("No coverage data returned from the Globalping API.")
         raise typer.Exit(1)
 
-    ranked = sorted(
-        coverage.items(),
-        key=lambda x: x[1]["probes"] + x[1]["anchors"],
-        reverse=True,
-    )[:top]
+    ranked = sorted(coverage_map.items(), key=lambda x: x[1], reverse=True)[:top]
 
     table = Table(
         box=box.ROUNDED,
         border_style="dim",
-        title=f"[bold]Atlas Coverage — Top {top} Countries[/bold]",
+        title=f"[bold]Globalping Coverage — Top {top} Countries[/bold]",
     )
     table.add_column("#", style="dim", justify="right")
     table.add_column("Code", justify="center")
     table.add_column("Country", min_width=22)
-    table.add_column("Probes", justify="right")
-    table.add_column("Anchors", justify="right")
-    table.add_column("Total", justify="right", style="bold")
+    table.add_column("Probes", justify="right", style="bold")
 
-    for rank, (cc, data) in enumerate(ranked, 1):
-        probes = data["probes"]
-        anchors = data["anchors"]
-        total = probes + anchors
+    for rank, (cc, probe_count) in enumerate(ranked, 1):
         table.add_row(
             str(rank),
             cc,
             _COUNTRY_NAMES.get(cc, cc),
-            str(probes),
-            str(anchors),
-            str(total),
+            str(probe_count),
         )
 
     display.console.print(table)
 
     if globe:
-        globe_coverage = {cc: d["probes"] + d["anchors"] for cc, d in coverage.items()}
-        globe_mod.render_coverage(globe_coverage)
+        globe_mod.render_coverage(coverage_map)
 
 
 def run():
