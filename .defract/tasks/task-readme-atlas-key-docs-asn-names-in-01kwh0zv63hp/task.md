@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 # README atlas-key docs + ASN names in trace/AS-path display
@@ -189,3 +188,19 @@ The `atlas-profile` command does not require a credit budget check — it only r
 ### Dependencies
 
 No new runtime dependencies. All network calls use the existing `requests`-based `_with_retry()` helper from `utils.py`. Globe visualization reuses `plotly` which is already a transitive dependency via `globe.py`.
+
+## Implementation Notes
+
+## Phase 1: ASN org name enrichment
+
+**Files changed:**
+- `src/netpath/types.py` — added `asn_name: str` to `Hub` TypedDict (total=False, so optional)
+- `src/netpath/mtr.py` — replaced `cymru_bulk_lookup` import with `cymru_bulk_lookup_rich`; added `clean_asn_name` import from `display`; added `_enrich_names()` helper that batch-looks up org names and populates `hub["asn_name"]` (and fills `hub["ASN"]` as fallback when mtr didn't resolve it); called from both `_single_pass()` (mtr mode) and `run_traceroute()` (traceroute fallback mode)
+- `src/netpath/atlas.py` — replaced `cymru_bulk_lookup` with `cymru_bulk_lookup_rich`; added `clean_asn_name` import; `parse_traceroute_as_path()` now returns `["AS1234 (Name)", ...]` formatted strings, deduplicating on bare ASN number
+- `src/netpath/display.py` — `_build_hub_table()` ASN column now shows `"AS15169 (Google)"` format (name truncated to 20 chars), column min_width raised to 20; `as_path_summary()` deduplicates on bare ASN, renders `"AS{N} (Name)"` labels in the path line
+
+**Deviations from plan:**
+- `cymru_bulk_lookup` removed from `mtr.py` entirely (replaced by `cymru_bulk_lookup_rich`) rather than calling both — avoids two Cymru TCP connections per `run_traceroute` call
+- Two test mocks in `tests/test_country.py` patched the now-removed `netpath.mtr.cymru_bulk_lookup` symbol; updated to patch `cymru_bulk_lookup_rich` instead
+
+**Test results:** 70/70 passed, ruff clean

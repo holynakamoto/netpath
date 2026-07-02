@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 3,
   "createdAt": "2026-07-02T09:01:37Z",
-  "updatedAt": "2026-07-02T09:55:30Z",
+  "updatedAt": "2026-07-02T09:56:46Z",
   "events": [
     {
       "base_branch": "main",
@@ -235,6 +235,91 @@
       "phase": 1,
       "timestamp": "2026-07-02T09:55:30Z",
       "type": "progress_report"
+    },
+    {
+      "details": "All 70 tests pass. Ruff linting clean. Fixed 2 pre-existing test mocks that patched the now-replaced cymru_bulk_lookup symbol.",
+      "failed": 0,
+      "passed": 70,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-07-02T09:55:57Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Implementation: cymru_bulk_lookup replaced by cymru_bulk_lookup_rich in mtr.py; _enrich_names helper added for reuse across both mtr and traceroute paths",
+      "phase": 1,
+      "rationale": "run_traceroute previously called cymru_bulk_lookup (ASN only) and would have needed a second cymru_bulk_lookup_rich call for names. Switching entirely to cymru_bulk_lookup_rich with a single _enrich_names helper avoids two Cymru TCP connections per run and keeps the enrichment logic in one place. The _enrich_names helper handles the mtr ASN-fallback case (hub.ASN == \"AS???\") consistently in both code paths.",
+      "timestamp": "2026-07-02T09:56:06Z",
+      "type": "decision"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-07-02T09:56:10Z",
+      "type": "progress_report"
+    },
+    {
+      "change_summary": "Phase 1 complete: ASN org name enrichment",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T09:56:23Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/types.py",
+        "src/netpath/mtr.py",
+        "src/netpath/atlas.py",
+        "src/netpath/display.py",
+        "tests/test_country.py"
+      ],
+      "phase": 0,
+      "summary": "ASN org name enrichment wired through all display surfaces. _enrich_names() helper batch-calls cymru_bulk_lookup_rich() on non-??? hop IPs for both mtr and traceroute paths. Hub TypedDict gains asn_name field. path_table() shows \"AS15169 (Google)\" format, as_path_summary() shows named ASNs, atlas.parse_traceroute_as_path() returns \"AS{N} (Name)\" strings. 70/70 tests pass.",
+      "timestamp": "2026-07-02T09:56:29Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `netpath asn AS15169` and confirm the ASN column in the trace table shows `AS15169 (Google)` (or similar Google org name) rather than a bare ASN number."
+        },
+        {
+          "description": "Run `netpath asn AS15169` and verify the AS path summary line at the bottom shows named ASNs in `AS{N} (Name) → AS{N} (Name)` format."
+        },
+        {
+          "description": "Run `netpath asn AS15169 --json 2>/dev/null | python -m json.tool` and confirm each hub entry that has a non-`AS???` ASN also has an `asn_name` field populated."
+        },
+        {
+          "description": "Confirm a `***` hop in the trace table renders `—` in the ASN column with no crash or error output."
+        },
+        {
+          "description": "Run `uv run pytest --tb=short` and confirm all 70 tests pass with no failures."
+        },
+        {
+          "description": "Run `uv run ruff check src tests` and confirm it reports no lint errors."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "ASN org name enrichment",
+      "timestamp": "2026-07-02T09:56:39Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "ASN org name enrichment",
+      "server_phase": 0,
+      "timestamp": "2026-07-02T09:56:46Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "ASN org name enrichment",
+      "timestamp": "2026-07-02T09:56:46Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "888852280b19eaf5f89cccb6966db3283fd1da65",
+      "worktree_status_digest": "fbceb51629559baff21db7dec3ecae02b92c6ed30513456cb76bebe1ca90215b"
     }
   ],
   "needsArchitecture": false,
@@ -254,27 +339,30 @@
   "stageApprovals": {
     "scope": "2026-07-02T09:50:12Z"
   },
+  "stageContent": {
+    "implementation": "## Phase 1: ASN org name enrichment\n\n**Files changed:**\n- `src/netpath/types.py` — added `asn_name: str` to `Hub` TypedDict (total=False, so optional)\n- `src/netpath/mtr.py` — replaced `cymru_bulk_lookup` import with `cymru_bulk_lookup_rich`; added `clean_asn_name` import from `display`; added `_enrich_names()` helper that batch-looks up org names and populates `hub[\"asn_name\"]` (and fills `hub[\"ASN\"]` as fallback when mtr didn't resolve it); called from both `_single_pass()` (mtr mode) and `run_traceroute()` (traceroute fallback mode)\n- `src/netpath/atlas.py` — replaced `cymru_bulk_lookup` with `cymru_bulk_lookup_rich`; added `clean_asn_name` import; `parse_traceroute_as_path()` now returns `[\"AS1234 (Name)\", ...]` formatted strings, deduplicating on bare ASN number\n- `src/netpath/display.py` — `_build_hub_table()` ASN column now shows `\"AS15169 (Google)\"` format (name truncated to 20 chars), column min_width raised to 20; `as_path_summary()` deduplicates on bare ASN, renders `\"AS{N} (Name)\"` labels in the path line\n\n**Deviations from plan:**\n- `cymru_bulk_lookup` removed from `mtr.py` entirely (replaced by `cymru_bulk_lookup_rich`) rather than calling both — avoids two Cymru TCP connections per `run_traceroute` call\n- Two test mocks in `tests/test_country.py` patched the now-removed `netpath.mtr.cymru_bulk_lookup` symbol; updated to patch `cymru_bulk_lookup_rich` instead\n\n**Test results:** 70/70 passed, ruff clean"
+  },
   "stages": {
-    "review": {
+    "release": {
       "status": "not_started"
     },
     "implementation": {
       "status": "in_progress",
       "startedAt": "2026-07-02T09:50:13Z"
     },
-    "design": {
-      "status": "skipped"
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-02T09:50:12Z",
+      "startedAt": "2026-07-02T09:11:11Z"
     },
-    "release": {
+    "review": {
       "status": "not_started"
     },
     "architecture": {
       "status": "skipped"
     },
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-07-02T09:50:12Z",
-      "startedAt": "2026-07-02T09:11:11Z"
+    "design": {
+      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",
