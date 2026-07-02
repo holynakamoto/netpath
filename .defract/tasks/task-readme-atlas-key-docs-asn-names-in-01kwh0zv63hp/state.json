@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 3,
   "createdAt": "2026-07-02T09:01:37Z",
-  "updatedAt": "2026-07-02T09:05:08Z",
+  "updatedAt": "2026-07-02T09:16:57Z",
   "events": [
     {
       "base_branch": "main",
@@ -48,29 +48,140 @@
       "type": "stage_work_complete",
       "worktree_head": "8f0dabe0a43dd15112f73109624fa5045c65242a",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "change_summary": "Added Atlas anchor fallback to scope — uses anchors when no volunteer probes found in a target ASN; also clarified anchor-measurements endpoint is out of scope",
+      "revision": 3,
+      "timestamp": "2026-07-02T09:07:32Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Intent check rev 3: three improvements — README Atlas/globe docs, ASN org names in trace display, and Atlas anchor fallback using GET /anchors/?asn={asn} when no volunteer probes exist in a target ASN.",
+      "timestamp": "2026-07-02T09:07:42Z",
+      "type": "stage_work_complete",
+      "worktree_head": "8f0dabe0a43dd15112f73109624fa5045c65242a",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "change_summary": "Added global Atlas coverage profile (probe + anchor counts by country, globe visualization) as fourth improvement",
+      "revision": 4,
+      "timestamp": "2026-07-02T09:09:54Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Intent check rev 4: four improvements — README docs, ASN org names, Atlas anchor fallback, and new global Atlas coverage profile with globe visualization. Approve to proceed to full scope.",
+      "timestamp": "2026-07-02T09:09:58Z",
+      "type": "stage_work_complete",
+      "worktree_head": "8f0dabe0a43dd15112f73109624fa5045c65242a",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "change_summary": "Confirmed atlas-profile as standalone subcommand, not a flag on country",
+      "revision": 5,
+      "timestamp": "2026-07-02T09:10:29Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Intent check rev 5: atlas-profile confirmed as standalone subcommand. Ready to approve and proceed to full scope.",
+      "timestamp": "2026-07-02T09:10:33Z",
+      "type": "stage_work_complete",
+      "worktree_head": "8f0dabe0a43dd15112f73109624fa5045c65242a",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-02T09:11:11Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwh1hcvcrs5vgx8rcj7pc325",
+      "stage": "scope",
+      "timestamp": "2026-07-02T09:11:11Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "change_summary": "Full scope — Requirements (17), Acceptance Criteria (12), 3 implementation phases with detailed files and verification",
+      "revision": 2,
+      "timestamp": "2026-07-02T09:16:19Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "CLI-only feature across 7 files — no design stage needed (follows existing Rich table patterns) and no architecture stage needed (all three additions build directly on established patterns: cymru_bulk_lookup_rich() exists, Atlas scheduling pipeline exists, globe.py exists). Tier is full due to new subcommand, cross-cutting enrichment changes, and README docs spanning the entire Atlas feature surface.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "backend-feature",
+      "tier": "full",
+      "timestamp": "2026-07-02T09:16:34Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Reuse cymru_bulk_lookup_rich() for org name enrichment rather than introducing a new lookup service",
+      "rationale": "cymru_bulk_lookup_rich() already exists in asn.py (lines 77–113), returns {ip: {asn, prefix, name}}, and is already used in display.py. It performs a batch whois query with no new runtime dependency. Adding a separate ASN-to-name service (e.g., PeeringDB org lookup by ASN) would add latency, a new external dependency, and cache complexity. The Cymru IP-based lookup is consistent with how ASNs are already resolved throughout the codebase.",
+      "timestamp": "2026-07-02T09:16:38Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Atlas anchor fallback submits anchor IDs through the existing measurement scheduling pipeline unchanged",
+      "rationale": "The RIPE Atlas scheduling/polling/parsing flow in atlas.py and cli.py accepts a list of probe IDs. Anchor nodes have numeric IDs in the same ID space, so no parallel code path is needed. The only additions are: (1) find_anchors_in_asn() to discover anchor IDs from the /api/v2/anchors/ endpoint, and (2) a source flag to label results as anchor-sourced in the output. This keeps the fallback path thin and the existing scheduling code untouched.",
+      "timestamp": "2026-07-02T09:16:51Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope written as revision 2 — 19 requirements across 4 categories, 12 acceptance criteria, 3 phases (Medium / Small / Large). Phase 1 wires cymru_bulk_lookup_rich() into hubs and display for org names. Phase 2 adds find_anchors_in_asn() fallback with [Atlas anchor] labeling. Phase 3 adds the atlas-profile subcommand with choropleth globe and README docs. Architecture skipped — all patterns are established. Workflow: backend-feature, full tier, scope → implementation → review → release.",
+      "timestamp": "2026-07-02T09:16:57Z",
+      "type": "stage_work_complete",
+      "worktree_head": "8c521e586002b870a683e01109a154e17187fea0",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "full",
+    "template": "backend-feature",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "CLI-only feature across 7 files — no design stage needed (follows existing Rich table patterns) and no architecture stage needed (all three additions build directly on established patterns: cymru_bulk_lookup_rich() exists, Atlas scheduling pipeline exists, globe.py exists). Tier is full due to new subcommand, cross-cutting enrichment changes, and README docs spanning the entire Atlas feature surface."
+  },
   "stages": {
-    "release": {
+    "implementation": {
       "status": "not_started"
     },
     "scope": {
       "status": "awaiting_approval",
-      "startedAt": "2026-07-02T09:01:37Z"
-    },
-    "architecture": {
-      "status": "not_started"
-    },
-    "design": {
-      "status": "not_started"
+      "startedAt": "2026-07-02T09:11:11Z"
     },
     "review": {
       "status": "not_started"
     },
-    "implementation": {
+    "architecture": {
+      "status": "skipped"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "release": {
       "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-07-02T09:11:11Z"
 }
