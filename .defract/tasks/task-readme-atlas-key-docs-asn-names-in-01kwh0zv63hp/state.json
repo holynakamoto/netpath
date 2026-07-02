@@ -1,11 +1,11 @@
 {
   "id": "task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",
   "status": "active",
-  "stage": "implementation",
-  "phase": 2,
+  "stage": "review",
+  "phase": 3,
   "totalPhases": 3,
   "createdAt": "2026-07-02T09:01:37Z",
-  "updatedAt": "2026-07-02T11:38:22Z",
+  "updatedAt": "2026-07-02T11:57:53Z",
   "events": [
     {
       "base_branch": "main",
@@ -637,6 +637,94 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "2365a94b12bafcc602b6aa5846eb7d9e3e61a13d",
       "worktree_status_digest": "25ca86d66d1175d725bdcd37c1a124420273697d3ed08c0d9dc4fb61244dc2fe"
+    },
+    {
+      "approved_by": "user",
+      "phase": 2,
+      "phase_title": "Atlas Profile Command + README",
+      "timestamp": "2026-07-02T11:52:26Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "phase": 2,
+      "timestamp": "2026-07-02T11:52:26Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "stage": "implementation",
+      "summary": "All phases approved — implementation ready for review.",
+      "timestamp": "2026-07-02T11:52:26Z",
+      "type": "stage_work_complete",
+      "worktree_head": "3cad40d3330bdbb97315dc5e66440770f282644c",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 5,
+      "timestamp": "2026-07-02T11:52:32Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T11:52:26Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "0484d34e0ab06734aa8438de1282a29b3d95b63b",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "implementation",
+      "stale_worktree_head": "3cad40d3330bdbb97315dc5e66440770f282644c",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-02T11:52:32Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T11:52:32Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "implementation",
+      "timestamp": "2026-07-02T11:52:32Z",
+      "to": "review",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-02T11:52:33Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwharv6ey356yycr9bszfb0z",
+      "stage": "review",
+      "timestamp": "2026-07-02T11:52:33Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "details": "75 passed via .venv/bin/pytest; ruff check src tests: all checks passed",
+      "failed": 0,
+      "passed": 75,
+      "phase": 3,
+      "skipped": 0,
+      "timestamp": "2026-07-02T11:57:53Z",
+      "type": "test_results"
     }
   ],
   "needsArchitecture": false,
@@ -654,35 +742,38 @@
     "rationale": "CLI-only feature across 7 files — no design stage needed (follows existing Rich table patterns) and no architecture stage needed (all three additions build directly on established patterns: cymru_bulk_lookup_rich() exists, Atlas scheduling pipeline exists, globe.py exists). Tier is full due to new subcommand, cross-cutting enrichment changes, and README docs spanning the entire Atlas feature surface."
   },
   "stageApprovals": {
+    "implementation": "2026-07-02T11:52:26Z",
     "scope": "2026-07-02T09:50:12Z"
   },
   "stageContent": {
     "implementation": "## Phase 3: Atlas Profile Command + README\n\n### Files Changed\n\n- `src/netpath/atlas.py` — added `fetch_coverage_by_country(api_key)`: paginates `/api/v2/probes/` and `/api/v2/anchors/` with Rich spinners, returns `{cc: {\"probes\": int, \"anchors\": int}}`.\n- `src/netpath/globe.py` — added `_A2_TO_A3` (ISO alpha-2 → alpha-3 dict, ~240 entries), `_build_coverage_html` (plotly.js choropleth via CDN, log-scale z-values, orange gradient), `render_coverage(coverage)` (writes temp HTML, opens browser).\n- `src/netpath/cli.py` — added `_COUNTRY_NAMES` dict (~240 entries), `atlas_profile` command (`atlas-profile` subcommand) with `--atlas-key`, `--top`, `--globe` options; displays Rich rounded table ranked by total probes+anchors.\n- `README.md` — added `### Atlas coverage profile` usage section with sample table output; added `## RIPE Atlas` section covering Atlas overview, key setup, credit cost, output labels (`[Atlas]` / `[Atlas anchor]`), and `atlas-profile` cross-reference; updated country command options to include `--atlas-key` and `--globe`.\n\n### Deviations from Plan\n\nNone. All items in the phase spec were implemented as specified.\n\n### Test Results\n\n75 passed, 0 failed."
   },
   "stages": {
-    "architecture": {
-      "status": "skipped"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-02T11:21:02Z"
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-02T09:50:12Z",
+      "startedAt": "2026-07-02T09:11:11Z"
     },
     "release": {
       "status": "not_started"
+    },
+    "implementation": {
+      "status": "approved",
+      "approvedAt": "2026-07-02T11:52:26Z",
+      "startedAt": "2026-07-02T11:21:02Z"
+    },
+    "architecture": {
+      "status": "skipped"
     },
     "design": {
       "status": "skipped"
     },
     "review": {
-      "status": "not_started"
-    },
-    "scope": {
-      "status": "approved",
-      "approvedAt": "2026-07-02T09:50:12Z",
-      "startedAt": "2026-07-02T09:11:11Z"
+      "status": "in_progress",
+      "startedAt": "2026-07-02T11:52:33Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-readme-atlas-key-docs-asn-names-in-01kwh0zv63hp",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T10:56:27Z"
+  "worktreeLastSyncedAt": "2026-07-02T11:52:33Z"
 }
