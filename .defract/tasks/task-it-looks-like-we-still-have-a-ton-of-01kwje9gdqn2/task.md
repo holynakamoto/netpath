@@ -3,7 +3,7 @@ defract:
   id: task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2
   type: task
   status: active
-  stage: implementation
+  stage: review
   phase: 0
   total_phases: 3
   priority: normal
@@ -372,3 +372,52 @@ Added a second, non-RIPE source of reachable trace targets (R2-R4).
 **Note:** existing RIPE Atlas target lookup was left in place (Atlas tried first, PeeringDB as fallback) per the flagged open question in the scope — removing RIPE entirely was not confirmed.
 
 **Verification:** 153 tests pass (150 + 3 new); `ruff check src tests` clean. Live PeeringDB reachability and the in-`country`-mode origin note are covered in the manual test list.
+
+## Review
+
+## Verdict
+
+**Verdict:** APPROVE
+**Files reviewed:** 6 files changed across 3 phases
+
+All 9 acceptance criteria pass. Coverage default is 50, PeeringDB netixlan fallback is correctly wired, Radar backfill renders for uncovered rows when a token is present and is suppressed without one, and partial speedtest behavior is unit-tested. Both pytest (153/153) and ruff pass.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Test suite (pytest) | PASS | 153 passed, 0 failed, 0 skipped |
+| Lint (ruff) | PASS | All checks passed |
+
+### Acceptance Criteria (9/9 passed)
+
+- [x] AC-1: Running `netpath coverage` with no `--top` flag prints up to 50 ranked country rows and a title reading "Top 50 Countries"; verified against the default at `cli.py:960`. — PASS: cli.py:980 — `top: int = typer.Option(50, "--top", "-t", ...)`. Title at cli.py:997: `f"[bold]Globalping Coverage — Top {top} Countries[/bold]"`. Default produces 50-row table titled "Top 50 Countries".
+- [x] AC-2: Running `netpath coverage --top 10` still prints exactly 10 rows with a "Top 10" title (override preserved). — PASS: cli.py:992 — `ranked = sorted(...)[:top]` slices to `top`. Title interpolates `top`, so `--top 10` yields `[:10]` and "Top 10 Countries".
+- [x] AC-3: For an ASN with IXP presence in PeeringDB but no other live target, `get_test_ip_for_asn` returns a PeeringDB `netixlan` IPv4; verified by a unit test mocking the PeeringDB response. — PASS: tests/test_country.py:70-87 — `test_get_test_ip_falls_back_to_peeringdb_netixlan` mocks Atlas to empty and `ixp.requests.get` to return `{"data": [{"ipaddr4": null}, {"ipaddr4": "80.249.208.100", ...}]}`. Asserts ip=="80.249.208.100" and origin=="peeringdb".
+- [x] AC-4: For an ASN absent from PeeringDB `netixlan`, `get_test_ip_for_asn` behaves exactly as today (no regression); verified by a unit test. — PASS: tests/test_country.py:90-100 — `test_get_test_ip_no_peeringdb_presence_unchanged` mocks both Atlas and PeeringDB to return empty. Asserts `(ip, origin) == (None, None)`.
+- [x] AC-5: In `country` mode, an ISP that gains a PeeringDB target shows a trace section with a note indicating the target's origin. — PASS: cli.py:756-762 — `origin_label = "PeeringDB IXP trace target" if target_origin == "peeringdb" else "Atlas probe trace target"`. Printed as `f"→ {test_ip}  ({origin_label} — no iperf3 server in {asn_str})"`.
+- [x] AC-6: In `country` mode with a Cloudflare token, an ISP that is still remote-only / no-coverage but exists in Radar shows a Radar panel in its section and Radar figures in the summary tree. — PASS: cli.py:786-794 and 802-810 — both branches call `_fetch_rum(asn_str, cf_token)` and `display.rum_only_panel` when non-None, storing `"rum": _rum` on the summary row. display.py:567 and 579 call `_render_rum_subrow` for these rows.
+- [x] AC-7: In `country` mode with no Cloudflare token, remote-only and no-coverage rows render exactly as today (no empty Radar values). — PASS: With no token, `_fetch_rum` returns None. `if _rum:` at cli.py:787/803 is False — no panel printed. `_render_rum_subrow` at display.py:448-450: `if not rum: return` — nothing rendered.
+- [x] AC-8: With `speedtest._upload` mocked to raise and `_download` mocked to succeed, `run()` returns the download plus a recorded upload error instead of raising; verified by a unit test. Both-fail case preserves the warning with no panel. — PASS: speedtest.py:94-102 — independent try/except per direction; failures set `result["errors"][direction]`. tests/test_speedtest.py:11-26 asserts upload-fails/download-succeeds returns partial (no raise). Lines 44-57 assert both-fail records both errors.
+- [x] AC-9: `pytest` and `ruff check src tests` both pass. — PASS: pytest: 153 passed, 0 failed, 0 skipped. ruff check src tests: All checks passed.
+
+### Code Quality (Refactor Review)
+
+No code quality issues found in changed files.
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- Coverage default raised from 20 to 50 via a one-line `typer.Option` default change; title already interpolated `top` so no further changes needed.
+- speedtest.run() redesigned to attempt each direction independently and return {download, upload, server, errors}, mirroring the probe_errors convention; both callers updated.
+- Radar backfill for remote-only/no-coverage rows calls the existing _fetch_rum() directly rather than routing through _measure(), avoiding unwanted trace probes toward dead targets.
+- PeeringDB netixlan lookup added to ixp.py reusing existing PeeringDB HTTP client + module-level cache pattern; get_test_target_for_asn added as origin-aware primitive; get_test_ip_for_asn wraps it to preserve the plain-string contract.
+- Existing RIPE Atlas probe lookup preserved as primary target source; PeeringDB netixlan is fallback only — removing Atlas entirely was not confirmed.
+
+## Required Changes
+
+None.
+
