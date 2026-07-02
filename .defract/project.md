@@ -2,7 +2,7 @@
 defract:
   version: 1
   generated_at: "2026-07-01T00:00:00Z"
-  updated_at: "2026-07-01T00:00:00Z"
+  updated_at: "2026-07-02T00:00:00Z"
   source: extracted
 ---
 
@@ -98,6 +98,7 @@ listed_iperf3_servers.json  — bundled public iperf3 server list (tracked in gi
 
 - Version is dynamic, derived from git tags via `hatch-vcs`; `src/netpath/_version.py` is gitignored and auto-generated on install
 - `NETPATH_CF_TOKEN` env var (or `--cf-token` flag) enables Cloudflare Radar RUM overlay; requires `radar:read` permission
+- `NETPATH_ATLAS_KEY` env var (or `--atlas-key` flag) enables RIPE Atlas in-network measurements in country mode; credits budget is checked before scheduling measurements
 - Country mode always runs `ecmp_passes=2` and `compare_v6=True` — same path-property depth as `asn` mode; only throughput (iperf3/speedtest) is skipped per ISP
 - `mtr.run()` returns `list[dict]` for `passes=1` and `list[list[dict]]` for `passes>1` — callers gate on the passes value
 - Exit code from CLI reflects worst verdict across all probes: 0=ok, 1=warning, 2=critical; monitoring scripts can rely on this without parsing JSON
