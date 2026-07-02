@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 3,
   "createdAt": "2026-07-02T23:42:02Z",
-  "updatedAt": "2026-07-02T23:43:20Z",
+  "updatedAt": "2026-07-02T23:53:27Z",
   "events": [
     {
       "base_branch": "main",
@@ -41,29 +41,111 @@
       "type": "stage_work_complete",
       "worktree_head": "f7f689e63976d0f8fe7fb8ef4972d0af6ecaf4c5",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-02T23:48:32Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "approve_initial",
+      "session_id": "01kwjkqvfjg1q7f3nkp1w6c6n1",
+      "stage": "scope",
+      "timestamp": "2026-07-02T23:48:32Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Writing full scope as revision 2 after approved intent check",
+      "phase": 0,
+      "stage": "scope",
+      "timestamp": "2026-07-02T23:50:53Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Full scope (revision 2): 14 requirements and 12 acceptance criteria covering the seven review findings, organized into three phases — behaviour fixes, Atlas dead-code removal, and bulk git untracking. Grounded in codebase exploration: atlas.py confirmed production-dead (test-only importer), _trace() identified as needing an mtr-absent branch beyond the existing permission-error fallback.",
+      "revision": 2,
+      "timestamp": "2026-07-02T23:52:36Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Seven review-surfaced bug fixes in a CLI tool: no UI exists, so design is skipped. Each fix is well-contained to 1-2 files following existing patterns (dependency gate, binary resolution, arithmetic replacement, verdict recomputation, exception surfacing, file deletion, git index cleanup) — no new system boundaries, so architecture is skipped; detailed per-phase Files/Verification are in the scope instead. Review is included because the diagnose()-on-remote-only-rows change and the prober-gate rework carry behavioural risk.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "bug-fix",
+      "tier": "standard",
+      "timestamp": "2026-07-02T23:52:46Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [
+        "Keep atlas.py but strip it to target-discovery helpers and rename it (rejected: country.py already owns that logic independently, so the module would be empty)",
+        "Leave atlas.py and soften the README claim instead (rejected: keeps dead key-based scheduling code that contradicts the removal decision already made)"
+      ],
+      "decision": "Delete src/netpath/atlas.py and tests/test_atlas.py outright rather than keeping atlas.py as a renamed/narrower module",
+      "rationale": "Codebase exploration shows atlas.py is imported only by tests/test_atlas.py — no production module uses it. The surviving keyless trace-target discovery (_get_atlas_probe_ip in country.py) calls the public Atlas probes API directly and does not import atlas.py, so deletion changes no production behaviour and makes the README's \"fully removed\" claim true. Docstrings in country.py and a README sentence will document the narrower surviving lookup.",
+      "timestamp": "2026-07-02T23:52:56Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Return None vs [] from fetch_probes to signal auth failure (rejected: ambiguous at the call site and easy to conflate with empty coverage)",
+        "Fold the git cleanup into Phase 1 (rejected: the mechanical bulk diff would overwhelm review of the behavioural changes)"
+      ],
+      "decision": "Surface Globalping auth failure from fetch_probes() via a distinct exception (GlobalpingAuthError) rather than a sentinel return value; isolate the bulk git rm --cached into its own final phase",
+      "rationale": "An exception keeps the existing \"return [] on failure\" contract intact for non-auth errors and mirrors the CLI's existing scheduling-time 401 handling at cli.py:849-855, giving the call site one obvious catch point. The git untracking produces a diff of thousands of index-only deletions; combining it with the code fixes would bury the substantive review, so it lands as a dedicated Phase 3 commit with no source edits.",
+      "timestamp": "2026-07-02T23:53:07Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope pushed as revision 2: 14 requirements, 12 acceptance criteria, 3 phases (behaviour fixes; Atlas dead-code removal; bulk git untracking). Workflow classified as bug-fix / standard, skipping design and architecture. Two decisions logged: delete atlas.py outright (confirmed production-dead — only tests/test_atlas.py imports it), and raise a distinct GlobalpingAuthError from fetch_probes(). Exploration also found the fix for the mtr gate needs a second change beyond _check_deps(): _trace() only falls back on MtrPermissionError, so it needs an mtr-absent branch too — captured as R2.",
+      "timestamp": "2026-07-02T23:53:27Z",
+      "type": "stage_work_complete",
+      "worktree_head": "4e2f72e94c21e217ed9468dd015025e3bf75b32e",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "bug-fix",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Seven review-surfaced bug fixes in a CLI tool: no UI exists, so design is skipped. Each fix is well-contained to 1-2 files following existing patterns (dependency gate, binary resolution, arithmetic replacement, verdict recomputation, exception surfacing, file deletion, git index cleanup) — no new system boundaries, so architecture is skipped; detailed per-phase Files/Verification are in the scope instead. Review is included because the diagnose()-on-remote-only-rows change and the prober-gate rework carry behavioural risk."
+  },
   "stages": {
-    "release": {
-      "status": "not_started"
-    },
-    "implementation": {
-      "status": "not_started"
-    },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-02T23:42:03Z"
-    },
     "review": {
       "status": "not_started"
     },
-    "architecture": {
+    "design": {
+      "status": "skipped"
+    },
+    "scope": {
+      "status": "awaiting_approval",
+      "startedAt": "2026-07-02T23:48:32Z"
+    },
+    "release": {
       "status": "not_started"
     },
-    "design": {
+    "architecture": {
+      "status": "skipped"
+    },
+    "implementation": {
       "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw",
-  "worktreeBaseBranch": "main"
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-07-02T23:48:32Z"
 }
