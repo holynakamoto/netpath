@@ -157,3 +157,26 @@ None. The exit-code test imports `_worst_exit_code` from `netpath.cli` and mirro
 - `ruff check src tests`: clean
 - Smoke-rendered `country_summary()` with all four row types — grouping, labels, and the remote-only Globalping sub-row render correctly; no-coverage and remote-only rows no longer land in "incomplete paths"
 - Manual `netpath country US --top 10` run is on the manual test list for the builder
+
+## Phase 2: Partial-path recovery on trace timeout
+
+### What was built
+
+- `src/netpath/mtr.py` — new `TraceTimeout(RuntimeError)` exception carrying a `hubs` attribute, mirroring the `MtrPermissionError` pattern. `_run_traceroute_cmd()` switched from `subprocess.run` to `Popen` + `communicate(timeout=...)`: on `TimeoutExpired` the process is killed, the pipes drained with a second `communicate()`, and the partial stdout parsed. Usable hops (non-empty, not all-stars) raise `TraceTimeout` with the parsed hubs; empty, bytes, None, unparseable, or all-stars output falls back to the existing bare `RuntimeError("traceroute timed out")`. `run_traceroute()` re-raises `TraceTimeout` (with name enrichment applied to its hubs) instead of letting the pass-fallback `except RuntimeError` handlers swallow it, and stops after a timed-out pass rather than burning another full pass budget.
+- `src/netpath/cli.py` — all three trace branches in `_measure()` (compare_v6, ecmp fallback, plain) catch `mtr.TraceTimeout`, adopt the partial hubs, set `probe_errors["v4_trace"] = "timed out (partial path shown)"` and `trace_truncated: True`, then continue into the normal AS-path / hop-table / classification flow. The compare_v6 outer future wait is recomputed as the sum of the worst-case inner budgets (mtr + Paris + two traceroute passes + slack) so it can no longer pre-empt the inner prober's partial result. `_run_test()`'s early error return now only fires when there are no hubs at all, and it threads `trace_truncated` into the display calls.
+- `src/netpath/display.py` — `path_table()` and `dual_stack_columns()` accept `truncated: bool = False` and print a shared truncation note ("Path truncated — the trace timed out before completing; showing the hops collected so far") after the hop table, following the existing path-note pattern.
+- `src/netpath/types.py` — additive `trace_truncated: bool` key on `MeasurementResult` (JSON-serialisable).
+- `tests/test_mtr.py` — the Popen switch is covered by a `_TimeoutProc` fake: partial output raises `TraceTimeout` carrying parsed hubs; empty/None/bytes/all-stars output keeps the plain timeout error; `run_traceroute()` propagates `TraceTimeout` with enriched hubs. The existing probe-count tests were updated to mock `Popen` instead of `subprocess.run`.
+- `tests/test_diagnosis.py` — new case: a result with partial hubs, a non-empty `as_path`, and `probe_errors["v4_trace"]` yields `partial_results: true` and still drives the incomplete-path analysis.
+
+### Deviations from plan
+
+None. One pre-existing issue noted (not touched, per surgical-changes rule): `MeasurementResult` in `types.py` still declares the long-removed `_trace_error`, `_iperf_error`, and `_speedtest_error` fields that were superseded by `probe_errors`.
+
+### Verification
+
+- `pytest`: 146 passed, 0 failed (141 baseline + 5 new)
+- `ruff check src tests`: clean
+- Smoke-rendered the truncation note in both `path_table` and `dual_stack_columns`
+- In-process smoke of `_measure()` with a mocked `TraceTimeout`: partial hubs populate `hubs`, `as_path`, and path classification; the timeout lands in `probe_errors`; the verdict reports partial results — verified in both the plain and compare_v6 branches
+- Manual non-responsive-trace check is on the manual test list for the builder

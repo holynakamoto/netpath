@@ -5,7 +5,7 @@
   "phase": 1,
   "totalPhases": 2,
   "createdAt": "2026-07-02T20:05:36Z",
-  "updatedAt": "2026-07-02T20:36:03Z",
+  "updatedAt": "2026-07-02T20:40:57Z",
   "events": [
     {
       "base_branch": "main",
@@ -327,6 +327,103 @@
       "phase": 2,
       "timestamp": "2026-07-02T20:36:03Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 2,
+      "timestamp": "2026-07-02T20:38:15Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "Full suite: 146 passed (141 baseline + 5 new: 4 traceroute-timeout partial-harvest cases in test_mtr.py, 1 partial-results case in test_diagnosis.py). ruff check src tests clean. Smoke-rendered the truncation note in both path_table and dual_stack_columns; in-process smoke of _measure() with a mocked TraceTimeout confirmed partial hubs populate hubs/as_path/path classification with the timeout in probe_errors and partial_results true, in both the plain and compare_v6 branches.",
+      "failed": 0,
+      "passed": 146,
+      "phase": 1,
+      "skipped": 0,
+      "timestamp": "2026-07-02T20:39:37Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Fall through to the UDP pass after a TCP-pass TraceTimeout and only propagate if UDP also fails — rejected: doubles worst-case runtime for exactly the slow-target case this task is eliminating",
+        "Return partial hubs as a normal result with a flag — rejected: changes the return contract of every caller; the exception mirrors the existing MtrPermissionError pattern"
+      ],
+      "decision": "Implementation: a TraceTimeout raised by any traceroute pass propagates immediately out of run_traceroute() — no further pass runs after a timed-out one",
+      "phase": 2,
+      "rationale": "A pass that hits its time budget has already spent up to 165 s against a target that answers slowly; running the remaining pass (UDP after TCP under prefer_tcp) would double the burn for a target already proven partially responsive, and the partial hubs are usable as-is. TraceTimeout is only raised when the partial hubs are non-empty and not all-stars, so the propagated result always carries a usable path.",
+      "timestamp": "2026-07-02T20:39:42Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Export a public trace_budget() helper from mtr.py/paris.py — rejected: single call site, and the constants live in two modules; a cross-module helper adds indirection for no reuse",
+        "Shorten the inner traceroute budgets to fit inside the old outer wait — rejected: would cut off legitimately slow traces and change behaviour beyond this fix"
+      ],
+      "decision": "Implementation: the compare_v6 outer future wait is now computed as the sum of the worst-case inner budgets — (cycles*4+30) for mtr + paris._PER_RUN_TIMEOUT * min(cycles, PARIS_MAX_PROBES) for the Paris fallback + 2 * (30 * min(cycles, TRACEROUTE_MAX_PROBES) + 15) for the two traceroute passes + 15 s slack",
+      "phase": 2,
+      "rationale": "The previous cycles*4+35 outer wait could fire before the traceroute fallback's own subprocess budget (up to 165 s per pass, two passes under prefer_tcp), silently discarding the recovered partial path. The outer wait is a safety net only — actual runtime stays bounded by the inner subprocess timeouts, so a generous outer figure costs nothing in the normal case. cli.py already accesses module-private mtr._compare_as_paths, so referencing paris._PER_RUN_TIMEOUT follows existing intra-package convention.",
+      "timestamp": "2026-07-02T20:39:56Z",
+      "type": "decision"
+    },
+    {
+      "change_summary": "Phase 2 complete: Partial-path recovery on trace timeout",
+      "revision": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T20:40:20Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/mtr.py",
+        "src/netpath/cli.py",
+        "src/netpath/display.py",
+        "src/netpath/types.py",
+        "tests/test_mtr.py",
+        "tests/test_diagnosis.py"
+      ],
+      "phase": 1,
+      "summary": "Trace timeouts now yield partial paths instead of bare errors: _run_traceroute_cmd() is Popen-based and harvests partial stdout on kill, raising TraceTimeout with the parsed hubs when they are usable; run_traceroute() propagates it enriched and stops after a timed-out pass; all three _measure() trace branches adopt the partial hubs, record the timeout in probe_errors, and set trace_truncated; the compare_v6 outer wait is aligned to the worst-case inner subprocess budgets so it cannot pre-empt the recovered path; the hop table renders with an explicit truncation note. 146 tests passed, ruff clean.",
+      "timestamp": "2026-07-02T20:40:32Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `netpath country US --top 10` and confirm the sweep completes with no single ISP stalling for multiple minutes; if any trace hits its time budget, it should show a hop table followed by the note `Path truncated — the trace timed out before completing` instead of a bare `trace: timed out` error."
+        },
+        {
+          "description": "For any truncated trace in that run, confirm the AS path line still prints beneath the hop table and the Diagnosis panel shows `(partial results: v4_trace)`."
+        },
+        {
+          "description": "To force a truncation deterministically: temporarily change `timeout=30 * effective_probes + 15` to `timeout=3` in `src/netpath/mtr.py`, run `netpath asn AS7922 --no-throughput` (mtr must lack raw-socket access so the traceroute fallback runs — the default on macOS without sudo), confirm the partial hop table plus truncation note appears, then revert the edit."
+        },
+        {
+          "description": "Run `pytest tests/test_mtr.py tests/test_diagnosis.py -q` and confirm all tests pass, including the new timeout partial-harvest cases."
+        },
+        {
+          "description": "Run `ruff check src tests` and confirm it is clean."
+        }
+      ],
+      "phase": 1,
+      "phase_title": "Partial-path recovery on trace timeout",
+      "timestamp": "2026-07-02T20:40:43Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 2,
+      "phase_title": "Partial-path recovery on trace timeout",
+      "server_phase": 1,
+      "timestamp": "2026-07-02T20:40:57Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 1,
+      "phase_title": "Partial-path recovery on trace timeout",
+      "timestamp": "2026-07-02T20:40:57Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "5ec0022bb87e2c7f9e36cc367e654b455b19fd4b",
+      "worktree_status_digest": "b07950352e75dd476bad7051f632394c6685e3803003f3a3939c2418c4ca014d"
     }
   ],
   "needsArchitecture": false,
@@ -347,26 +444,26 @@
     "scope": "2026-07-02T20:17:20Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Live-target selection and coverage labelling\n\n### What was built\n\n- `src/netpath/country.py` — `get_test_ip_for_asn()` now returns only a connected RIPE Atlas probe IPv4 (via the unchanged `_get_atlas_probe_ip()`) or None. The entire announced-prefix guessing branch and the now-unused `RIPE_PREFIXES` constant were removed.\n- `src/netpath/cli.py` — the country loop's serverless branch is now a target ladder: Atlas probe IP → local trace (as before, note reworded to \"Atlas probe trace target\"); no Atlas IP but ASN has Globalping probes → remote-only row (`remote_only: True`, no local trace, no verdict); otherwise → no-coverage row (`skip_reason: <reason>`, differentiated for `--no-remote`) skipped in seconds. The Globalping scheduling loop falls back to the tester's public IP for remote-only rows (`_tip = _gp_test_ips.get(_asn_str) or _user_public_ip`); the unreachable \"no test IP available\" branch was removed since `_user_public_ip` is guaranteed non-None inside that block.\n- `src/netpath/display.py` — `country_summary()` first partitions rows into no-coverage (`skip_reason`), remote-only (`remote_only`), and measured; complete/incomplete grouping applies only to measured rows. Two new labelled groups render after \"incomplete paths\": \"remote-only — measured from inside the ISP via Globalping; no local trace ran\" (keeps the Globalping sub-row) and \"no coverage — skipped, no live target\" (shows each row's skip reason).\n- `src/netpath/types.py` — additive `remote_only: bool` and `skip_reason: Optional[str]` keys on `MeasurementResult` (both JSON-serialisable).\n- `tests/test_country.py` — the four prefix-fallback tests were replaced: Atlas-empty, Atlas-error, and null-`address_v4` cases now assert None is returned (the Atlas-empty case also asserts only the Atlas probes API is ever queried), plus a new test that rows without a `verdict` key (no-coverage, remote-only) do not affect `_worst_exit_code`.\n\n### Deviations from plan\n\nNone. The exit-code test imports `_worst_exit_code` from `netpath.cli` and mirrors the summary-row comprehension at the end of `country()`.\n\n### Verification\n\n- `pytest`: 141 passed, 0 failed (matches the 141-test baseline; 4 tests replaced by 4 new ones)\n- `ruff check src tests`: clean\n- Smoke-rendered `country_summary()` with all four row types — grouping, labels, and the remote-only Globalping sub-row render correctly; no-coverage and remote-only rows no longer land in \"incomplete paths\"\n- Manual `netpath country US --top 10` run is on the manual test list for the builder"
+    "implementation": "## Phase 1: Live-target selection and coverage labelling\n\n### What was built\n\n- `src/netpath/country.py` — `get_test_ip_for_asn()` now returns only a connected RIPE Atlas probe IPv4 (via the unchanged `_get_atlas_probe_ip()`) or None. The entire announced-prefix guessing branch and the now-unused `RIPE_PREFIXES` constant were removed.\n- `src/netpath/cli.py` — the country loop's serverless branch is now a target ladder: Atlas probe IP → local trace (as before, note reworded to \"Atlas probe trace target\"); no Atlas IP but ASN has Globalping probes → remote-only row (`remote_only: True`, no local trace, no verdict); otherwise → no-coverage row (`skip_reason: <reason>`, differentiated for `--no-remote`) skipped in seconds. The Globalping scheduling loop falls back to the tester's public IP for remote-only rows (`_tip = _gp_test_ips.get(_asn_str) or _user_public_ip`); the unreachable \"no test IP available\" branch was removed since `_user_public_ip` is guaranteed non-None inside that block.\n- `src/netpath/display.py` — `country_summary()` first partitions rows into no-coverage (`skip_reason`), remote-only (`remote_only`), and measured; complete/incomplete grouping applies only to measured rows. Two new labelled groups render after \"incomplete paths\": \"remote-only — measured from inside the ISP via Globalping; no local trace ran\" (keeps the Globalping sub-row) and \"no coverage — skipped, no live target\" (shows each row's skip reason).\n- `src/netpath/types.py` — additive `remote_only: bool` and `skip_reason: Optional[str]` keys on `MeasurementResult` (both JSON-serialisable).\n- `tests/test_country.py` — the four prefix-fallback tests were replaced: Atlas-empty, Atlas-error, and null-`address_v4` cases now assert None is returned (the Atlas-empty case also asserts only the Atlas probes API is ever queried), plus a new test that rows without a `verdict` key (no-coverage, remote-only) do not affect `_worst_exit_code`.\n\n### Deviations from plan\n\nNone. The exit-code test imports `_worst_exit_code` from `netpath.cli` and mirrors the summary-row comprehension at the end of `country()`.\n\n### Verification\n\n- `pytest`: 141 passed, 0 failed (matches the 141-test baseline; 4 tests replaced by 4 new ones)\n- `ruff check src tests`: clean\n- Smoke-rendered `country_summary()` with all four row types — grouping, labels, and the remote-only Globalping sub-row render correctly; no-coverage and remote-only rows no longer land in \"incomplete paths\"\n- Manual `netpath country US --top 10` run is on the manual test list for the builder\n\n## Phase 2: Partial-path recovery on trace timeout\n\n### What was built\n\n- `src/netpath/mtr.py` — new `TraceTimeout(RuntimeError)` exception carrying a `hubs` attribute, mirroring the `MtrPermissionError` pattern. `_run_traceroute_cmd()` switched from `subprocess.run` to `Popen` + `communicate(timeout=...)`: on `TimeoutExpired` the process is killed, the pipes drained with a second `communicate()`, and the partial stdout parsed. Usable hops (non-empty, not all-stars) raise `TraceTimeout` with the parsed hubs; empty, bytes, None, unparseable, or all-stars output falls back to the existing bare `RuntimeError(\"traceroute timed out\")`. `run_traceroute()` re-raises `TraceTimeout` (with name enrichment applied to its hubs) instead of letting the pass-fallback `except RuntimeError` handlers swallow it, and stops after a timed-out pass rather than burning another full pass budget.\n- `src/netpath/cli.py` — all three trace branches in `_measure()` (compare_v6, ecmp fallback, plain) catch `mtr.TraceTimeout`, adopt the partial hubs, set `probe_errors[\"v4_trace\"] = \"timed out (partial path shown)\"` and `trace_truncated: True`, then continue into the normal AS-path / hop-table / classification flow. The compare_v6 outer future wait is recomputed as the sum of the worst-case inner budgets (mtr + Paris + two traceroute passes + slack) so it can no longer pre-empt the inner prober's partial result. `_run_test()`'s early error return now only fires when there are no hubs at all, and it threads `trace_truncated` into the display calls.\n- `src/netpath/display.py` — `path_table()` and `dual_stack_columns()` accept `truncated: bool = False` and print a shared truncation note (\"Path truncated — the trace timed out before completing; showing the hops collected so far\") after the hop table, following the existing path-note pattern.\n- `src/netpath/types.py` — additive `trace_truncated: bool` key on `MeasurementResult` (JSON-serialisable).\n- `tests/test_mtr.py` — the Popen switch is covered by a `_TimeoutProc` fake: partial output raises `TraceTimeout` carrying parsed hubs; empty/None/bytes/all-stars output keeps the plain timeout error; `run_traceroute()` propagates `TraceTimeout` with enriched hubs. The existing probe-count tests were updated to mock `Popen` instead of `subprocess.run`.\n- `tests/test_diagnosis.py` — new case: a result with partial hubs, a non-empty `as_path`, and `probe_errors[\"v4_trace\"]` yields `partial_results: true` and still drives the incomplete-path analysis.\n\n### Deviations from plan\n\nNone. One pre-existing issue noted (not touched, per surgical-changes rule): `MeasurementResult` in `types.py` still declares the long-removed `_trace_error`, `_iperf_error`, and `_speedtest_error` fields that were superseded by `probe_errors`.\n\n### Verification\n\n- `pytest`: 146 passed, 0 failed (141 baseline + 5 new)\n- `ruff check src tests`: clean\n- Smoke-rendered the truncation note in both `path_table` and `dual_stack_columns`\n- In-process smoke of `_measure()` with a mocked `TraceTimeout`: partial hubs populate `hubs`, `as_path`, and path classification; the timeout lands in `probe_errors`; the verdict reports partial results — verified in both the plain and compare_v6 branches\n- Manual non-responsive-trace check is on the manual test list for the builder"
   },
   "stages": {
-    "design": {
-      "status": "skipped"
-    },
     "review": {
       "status": "not_started"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-02T20:32:18Z"
-    },
-    "architecture": {
-      "status": "skipped"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T20:17:20Z",
       "startedAt": "2026-07-02T20:06:20Z"
+    },
+    "architecture": {
+      "status": "skipped"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T20:32:18Z"
     },
     "release": {
       "status": "not_started"
