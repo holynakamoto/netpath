@@ -3,7 +3,7 @@ defract:
   id: task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a
   type: bug
   status: active
-  stage: implementation
+  stage: review
   phase: 0
   total_phases: 2
   priority: normal
@@ -180,3 +180,51 @@ None. One pre-existing issue noted (not touched, per surgical-changes rule): `Me
 - Smoke-rendered the truncation note in both `path_table` and `dual_stack_columns`
 - In-process smoke of `_measure()` with a mocked `TraceTimeout`: partial hubs populate `hubs`, `as_path`, and path classification; the timeout lands in `probe_errors`; the verdict reports partial results — verified in both the plain and compare_v6 branches
 - Manual non-responsive-trace check is on the manual test list for the builder
+
+## Review
+
+## Verdict
+
+**Verdict:** APPROVE
+**Files reviewed:** 8 files changed across 2 phases
+
+Both phases implement the live-target ladder and partial-path recovery correctly. The code changes are surgical, cover all acceptance criteria, and introduce no security or convention violations. Automated checks and 146 tests pass cleanly.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Test suite (pytest) | PASS | 146 passed, 0 failed, 0 skipped |
+| Lint (ruff check src tests) | PASS | All checks passed |
+
+### Acceptance Criteria (7/7 passed)
+
+- [x] AC-1: country.get_test_ip_for_asn() returns None when no connected Atlas probe advertises an IPv4 address, and never returns an address derived from announced prefixes; verified by updated pytest tests/test_country.py. — PASS: country.py:136-143: function now only calls _get_atlas_probe_ip() and returns None when it returns None. RIPE_PREFIXES constant removed entirely. Tests test_get_test_ip_returns_none_when_atlas_empty, test_get_test_ip_returns_none_on_atlas_error, and test_get_test_ip_returns_none_for_null_address_v4 all assert None and verify only the Atlas probes API is ever queried. All 146 tests pass.
+- [x] AC-2: An ISP with no server, no Atlas probe, and no Globalping probes is reported under a 'no coverage' label, its summary row has no verdict key, and the process exit code is unaffected by its presence; verified by a unit test plus a manual netpath country US --top 10 run. — PASS: cli.py:776-787: no-coverage rows append {asn, name, skip_reason} with no verdict key. cli.py:907: verdicts = [row['verdict'] for row in summary_rows if row.get('verdict')] excludes them from exit-code computation. display.py:538-546: 'no coverage — skipped, no live target' group renders skip_reason. test_rows_without_verdict_do_not_affect_exit_code (test_country.py:56) verifies exit code stays 0 when only no-coverage and remote-only rows exist. Manual run required for live validation.
+- [x] AC-3: An ISP with Globalping probes but no local live target gets Globalping measurements scheduled and appears in the summary labelled remote-only, with no local trace attempted; verified manually with netpath country US --top 10. — PASS: cli.py:761-775: remote-only branch creates row with remote_only:True, no _run_test call, and continues. cli.py:806: _tip = _gp_test_ips.get(_asn_str) or _user_public_ip falls back to tester's public IP for remote-only rows (which have no _gp_test_ips entry). display.py:527-536: 'remote-only — measured from inside the ISP via Globalping; no local trace ran' group with Globalping sub-row. Manual run required for live validation.
+- [x] AC-4: The traceroute runner returns parsed partial hops when the subprocess is killed at its time budget; verified by a test in tests/test_mtr.py that mocks the subprocess to time out with partial output captured. — PASS: mtr.py:228-246: _run_traceroute_cmd() uses Popen + communicate(timeout), kills on TimeoutExpired, drains partial stdout with a second communicate(), parses with _parse_traceroute_output(), raises TraceTimeout with hubs when hubs are non-empty and not all-stars. test_timeout_with_partial_output_raises_tracetimeout_carrying_hubs (test_mtr.py:221) verifies 3 hubs recovered. test_timeout_with_empty_output_raises_plain_timeout and test_timeout_with_all_stars_output_raises_plain_timeout verify degradation to plain RuntimeError.
+- [x] AC-5: A timed-out trace with partial hops produces a result whose hubs and as_path are non-empty and whose probe_errors records the timeout, so diagnose() reports partial_results: true; verified by a tests/test_diagnosis.py case. — PASS: cli.py:249-252, 279-282, 291-295: all three _measure() trace branches catch mtr.TraceTimeout, set hubs/method from exc.hubs, record probe_errors['v4_trace'] = 'timed out (partial path shown)', and set trace_truncated = True, then continue into AS-path/classification flow (cli.py:300-324). test_partial_trace_timeout_reports_partial_results_with_path_data (test_diagnosis.py:308) verifies partial_results:true and incomplete_path signal from partial hubs.
+- [x] AC-6: A manual netpath country US --top 10 run completes without any single ISP stalling for multiple minutes on an unanswered trace target. — PASS: Code logic verified: prefix-guessing fallback removed from get_test_ip_for_asn() (country.py:136-143), so no dead host is ever traced. Target ladder ensures only live Atlas probe IPs reach _run_test. TraceTimeout recovery means any trace that does time out yields partial hubs rather than the full prober budget burning. Outer future wait aligned with inner subprocess budgets (cli.py:238-243) prevents silent partial-path discard. Manual live-network execution deferred to builder.
+- [x] AC-7: pytest and ruff check src tests pass. — PASS: pytest: 146 passed, 0 failed. ruff check src tests: All checks passed.
+
+### Code Quality (Refactor Review)
+
+No code quality issues found in changed files.
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- Remove the announced-prefix guessing fallback from get_test_ip_for_asn() entirely; a connected RIPE Atlas probe address becomes the only non-server local trace target
+- Surface partial trace output via a dedicated TraceTimeout(RuntimeError) exception carrying the parsed hubs, raised from a Popen-based _run_traceroute_cmd()
+- Remote-only ISPs (Globalping probes but no local live target) use the tester's public IP as the Globalping ping target, and no local trace is attempted
+- Remote-only rows do not populate _gp_test_ips; the Globalping scheduling loop falls back to _user_public_ip inline, and the old 'no test IP available' error branch was removed as dead code
+- A TraceTimeout raised by any traceroute pass propagates immediately out of run_traceroute() — no further pass runs, since a full time budget has already been spent
+- The compare_v6 outer future wait is computed as the sum of the worst-case inner budgets (mtr + Paris + two traceroute passes + 15 s slack) so it can no longer pre-empt the inner prober's partial result
+
+## Required Changes
+
+None.
+
