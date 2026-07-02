@@ -1,11 +1,11 @@
 {
   "id": "task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
-  "totalPhases": 2,
+  "totalPhases": 3,
   "createdAt": "2026-07-02T22:13:19Z",
-  "updatedAt": "2026-07-02T22:18:28Z",
+  "updatedAt": "2026-07-02T22:31:54Z",
   "events": [
     {
       "models": {
@@ -117,6 +117,114 @@
       "type": "stage_work_complete",
       "worktree_head": "586625963bd1dac0fa24769e775a909cdab912d6",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "note": "Adding Phase 3 (PeeringDB netixlan trace-target discovery) as revision 3",
+      "phase": 0,
+      "stage": "scope",
+      "timestamp": "2026-07-02T22:26:19Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Added Phase 3: PeeringDB netixlan trace-target discovery to fill the \"no trace target\" gap at its source. ASN-pair path analysis split into a separate proposed task (not in this scope).",
+      "revision": 3,
+      "timestamp": "2026-07-02T22:27:29Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Revision 3 pushed. Added Phase 3 — PeeringDB netixlan trace-target discovery — reusing the PeeringDB client already in ixp.py to extend country.get_test_ip_for_asn with a non-RIPE source of reachable per-ASN targets (the ASN's IXP interface IPs). This fills the \"no trace target\" gap at its source; Radar backfill (Phase 2) remains the fallback for ASNs still dark. Scope is now 8 requirements, 9 acceptance criteria, 3 phases; workflow unchanged (bug-fix/standard, no design/architecture). I left existing RIPE Atlas target lookup in place and flagged the \"remove RIPE entirely?\" question in Technical Notes since ripping it out affects all of country mode. Separately, the ASN-to-ASN path analysis feature (hybrid BGP-via-RouteViews/bgp.tools + opportunistic live Globalping traceroute) is proposed as its own new task — it depends on this task's PeeringDB discovery.",
+      "timestamp": "2026-07-02T22:27:54Z",
+      "type": "stage_work_complete",
+      "worktree_head": "586625963bd1dac0fa24769e775a909cdab912d6",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-02T22:30:56Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-07-02T22:30:51Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "150792621dd1db3d37f2fea463351f93b494454e",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "586625963bd1dac0fa24769e775a909cdab912d6",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-02T22:30:56Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-07-02T22:30:56Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-07-02T22:30:56Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-02T22:30:56Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "opus",
+      "session_id": "01kwjf9rp796fcacncpa6xqq21",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T22:30:56Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwjeb0psggt2njkzp083kk63",
+      "timed_out": false,
+      "timestamp": "2026-07-02T22:30:56Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Phase 1: raising coverage command default from 20 to 50 countries",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T22:31:05Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: raising coverage default to 50",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-07-02T22:31:15Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-07-02T22:31:53Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "Full suite (146 tests) passes; ruff check src tests clean. No new tests needed for the one-line default change; coverage --help confirms default 50, title interpolates top so --top 10 yields \"Top 10 Countries\".",
+      "failed": 0,
+      "passed": 146,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-07-02T22:31:54Z",
+      "type": "test_results"
     }
   ],
   "needsArchitecture": false,
@@ -133,37 +241,42 @@
     "classifiedBy": "scope-agent",
     "rationale": "Primarily fills incomplete/broken output behavior (blank ISP rows, discarded partial baseline) plus a one-line coverage default change. No new web UI — all output is existing Rich terminal patterns, so skip design. Well-contained to cli.py/display.py/speedtest.py building on existing patterns (reuses _fetch_rum, probe_errors convention), no new subsystems or system boundaries, so skip architecture. Detailed phases with Files/Verification written in-scope."
   },
+  "stageApprovals": {
+    "scope": "2026-07-02T22:30:51Z"
+  },
   "stages": {
-    "architecture": {
-      "status": "skipped"
-    },
     "review": {
       "status": "not_started"
     },
-    "release": {
-      "status": "not_started"
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-02T22:30:51Z",
+      "startedAt": "2026-07-02T22:14:08Z"
     },
     "design": {
       "status": "skipped"
     },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-02T22:14:08Z"
+    "release": {
+      "status": "not_started"
     },
     "implementation": {
-      "status": "not_started"
+      "status": "in_progress",
+      "startedAt": "2026-07-02T22:30:56Z"
+    },
+    "architecture": {
+      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T22:14:08Z",
+  "worktreeLastSyncedAt": "2026-07-02T22:30:56Z",
   "stageModels": {
-    "implementation": "opus",
+    "architecture": "opus",
     "design": "sonnet",
-    "review": "sonnet",
     "release": "haiku",
-    "scope_full": "opus",
     "scope_initial": "haiku",
-    "architecture": "opus"
+    "review": "sonnet",
+    "scope_full": "opus",
+    "implementation": "opus"
   }
 }

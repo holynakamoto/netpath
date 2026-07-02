@@ -3,9 +3,9 @@ defract:
   id: task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2
   type: task
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
-  total_phases: 2
+  total_phases: 3
   priority: normal
   source: manual
   branch_strategy: worktree
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 ## Story Brief
 
@@ -184,14 +185,17 @@ Discovering Globalping probes…
 
 # Expand coverage command to top 50 countries and address output data gaps
 
+# Expand coverage command to top 50 countries and address output data gaps
+
 ## What We're Building
 
-Expand the coverage overview so it ranks the top 50 countries by probe availability instead of the current top 20, giving a fuller picture of where measurements can be taken. Alongside that, close the most visible gaps in the per-ISP output so fewer network providers show up as blank rows with no data, and so a single failed baseline reading no longer wipes out the results that did succeed.
+Expand the coverage overview so it ranks the top 50 countries by probe availability instead of the current top 20, giving a fuller picture of where measurements can be taken. Alongside that, close the most visible gaps in the per-ISP output: pull in more real, reachable test endpoints so fewer network providers show up as blank rows, fall back to available quality data when no endpoint exists, and stop a single failed baseline reading from wiping out the results that did succeed.
 
 ## Expected Outcome
 
 - The coverage overview lists the top 50 countries by probe count, with the current option to request a different number still working.
-- Internet providers that currently show up as "no coverage" or "remote-only" now display available quality data (typical download/upload speed, latency, and loss) instead of an empty row, whenever that data exists.
+- More internet providers get a real, reachable target to measure against, so fewer show up as blank "no coverage" rows.
+- Providers that still have no reachable target display available quality data (typical download/upload speed, latency, and loss) instead of an empty row, whenever that data exists.
 - When a speed baseline check partially fails, the reading that succeeded is still shown rather than the whole baseline being discarded.
 - Users get a more complete, less patchy view of network coverage and provider quality in everyday runs.
 
@@ -199,55 +203,68 @@ Expand the coverage overview so it ranks the top 50 countries by probe availabil
 
 - **Phase 1: Show the top 50 countries** — Anyone checking coverage sees a much broader ranking of where measurements are possible, instead of being cut off at 20 countries.
 - **Phase 2: Fill the blank rows and salvage partial baselines** — Providers that used to appear as empty "no coverage" or "remote-only" entries now show whatever quality data is available for them, and a half-failed speed baseline no longer throws away the half that worked.
+- **Phase 3: Find real test targets for more providers** — By drawing on a directory of real network interconnection points, netpath can find a reachable target inside many more providers than before, so measurements run for networks that previously had nothing to test against.
 
 ## Out of Scope
 
 - Adding brand-new measurement types or probing methods (no new latency, throughput, or path techniques beyond what already exists).
 - Changing the underlying diagnosis rules or how anomalies are detected.
 - Country or provider filtering/customization features beyond the expanded country count.
-- Reverse-DNS hostname enrichment for trace hops and reworking how unresponsive (`* * *`) hops are displayed — these are candidate follow-ups flagged in Technical Notes, not committed here.
+- Analyzing the network paths between two specific providers (an "ASN-to-ASN path" view showing all available routes and the best one). This is a substantial new capability being tracked as a separate task that builds on the endpoint discovery delivered here.
+- Reverse-DNS hostname enrichment for trace hops and reworking how unresponsive (`* * *`) hops are displayed — candidate follow-ups, not committed here.
 
 ## Scope Summary
 
-**Size:** 6 requirements, 7 acceptance criteria, 2 implementation phases
+**Size:** 8 requirements, 9 acceptance criteria, 3 implementation phases
 **Key decisions:**
-- Interpret "cover all the gaps" as the concrete, observable gaps in the pasted `country US` run: blank uncovered/remote-only ISP rows and a fully-discarded baseline on partial failure. Other gaps are flagged for builder confirmation rather than silently included.
-- Reuse the existing Cloudflare Radar (RUM) fetch to backfill uncovered/remote-only rows, since Radar data is ASN-level and needs no live trace target.
-**Biggest risk:** "Cover all the gaps" is open-ended; the committed set may not match the builder's mental list of gaps. The scope names the exact gaps addressed so the builder can prune or extend before implementation.
+- Interpret "cover all the gaps" as the concrete, observable gaps in the pasted `country US` run: blank uncovered/remote-only ISP rows and a fully-discarded baseline on partial failure.
+- Use PeeringDB `netixlan` (IXP interface IPs per ASN) as an additional, non-RIPE source of reachable trace targets — reusing the PeeringDB access already present in `ixp.py`.
+- Backfill Cloudflare Radar (RUM) as the fallback for ASNs that still have no reachable target, since Radar data is ASN-level and needs no live target.
+- The ASN-to-ASN path analysis feature is split into its own task (hybrid BGP + live), building on the PeeringDB discovery delivered here.
+**Biggest risk:** PeeringDB IXP interface IPs are real router interfaces but not guaranteed to answer ICMP; some targets may still fail to trace, so Radar backfill remains the safety net.
 
 ## Context
 
-The `coverage` command (`cli.py:957`) prints a Rich table of probe counts per country, defaulting to the top 20 via `--top` (`cli.py:960`); the ranking and title both derive from that value (`cli.py:972`, `cli.py:977`). Raising the default is a one-line change.
+The `coverage` command (`cli.py:957`) prints a Rich table of probe counts per country, defaulting to the top 20 via `--top` (`cli.py:960`); the ranking and title both derive from that value. Raising the default is a one-line change.
 
-The output-data gaps come from the `country` command flow (`cli.py` around `716`-`914`). For each ranked ASN, ISPs with no iperf3 server and no Atlas trace target fall into one of two branches that `continue` before `_measure()` runs: `remote_only` rows (`cli.py:774`) and `skip_reason` / "no coverage" rows (`cli.py:786`). Because `_measure()` is where Cloudflare Radar data is fetched (`_fetch_rum` at `cli.py:177`, submitted at `cli.py:334`), these rows never get Radar figures even though Radar quality data is keyed by ASN and needs no live target. The summary renderer (`display.py:425`) shows these rows as bare labels — "remote-only" or the skip reason — with no throughput/latency/loss.
+The output-data gaps come from the `country` command flow (`cli.py` ~`716`-`914`). For each ranked ASN, netpath looks for an iperf3 server, then a live trace target via `country.get_test_ip_for_asn` (`country.py:138`) — which today returns only a connected RIPE Atlas probe IP (`country.py:145`). ASNs with neither fall into two branches that `continue` before `_measure()` runs: `remote_only` rows (`cli.py:774`) and `skip_reason`/"no coverage" rows (`cli.py:786`). Because `_measure()` is where Cloudflare Radar data is fetched (`_fetch_rum` at `cli.py:177`, submitted at `cli.py:334`), these rows never get Radar figures even though Radar quality data is keyed by ASN and needs no live target. The summary renderer (`display.py:425`) shows these rows as bare labels with no throughput/latency/loss.
 
-Separately, the once-per-run baseline speedtest (`cli.py:661`-`672`) calls `speedtest.run()`, which raises a `RuntimeError` on the first failing direction (`speedtest.py:82`-`90`). An upload timeout therefore discards a perfectly good download result, and the user sees only a warning with no baseline — exactly the "Baseline speedtest failed: Upload test failed" case in the pasted run.
+netpath already talks to PeeringDB in `ixp.py` (for IXP prefix classification), so the HTTP client and module-level caching pattern exist. PeeringDB's `netixlan` endpoint (`https://www.peeringdb.com/api/netixlan?asn=N`) returns, per ASN, that network's interface IPs at every IXP it peers on (`ipaddr4`/`ipaddr6`) — real router IPs that generally answer ping/traceroute. Adding this as a target source expands reachable coverage without any RIPE dependency.
+
+Separately, the once-per-run baseline speedtest (`cli.py:661`-`672`) calls `speedtest.run()`, which raises on the first failing direction (`speedtest.py:82`-`90`), so an upload timeout discards a successful download — exactly the failure in the pasted run.
 
 ## Requirements
 
 ### Coverage command
 
-- R1: The `coverage` command defaults to ranking the top 50 countries instead of 20. The `--top` / `-t` option must still override the default, and the table title must reflect the effective count. (Default lives at `cli.py:960`; title at `cli.py:977` already interpolates `top`.)
+- R1: The `coverage` command defaults to ranking the top 50 countries instead of 20. The `--top` / `-t` option must still override the default, and the table title must reflect the effective count. (Default at `cli.py:960`; title at `cli.py:977` already interpolates `top`.)
 
-### Backfilling uncovered and remote-only ISP rows
+### PeeringDB trace-target discovery
 
-- R2: For ISP rows that currently short-circuit to `remote_only` (`cli.py:774`) or `skip_reason`/no-coverage (`cli.py:786`), netpath fetches Cloudflare Radar (RUM) quality data for the ASN when a Cloudflare token is available, using the existing `_fetch_rum` path (`cli.py:177`, `rum.fetch_asn_quality`). No live trace target is required.
-- R3: When Radar data is returned for such a row, the per-ISP section prints it (reuse `display.rum_only_panel`, as `_run_test` already does at `cli.py:463`) instead of only the one-line "remote-only" / "no coverage" note.
-- R4: The country summary tree (`display.py:425`) surfaces the Radar figures for remote-only and no-coverage rows, so those rows show download/upload/latency/loss instead of a bare label. When no Radar data exists (no token, or ASN absent from Radar), the row falls back to the current label unchanged — no empty or misleading values.
+- R2: netpath can look up reachable trace targets for an ASN from PeeringDB's `netixlan` data (the ASN's IXP interface IPs), reusing the existing PeeringDB access/caching pattern in `ixp.py` (or a small sibling helper following the single-purpose module convention).
+- R3: `country.get_test_ip_for_asn` (`country.py:138`) is extended so that when no other live target is found, it returns a PeeringDB `netixlan` IPv4 for the ASN when one exists. This augments existing discovery — it does not remove current behavior. (Open question in Technical Notes: whether existing RIPE Atlas target lookup should be removed entirely.)
+- R4: When a PeeringDB target is used, its selection is logged in the per-ISP note the same way the current Atlas-target note reads (`cli.py:749`), so the user can see where the target came from.
+
+### Backfilling uncovered and remote-only ISP rows (fallback)
+
+- R5: For ISP rows that still short-circuit to `remote_only` (`cli.py:774`) or `skip_reason`/no-coverage (`cli.py:786`) after target discovery, netpath fetches Cloudflare Radar (RUM) for the ASN when a Cloudflare token is available, using the existing `_fetch_rum` path (`cli.py:177`). No live target required.
+- R6: When Radar data is returned for such a row, the per-ISP section prints it (reuse `display.rum_only_panel`, as `_run_test` does at `cli.py:463`), and the country summary tree (`display.py:425`) surfaces the Radar figures for those rows instead of a bare label. When no Radar data exists (no token, or ASN absent), the row falls back to the current label unchanged — no empty or misleading values.
 
 ### Resilient baseline speedtest
 
-- R5: `speedtest.run()` no longer discards a successful direction when the other direction fails. It captures per-direction errors and returns whatever succeeded, so a download that completed is still available when the upload times out (and vice versa). This mirrors the codebase's `probe_errors` convention of recording partial failures rather than aborting.
-- R6: The baseline display (`cli.py:670`, `display.baseline_panel`) shows the direction(s) that succeeded and indicates the direction that failed, rather than printing only a warning and no panel. If both directions fail, the current warning behavior is preserved.
+- R7: `speedtest.run()` no longer discards a successful direction when the other fails. It captures per-direction errors and returns whatever succeeded, so a completed download is still available when the upload times out (and vice versa) — mirroring the `probe_errors` convention.
+- R8: The baseline display (`cli.py:670`, `display.baseline_panel`) shows the direction(s) that succeeded and indicates the direction that failed, rather than printing only a warning. If both directions fail, the current warning behavior is preserved.
 
 ## Acceptance Criteria
 
-- [ ] Running `netpath coverage` with no `--top` flag prints up to 50 ranked country rows and a title reading "Top 50 Countries"; verified by inspecting the command output and the default at `cli.py:960`.
+- [ ] Running `netpath coverage` with no `--top` flag prints up to 50 ranked country rows and a title reading "Top 50 Countries"; verified against the default at `cli.py:960`.
 - [ ] Running `netpath coverage --top 10` still prints exactly 10 rows with a "Top 10" title (override preserved).
-- [ ] In `country` mode with a valid Cloudflare token, an ISP that would otherwise be "remote-only" or "no coverage" but exists in Cloudflare Radar shows a Radar panel in its per-ISP section and Radar figures in the summary tree.
-- [ ] In `country` mode with no Cloudflare token, remote-only and no-coverage rows render exactly as they do today (bare label, no empty Radar values) — no regression.
-- [ ] With `speedtest.run()` mocked so `_upload` raises and `_download` succeeds, `run()` returns the download result plus a recorded upload error instead of raising; verified by a unit test in `tests/`.
-- [ ] With both directions mocked to fail, the baseline still surfaces a warning and no panel (current behavior preserved).
+- [ ] For an ASN with IXP presence in PeeringDB but no other live target, `get_test_ip_for_asn` returns a PeeringDB `netixlan` IPv4; verified by a unit test mocking the PeeringDB response (consistent with the project's subprocess/HTTP-mockable test strategy).
+- [ ] For an ASN absent from PeeringDB `netixlan`, `get_test_ip_for_asn` behaves exactly as today (no regression); verified by a unit test.
+- [ ] In `country` mode, an ISP that gains a PeeringDB target shows a trace section with a note indicating the target's origin.
+- [ ] In `country` mode with a Cloudflare token, an ISP that is still remote-only / no-coverage but exists in Radar shows a Radar panel in its section and Radar figures in the summary tree.
+- [ ] In `country` mode with no Cloudflare token, remote-only and no-coverage rows render exactly as today (no empty Radar values).
+- [ ] With `speedtest._upload` mocked to raise and `_download` mocked to succeed, `run()` returns the download plus a recorded upload error instead of raising; verified by a unit test. Both-fail case preserves the warning with no panel.
 - [ ] `pytest` and `ruff check src tests` both pass.
 
 ## Implementation Phases
@@ -262,30 +279,46 @@ Separately, the once-per-run baseline speedtest (`cli.py:661`-`672`) calls `spee
 **Estimated effort:** Small
 
 ### Phase 2: Fill uncovered/remote-only ISP data and salvage partial baselines
-**Scope:** Backfill Cloudflare Radar quality data for ISP rows that today show as blank "no coverage" or "remote-only" entries, surfacing that data in both the per-ISP section and the country summary. Make the baseline speed check return partial results so a single failed direction no longer discards the reading that succeeded.
-**Files:** `src/netpath/cli.py` (short-circuit branches at `cli.py:774` and `cli.py:786`; baseline block at `cli.py:661`-`672`), `src/netpath/display.py` (`country_summary` at `display.py:425` and the summary subrow helpers), `src/netpath/speedtest.py` (`run` at `speedtest.py:77`), `tests/` (new test for partial-baseline behavior).
+**Scope:** Backfill Cloudflare Radar quality data for ISP rows that today show as blank "no coverage" or "remote-only" entries, surfacing it in both the per-ISP section and the country summary. Make the baseline speed check return partial results so a single failed direction no longer discards the reading that succeeded.
+**Files:** `src/netpath/cli.py` (short-circuit branches at `cli.py:774` and `cli.py:786`; baseline block at `cli.py:661`-`672`), `src/netpath/display.py` (`country_summary` at `display.py:425` and summary subrow helpers), `src/netpath/speedtest.py` (`run` at `speedtest.py:77`, `extract_stats` at `speedtest.py:99`), `tests/` (partial-baseline test).
 **Verification:**
 - With a Cloudflare token, a formerly remote-only / no-coverage ASN present in Radar shows a Radar panel and summary figures.
-- Without a token, those rows render unchanged (no empty Radar values).
-- Unit test: `_upload` fails and `_download` succeeds → `run()` returns the download plus a recorded upload error and does not raise.
-- Unit test: both directions fail → baseline warning preserved, no panel.
+- Without a token, those rows render unchanged.
+- Unit tests: `_upload` fails / `_download` succeeds → `run()` returns download plus recorded error, no raise; both fail → warning preserved, no panel.
+- `pytest` and `ruff check src tests` pass.
+**Estimated effort:** Medium
+
+### Phase 3: PeeringDB netixlan trace-target discovery
+**Scope:** Give netpath a second, non-RIPE source of reachable test targets by reading a provider's interconnection interface addresses from PeeringDB, so measurements can run for many providers that previously had no target to test against.
+**Files:** `src/netpath/ixp.py` (reuse existing PeeringDB access/cache) or a new `src/netpath/peeringdb.py` sibling helper; `src/netpath/country.py` (`get_test_ip_for_asn` at `country.py:138`); `src/netpath/cli.py` (target-origin note at `cli.py:749`); `tests/` (new `netixlan` lookup tests).
+**Verification:**
+- Unit test: ASN with mocked `netixlan` presence → `get_test_ip_for_asn` returns a PeeringDB IPv4.
+- Unit test: ASN absent from `netixlan` → unchanged fallback behavior.
+- In `country` mode, an ASN with PeeringDB presence but no Atlas probe now runs a trace with an origin note.
 - `pytest` and `ruff check src tests` pass.
 **Estimated effort:** Medium
 
 ## Edge Cases
 
-- **No Cloudflare token set:** R2-R4 must no-op cleanly — `_fetch_rum` already returns `None` without a token (`cli.py:178`); rows fall back to their current labels.
-- **ASN absent from Cloudflare Radar:** Radar returns no data; render the existing label, never an empty or zero-filled Radar panel.
-- **Both baseline directions fail:** Preserve today's behavior (warning, no panel) — do not synthesize a partial panel from nothing.
-- **JSON mode (`--json`):** Radar backfill for skipped rows must remain consistent with existing JSON serialization; the summary/panel changes are display-only and must not alter the `--json` contract.
-- **Radar fetch latency for many skipped rows:** a country sweep may have several uncovered ASNs; the Radar fetch already runs with a timeout (`cli.py:352`, 15s) — ensure backfill fetches do not serialize into a long stall (reuse the executor pattern where practical).
+- **PeeringDB IXP IP does not answer ICMP:** these are real router interfaces but not guaranteed responsive. Treat a non-responding target like today's dead-target case (fall through to Radar backfill); consider a lightweight reachability check before committing to a target to avoid burning the prober budget (the concern noted in `country.py:142`).
+- **ASN present on many IXPs:** `netixlan` may return numerous IPs; pick one deterministically (e.g., first responsive, or first by IXP), and support IPv6 (`ipaddr6`) for dual-stack consistency with existing behavior.
+- **No Cloudflare token set:** Radar backfill no-ops cleanly (`_fetch_rum` returns `None`); rows fall back to current labels.
+- **ASN absent from both PeeringDB and Radar (e.g. DoD/enterprise networks):** row remains "no coverage" — no dataset can help; behavior unchanged.
+- **Both baseline directions fail:** preserve today's behavior (warning, no panel).
+- **JSON mode (`--json`):** target-origin and Radar backfill changes must not alter the `--json` contract; summary/panel changes are display-only.
 
 ## Technical Notes
 
-The Cloudflare Radar fetch is already isolated behind `_fetch_rum(asn, cf_token)` (`cli.py:177`) and `rum.fetch_asn_quality` — reuse it directly for the skipped rows rather than routing them through `_measure()`, which would also trigger unwanted trace/latency probes for ASNs with no reachable target. Store the fetched Radar dict on the existing `remote_only` / `skip_reason` summary row dicts (e.g. a `rum` key, matching the `rum` key `_measure` already sets at `cli.py:198`) so `country_summary` can render it uniformly.
+Reuse the PeeringDB access already in `ixp.py` (HTTP client + module-level cache per the established in-process caching convention) rather than adding a second PeeringDB client. `netixlan?asn=N` returns objects with `ipaddr4`/`ipaddr6`; strip the `AS` prefix with `asn.normalize_asn()` before querying (bare integer). Cache the per-ASN result in-process.
 
-For the baseline, follow the established `probe_errors` convention (see the project memory on unified `probe_errors`): have `speedtest.run()` attempt each direction independently, collect failures into an errors dict, and return whatever succeeded. `extract_stats` (`speedtest.py:99`) assumes both `download` and `upload` keys are present — update it (or its callers) to tolerate a missing direction. Keep `raise typer.Exit` usage out of `speedtest.py`; error handling stays at the CLI display layer.
+For target selection in `get_test_ip_for_asn`, keep PeeringDB as a fallback after any existing live target so current behavior is preserved. The Cloudflare Radar backfill (R5-R6) should reuse `_fetch_rum` directly for skipped rows rather than routing them through `_measure()`, which would trigger unwanted trace/latency probes toward dead targets. Store the fetched Radar dict on the summary row (a `rum` key, matching what `_measure` sets at `cli.py:198`) so `country_summary` renders it uniformly.
 
-Testing: per the project's test strategy (pure/subprocess-mockable modules only), the partial-baseline logic is testable by mocking `speedtest._download` / `speedtest._upload`. The Radar backfill involves network I/O and is not a unit-test target; verify it manually with a token.
+For the baseline, follow the `probe_errors` convention: attempt each direction independently, collect failures into an errors dict, return whatever succeeded. `extract_stats` (`speedtest.py:99`) assumes both keys are present — update it (or callers) to tolerate a missing direction. Keep exit handling out of `speedtest.py`.
 
-**Open question for the builder (flagged, not assumed):** "Cover all the gaps" is broad. This scope commits to the two concrete, observable gaps in the pasted `country US` run (blank uncovered/remote-only rows; discarded partial baseline). Other candidate gaps — reverse-DNS hostnames for trace hops, richer display of `* * *` unresponsive hops, or surfacing per-ISP throughput in country mode beyond Radar — are intentionally left out (see Out of Scope). If any of these are part of the intended "all gaps," confirm and they can be folded in or split into follow-up tasks.
+Testing per project strategy: PeeringDB lookup and the partial-baseline logic are unit-testable by mocking the HTTP response / `_download`/`_upload`. Live Radar backfill and real trace reachability are verified manually.
+
+**Open question for the builder (flagged, not assumed):** you said "no RIPE data." This scope *adds* PeeringDB as a target source but leaves the existing RIPE Atlas target lookup in `get_test_ip_for_asn` in place (removing it is a larger, riskier change affecting all of country mode). If you want RIPE Atlas discovery removed entirely, confirm and it can be folded into Phase 3 or split out.
+
+### Dependencies
+
+- The separate ASN-to-ASN path analysis task (proposed) depends on the PeeringDB endpoint discovery delivered in Phase 3.
