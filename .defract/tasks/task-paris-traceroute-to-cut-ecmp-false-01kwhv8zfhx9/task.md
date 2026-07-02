@@ -3,7 +3,7 @@ defract:
   id: task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9
   type: bug
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
   total_phases: 3
   priority: normal
@@ -166,3 +166,17 @@ Globalping ping results carry per-probe `stats` (min/avg/max/loss/drop) and per-
 For the Paris module, `dublin-traceroute` is preferred (purpose-built Paris implementation, JSON output, brew-installable) with `scamper` as the alternate (CAIDA-maintained, `-O json` output, `trace -P icmp-paris`). Both need raw-socket privileges, so the module must map permission failures to a silent fall-through rather than an error — on unprivileged macOS the phase 2 path may rarely engage, which is why phases 1 and 3 carry the false-positive fix on their own. The parser lives as module-private pure functions (`_parse_...`) importable directly in tests, matching the existing `mtr._parse_traceroute_output` test pattern.
 
 Re-diagnosis in country mode should be a small helper that re-runs `diagnose(row)` for rows that gained remote data, replacing `row["verdict"]` before `display.country_summary()` and the exit-code computation. Skipped ASNs without a `verdict` key are excluded, preserving the existing exit-code contract (0=ok, 1=warning, 2=critical).
+
+## Implementation Notes
+
+## Phase 1: Meaningful samples in the fallback prober
+
+**What was built:**
+
+- `src/netpath/mtr.py` — `_run_traceroute_cmd` gains a `probes` parameter (default 2, matching the old hardcoded behavior) with a public `TRACEROUTE_MAX_PROBES = 5` cap; the effective count is clamped to 1–5 and the subprocess timeout scales with it (`30 * effective + 15` seconds, so probes=2 stays near the old 60 s while probes=5 gets 165 s headroom for a slow filtered path). `run_traceroute` now threads its `probes` parameter into all four `_run_traceroute_cmd` call sites (TCP-first, UDP fallback, UDP-first, TCP retry).
+- `src/netpath/cli.py` — after the trace section in `_measure()`, when `_trace_method` is `"traceroute"` the result's `probe_count` is corrected from `cycles` to the effective fallback count `min(cycles, mtr.TRACEROUTE_MAX_PROBES)`, covering all three trace branches (dual-stack, ECMP, plain).
+- `src/netpath/diagnosis.py` — new `JITTER_MIN_SAMPLES = 5` constant; check (5) now emits an ok-severity `jitter_low_sample` informational signal instead of the High Jitter warning when `probe_count` is present and below 5. `probe_count=None` (unknown) keeps legacy warning behavior. `jitter_low_sample` maps to "Healthy" in the condition-verdict table, mirroring the rate-limited-hop pattern.
+
+**Tests:** 3 new cases in `tests/test_mtr.py` (probe threading via mocked `subprocess.run`, cap at 5, timeout scaling) and 3 in `tests/test_diagnosis.py` (suppression at probe_count=2, warning at 5 and at 10). Two exact-call assertions in `tests/test_country.py` updated for the new `probes` kwarg. Suite: 109 passed, ruff clean.
+
+**Deviations from plan:** none.

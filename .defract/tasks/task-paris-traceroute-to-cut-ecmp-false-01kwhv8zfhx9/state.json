@@ -1,11 +1,11 @@
 {
   "id": "task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 3,
   "createdAt": "2026-07-02T16:40:58Z",
-  "updatedAt": "2026-07-02T16:54:36Z",
+  "updatedAt": "2026-07-02T17:12:01Z",
   "events": [
     {
       "base_branch": "main",
@@ -102,6 +102,183 @@
       "type": "stage_work_complete",
       "worktree_head": "c7ad6cc3479eeb208cdf2695ef593176316691be",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-02T17:06:46Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-07-02T17:06:38Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "b87b49b6e045fc5c900d74a6b0c03f2e38373849",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "c7ad6cc3479eeb208cdf2695ef593176316691be",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-02T17:06:46Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-07-02T17:06:46Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-07-02T17:06:46Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-02T17:06:46Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwhwr6zq57eqb81dwcdwscys",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T17:06:46Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwhvr1s6am2hje6khjccab2n",
+      "timed_out": false,
+      "timestamp": "2026-07-02T17:06:47Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting phase 1: meaningful samples in the fallback prober",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T17:07:01Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Meaningful samples in the fallback prober",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-07-02T17:07:06Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-07-02T17:08:44Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-07-02T17:09:46Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-07-02T17:10:36Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "Baseline was 103 passed. Added 6 tests: 3 in tests/test_mtr.py (probe-count threading, cap at 5, timeout scaling) and 3 in tests/test_diagnosis.py (jitter suppressed at probe_count=2 with informational signal, warning fires at probe_count=5 and 10). Updated 2 exact-call-signature assertions in tests/test_country.py for the new probes kwarg. ruff check src tests: all checks passed.",
+      "failed": 0,
+      "passed": 109,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-07-02T17:11:04Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Implementation: the sample-size jitter gate applies only when probe_count is present and below 5; probe_count=None keeps the legacy High Jitter behavior, and the informational jitter_low_sample signal is emitted only when jitter actually exceeds the 10 ms threshold.",
+      "phase": 1,
+      "rationale": "diagnose() receives arbitrary dicts (tests, asn mode) where probe_count may be absent; treating None as \"unknown\" rather than \"too few\" preserves every existing test and the mtr path (cycles=10) unchanged. Emitting the ok-severity note only above the threshold keeps Healthy runs free of noise. The effective fallback probe count is recorded in cli.py via min(cycles, mtr.TRACEROUTE_MAX_PROBES) in one shared spot after the trace section, covering all three trace branches (compare_v6, ecmp, plain).",
+      "timestamp": "2026-07-02T17:11:09Z",
+      "type": "decision"
+    },
+    {
+      "change_summary": "Phase 1 complete: Meaningful samples in the fallback prober",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T17:11:25Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-07-02T17:11:33Z",
+      "type": "progress_report"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/mtr.py",
+        "src/netpath/cli.py",
+        "src/netpath/diagnosis.py",
+        "tests/test_mtr.py",
+        "tests/test_diagnosis.py",
+        "tests/test_country.py"
+      ],
+      "phase": 0,
+      "summary": "Fallback prober now honors the requested per-hop probe count (capped at TRACEROUTE_MAX_PROBES=5, timeout scaled to the count), _measure() records the effective probe_count when the traceroute fallback ran, and diagnose() suppresses the High Jitter warning below 5 samples in favor of an ok-severity jitter_low_sample informational signal. 6 new tests; 109 passed; ruff clean.",
+      "timestamp": "2026-07-02T17:11:37Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "On this machine (where mtr lacks raw-socket permission), run `netpath asn AS15169` and confirm the terminal still shows the `mtr unavailable — using traceroute` note and the run completes."
+        },
+        {
+          "description": "While that run's trace is in flight, run `ps aux | grep traceroute` in another terminal and confirm the command line contains `-q 5` (default `--cycles 10` capped to 5) instead of the old `-q 2`."
+        },
+        {
+          "description": "Run `netpath asn AS15169 --cycles 3` and confirm via `ps aux | grep traceroute` that the command contains `-q 3` — the requested count is threaded through when below the cap."
+        },
+        {
+          "description": "Run `netpath asn AS15169 --cycles 3 --json` and confirm the JSON output's `probe_count` field is `3` (the effective fallback count), not the raw cycles value when cycles exceed 5."
+        },
+        {
+          "description": "Pick a long-haul target that previously produced a false High Jitter verdict (e.g. `netpath asn AS9829 --cycles 3`) and confirm the verdict is no longer `High Jitter`; the verdict panel should instead show an informational note that jitter was measured from too few samples."
+        },
+        {
+          "description": "On a machine where mtr works with raw sockets (or via `sudo`), run `netpath asn AS15169` and confirm behavior is unchanged: 10-cycle mtr, and a jitter above 10 ms still yields the `High Jitter` warning."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Meaningful samples in the fallback prober",
+      "timestamp": "2026-07-02T17:11:51Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Meaningful samples in the fallback prober",
+      "server_phase": 0,
+      "timestamp": "2026-07-02T17:12:01Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Meaningful samples in the fallback prober",
+      "timestamp": "2026-07-02T17:12:01Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "b87b49b6e045fc5c900d74a6b0c03f2e38373849",
+      "worktree_status_digest": "e6aa26429bab3300909680ff9cc0645ee3fce3b58eaf0d1a944f6e1ec673eec4"
     }
   ],
   "needsArchitecture": false,
@@ -118,9 +295,15 @@
     "classifiedBy": "scope-agent",
     "rationale": "Fixes existing broken behavior (false High Jitter verdicts) with no UI beyond existing terminal tables — skip design. Work follows established single-purpose module conventions (new paris.py mirrors pmtu.py/latency.py, diagnosis gating mirrors the rate-limited-hop pattern) and touches ~6 files across trace, diagnosis, and remote-measurement layers without new system boundaries — skip architecture; detailed phases with Files and Verification carry the design."
   },
+  "stageApprovals": {
+    "scope": "2026-07-02T17:06:38Z"
+  },
+  "stageContent": {
+    "implementation": "## Phase 1: Meaningful samples in the fallback prober\n\n**What was built:**\n\n- `src/netpath/mtr.py` — `_run_traceroute_cmd` gains a `probes` parameter (default 2, matching the old hardcoded behavior) with a public `TRACEROUTE_MAX_PROBES = 5` cap; the effective count is clamped to 1–5 and the subprocess timeout scales with it (`30 * effective + 15` seconds, so probes=2 stays near the old 60 s while probes=5 gets 165 s headroom for a slow filtered path). `run_traceroute` now threads its `probes` parameter into all four `_run_traceroute_cmd` call sites (TCP-first, UDP fallback, UDP-first, TCP retry).\n- `src/netpath/cli.py` — after the trace section in `_measure()`, when `_trace_method` is `\"traceroute\"` the result's `probe_count` is corrected from `cycles` to the effective fallback count `min(cycles, mtr.TRACEROUTE_MAX_PROBES)`, covering all three trace branches (dual-stack, ECMP, plain).\n- `src/netpath/diagnosis.py` — new `JITTER_MIN_SAMPLES = 5` constant; check (5) now emits an ok-severity `jitter_low_sample` informational signal instead of the High Jitter warning when `probe_count` is present and below 5. `probe_count=None` (unknown) keeps legacy warning behavior. `jitter_low_sample` maps to \"Healthy\" in the condition-verdict table, mirroring the rate-limited-hop pattern.\n\n**Tests:** 3 new cases in `tests/test_mtr.py` (probe threading via mocked `subprocess.run`, cap at 5, timeout scaling) and 3 in `tests/test_diagnosis.py` (suppression at probe_count=2, warning at 5 and at 10). Two exact-call assertions in `tests/test_country.py` updated for the new `probes` kwarg. Suite: 109 passed, ruff clean.\n\n**Deviations from plan:** none."
+  },
   "stages": {
-    "release": {
-      "status": "not_started"
+    "architecture": {
+      "status": "skipped"
     },
     "review": {
       "status": "not_started"
@@ -128,18 +311,20 @@
     "design": {
       "status": "skipped"
     },
-    "implementation": {
-      "status": "not_started"
-    },
-    "architecture": {
-      "status": "skipped"
-    },
     "scope": {
-      "status": "awaiting_approval",
+      "status": "approved",
+      "approvedAt": "2026-07-02T17:06:38Z",
       "startedAt": "2026-07-02T16:49:13Z"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T17:06:46Z"
+    },
+    "release": {
+      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T16:49:12Z"
+  "worktreeLastSyncedAt": "2026-07-02T17:06:46Z"
 }
