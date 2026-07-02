@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 ## Story Brief
 
 # Trace only valid probe targets in country mode
@@ -135,3 +134,26 @@ The `country` command (`src/netpath/cli.py:686-747`) probes each top ASN. When `
 - `MeasurementResult` in `types.py` is `TypedDict(total=False)`, so new skip-reason / partial-flag keys are additive with no call-site churn; keep all new keys JSON-serialisable for the future country-mode `--json`.
 - Follow the project test-strategy convention: mock `subprocess` in `tests/test_mtr.py`, keep `diagnose()` cases pure in `tests/test_diagnosis.py`, and do not add tests requiring live HTTP.
 - `_check_deps()` still requires mtr to be installed for country mode — unchanged here; per the out-of-scope note, no prober bundling work in this task.
+
+## Implementation Notes
+
+## Phase 1: Live-target selection and coverage labelling
+
+### What was built
+
+- `src/netpath/country.py` — `get_test_ip_for_asn()` now returns only a connected RIPE Atlas probe IPv4 (via the unchanged `_get_atlas_probe_ip()`) or None. The entire announced-prefix guessing branch and the now-unused `RIPE_PREFIXES` constant were removed.
+- `src/netpath/cli.py` — the country loop's serverless branch is now a target ladder: Atlas probe IP → local trace (as before, note reworded to "Atlas probe trace target"); no Atlas IP but ASN has Globalping probes → remote-only row (`remote_only: True`, no local trace, no verdict); otherwise → no-coverage row (`skip_reason: <reason>`, differentiated for `--no-remote`) skipped in seconds. The Globalping scheduling loop falls back to the tester's public IP for remote-only rows (`_tip = _gp_test_ips.get(_asn_str) or _user_public_ip`); the unreachable "no test IP available" branch was removed since `_user_public_ip` is guaranteed non-None inside that block.
+- `src/netpath/display.py` — `country_summary()` first partitions rows into no-coverage (`skip_reason`), remote-only (`remote_only`), and measured; complete/incomplete grouping applies only to measured rows. Two new labelled groups render after "incomplete paths": "remote-only — measured from inside the ISP via Globalping; no local trace ran" (keeps the Globalping sub-row) and "no coverage — skipped, no live target" (shows each row's skip reason).
+- `src/netpath/types.py` — additive `remote_only: bool` and `skip_reason: Optional[str]` keys on `MeasurementResult` (both JSON-serialisable).
+- `tests/test_country.py` — the four prefix-fallback tests were replaced: Atlas-empty, Atlas-error, and null-`address_v4` cases now assert None is returned (the Atlas-empty case also asserts only the Atlas probes API is ever queried), plus a new test that rows without a `verdict` key (no-coverage, remote-only) do not affect `_worst_exit_code`.
+
+### Deviations from plan
+
+None. The exit-code test imports `_worst_exit_code` from `netpath.cli` and mirrors the summary-row comprehension at the end of `country()`.
+
+### Verification
+
+- `pytest`: 141 passed, 0 failed (matches the 141-test baseline; 4 tests replaced by 4 new ones)
+- `ruff check src tests`: clean
+- Smoke-rendered `country_summary()` with all four row types — grouping, labels, and the remote-only Globalping sub-row render correctly; no-coverage and remote-only rows no longer land in "incomplete paths"
+- Manual `netpath country US --top 10` run is on the manual test list for the builder
