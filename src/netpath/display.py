@@ -220,7 +220,14 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
     return table
 
 
-def path_table(hubs: list[dict], target_asn: str):
+def _truncation_note():
+    console.print(
+        "  [yellow]⚠[/yellow] [dim]Path truncated — the trace timed out before completing; "
+        "showing the hops collected so far[/dim]"
+    )
+
+
+def path_table(hubs: list[dict], target_asn: str, truncated: bool = False):
     if _all_stars(hubs):
         console.print(
             f"  [yellow]⚠[/yellow] [dim]Path filtered — all {len(hubs)} hops dropped ICMP probes "
@@ -237,9 +244,12 @@ def path_table(hubs: list[dict], target_asn: str):
             f"  [dim]  + {trailing} hop{'s' if trailing != 1 else ''} beyond "
             f"— ICMP TTL-exceeded filtered[/dim]"
         )
+    if truncated:
+        _truncation_note()
 
 
-def dual_stack_columns(hubs_v4: list[dict], hubs_v6: list[dict] | None, target_asn: str):
+def dual_stack_columns(hubs_v4: list[dict], hubs_v6: list[dict] | None, target_asn: str,
+                       truncated: bool = False):
     """Display IPv4 and IPv6 path tables side-by-side using Rich Columns."""
     trimmed_v4, _ = _trim_trailing(hubs_v4) if hubs_v4 else ([], 0)
     v4_table = _build_hub_table(trimmed_v4, target_asn, show_p95=False)
@@ -258,6 +268,8 @@ def dual_stack_columns(hubs_v4: list[dict], hubs_v6: list[dict] | None, target_a
         )
 
     console.print(Columns([v4_panel, v6_panel], equal=False, expand=False))
+    if truncated:
+        _truncation_note()
     console.print()
 
 
@@ -413,8 +425,12 @@ def country_summary(code: str, results: list[dict]):
     if not results:
         return
 
-    complete = [r for r in results if r.get("path_complete") and r.get("verified_rtt_ms") is not None]
-    incomplete = [r for r in results if not r.get("path_complete") or r.get("verified_rtt_ms") is None]
+    no_coverage = [r for r in results if r.get("skip_reason")]
+    remote_only = [r for r in results if r.get("remote_only")]
+    measured = [r for r in results if not r.get("skip_reason") and not r.get("remote_only")]
+
+    complete = [r for r in measured if r.get("path_complete") and r.get("verified_rtt_ms") is not None]
+    incomplete = [r for r in measured if not r.get("path_complete") or r.get("verified_rtt_ms") is None]
 
     star_asn: str | None = None
     if complete:
@@ -506,6 +522,27 @@ def country_summary(code: str, results: list[dict]):
                 line.append("incomplete", style="dim")
             console.print(line)
             _render_globalping_subrow(r, ri == len(incomplete) - 1)
+        console.print()
+
+    if remote_only:
+        console.print("[dim]remote-only — measured from inside the ISP via Globalping; no local trace ran[/dim]")
+        for ri, r in enumerate(remote_only):
+            connector = "└─" if ri == len(remote_only) - 1 else "├─"
+            line = Text()
+            line.append(f"  {connector}   {r['asn']:<10}  {_trim(r['name']):<26}  ", style="dim")
+            line.append("remote-only", style="cyan")
+            console.print(line)
+            _render_globalping_subrow(r, ri == len(remote_only) - 1)
+        console.print()
+
+    if no_coverage:
+        console.print("[dim]no coverage — skipped, no live target[/dim]")
+        for ri, r in enumerate(no_coverage):
+            connector = "└─" if ri == len(no_coverage) - 1 else "├─"
+            line = Text()
+            line.append(f"  {connector}   {r['asn']:<10}  {_trim(r['name']):<26}  ", style="dim")
+            line.append(r.get("skip_reason", "no live target"), style="dim")
+            console.print(line)
         console.print()
 
     if sorted_keys:

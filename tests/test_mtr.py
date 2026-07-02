@@ -1,6 +1,16 @@
+import subprocess
 from unittest.mock import patch
 
-from netpath.mtr import _all_stars, _compare_as_paths, _parse_traceroute_output, run_traceroute
+import pytest
+
+from netpath.mtr import (
+    TraceTimeout,
+    _all_stars,
+    _compare_as_paths,
+    _parse_traceroute_output,
+    _run_traceroute_cmd,
+    run_traceroute,
+)
 from netpath.pmtu import probe as pmtu_probe
 
 NORMAL_MULTI_HOP = """\
@@ -139,12 +149,18 @@ def test_compare_as_paths_empty():
 def _run_traceroute_capturing_cmd(probes):
     captured = {}
 
-    def mock_run(cmd, **kwargs):
-        captured["cmd"] = cmd
-        captured["timeout"] = kwargs.get("timeout")
-        return type("R", (), {"returncode": 0, "stdout": NORMAL_MULTI_HOP, "stderr": ""})()
+    class _FakeProc:
+        returncode = 0
 
-    with patch("netpath.mtr.subprocess.run", side_effect=mock_run), \
+        def communicate(self, timeout=None):
+            captured["timeout"] = timeout
+            return NORMAL_MULTI_HOP, ""
+
+    def mock_popen(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return _FakeProc()
+
+    with patch("netpath.mtr.subprocess.Popen", side_effect=mock_popen), \
          patch("netpath.mtr._enrich_names"):
         run_traceroute("8.8.8.8", probes=probes)
     return captured
@@ -170,6 +186,76 @@ def test_run_traceroute_timeout_scales_with_probes():
     timeout_5 = _run_traceroute_capturing_cmd(10)["timeout"]
     assert timeout_3 is not None and timeout_5 is not None
     assert timeout_5 > timeout_3
+
+
+# _run_traceroute_cmd timeout partial-harvest tests
+
+class _TimeoutProc:
+    """Popen stand-in: first communicate() times out; the post-kill drain
+    returns whatever partial stdout the subprocess had produced."""
+
+    def __init__(self, partial_stdout):
+        self._partial = partial_stdout
+        self.killed = False
+        self.returncode = None
+
+    def communicate(self, timeout=None):
+        if not self.killed:
+            raise subprocess.TimeoutExpired(cmd="traceroute", timeout=timeout)
+        return self._partial, ""
+
+    def kill(self):
+        self.killed = True
+        self.returncode = -9
+
+
+def _traceroute_timing_out_with(partial_stdout):
+    proc = _TimeoutProc(partial_stdout)
+    with patch("netpath.mtr.subprocess.Popen", return_value=proc):
+        try:
+            _run_traceroute_cmd("203.0.113.1")
+        finally:
+            assert proc.killed is True
+
+
+def test_timeout_with_partial_output_raises_tracetimeout_carrying_hubs():
+    """A killed traceroute with parseable partial stdout surfaces the hops seen."""
+    with pytest.raises(TraceTimeout) as exc_info:
+        _traceroute_timing_out_with(NORMAL_MULTI_HOP)
+    hubs = exc_info.value.hubs
+    assert len(hubs) == 3
+    assert hubs[0]["host"] == "192.168.1.1"
+    assert hubs[2]["host"] == "8.8.8.8"
+
+
+def test_timeout_with_empty_output_raises_plain_timeout():
+    """Zero parseable hops keeps the existing bare timeout error."""
+    for partial in ("", None, b"1  192.168.1.1  1.2 ms"):
+        with pytest.raises(RuntimeError, match="traceroute timed out") as exc_info:
+            _traceroute_timing_out_with(partial)
+        assert not isinstance(exc_info.value, TraceTimeout)
+
+
+def test_timeout_with_all_stars_output_raises_plain_timeout():
+    """Partial output where every hop is ??? is no usable path — plain timeout."""
+    with pytest.raises(RuntimeError, match="traceroute timed out") as exc_info:
+        _traceroute_timing_out_with(ALL_STARS)
+    assert not isinstance(exc_info.value, TraceTimeout)
+
+
+def test_run_traceroute_propagates_tracetimeout_enriched():
+    """run_traceroute re-raises TraceTimeout after name-enriching its hubs
+    instead of swallowing it in the pass-fallback RuntimeError handlers."""
+    hubs = _parse_traceroute_output(NORMAL_MULTI_HOP)
+
+    with patch("netpath.mtr._run_traceroute_cmd",
+               side_effect=TraceTimeout("traceroute timed out", hubs)), \
+         patch("netpath.mtr._enrich_names") as enrich:
+        with pytest.raises(TraceTimeout) as exc_info:
+            run_traceroute("203.0.113.1", prefer_tcp=True)
+
+    assert exc_info.value.hubs is hubs
+    enrich.assert_called_once_with(hubs)
 
 
 # pmtu.probe tests

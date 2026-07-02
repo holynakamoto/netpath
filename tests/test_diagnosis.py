@@ -305,6 +305,26 @@ def test_partial_results_set_when_probe_errors():
     assert result["partial_results"] is True
 
 
+def test_partial_trace_timeout_reports_partial_results_with_path_data():
+    """A timed-out trace that recovered partial hops still carries path data,
+    and the recorded timeout makes diagnose() report partial_results."""
+    hubs = [
+        {"count": 1, "host": "192.168.1.1", "Loss%": 0.0},
+        {"count": 2, "host": "10.0.0.1",   "Loss%": 0.0},
+    ]
+    result = diagnose({
+        "hubs": hubs,
+        "as_path": ["AS65001", "AS65002"],
+        "path_complete": False,
+        "stall_hop": 2,
+        "probe_errors": {"v4_trace": "timed out (partial path shown)"},
+    })
+    assert result["partial_results"] is True
+    assert result["probe_errors"]["v4_trace"] == "timed out (partial path shown)"
+    # The partial path still drives the normal incomplete-path analysis
+    assert any(s["condition"] == "incomplete_path" for s in result["signals"])
+
+
 def test_partial_results_false_when_no_probe_errors():
     """partial_results is False when probe_errors is absent or empty."""
     assert diagnose({})["partial_results"] is False
