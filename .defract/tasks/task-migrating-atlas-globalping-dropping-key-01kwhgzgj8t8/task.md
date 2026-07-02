@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 # Migrate from RIPE Atlas to Globalping and drop the API key requirement
 
 ## Story Brief
@@ -139,3 +138,17 @@ The `mtr` measurement type is preferred over `traceroute` for the inside-out pat
 `country._get_atlas_probe_ip()` and its `RIPE_ATLAS_PROBES` constant are deliberately untouched: they hit the public, keyless Atlas metadata API only to find a routable IPv4 per ASN for local probing, Globalping publishes no probe addresses, and `tests/test_country.py` pins this behavior. The acceptance-criteria grep therefore excludes `country.py`.
 
 Conventions to follow: `_with_retry` for all HTTP calls, display-free pure parse functions (test targets), `raise typer.Exit(code)` never `sys.exit()`, and the single-purpose measurement module pattern. The 401/429 handling must populate `probe_errors` so `diagnose()` sets `partial_results` and `verdict_panel()` renders the partial-results note without elevating the verdict incorrectly.
+
+## Implementation Notes
+
+## Phase 1: Build the Globalping backend module — complete
+
+**Files created:**
+- `src/netpath/globalping.py` — the complete Globalping integration: `get_public_ip()` (carried over from atlas.py unchanged), `fetch_probes()` (single GET /v1/probes inventory), `count_probes_by_asn()` and `coverage_by_country()` (pure client-side aggregation over the inventory, satisfying R2's one-request coverage model), `schedule_measurements()` (POST /v1/measurements: ping to the per-ASN test IP plus mtr back to the user's public IP, `locations: [{"magic": "AS{n}"}]`, `limit: 3`), `poll_until_done()` (2 s interval, 60 s default timeout, unfinished measurements marked "timed_out"), `fetch_results()`, `parse_ping_rtt()` (min-of-mins / mean-of-avgs / max-of-maxes across probes), and `parse_mtr_as_path()` (consecutive-ASN dedup using the per-hop `asn` field — no Cymru lookup).
+- `tests/test_globalping.py` — 26 tests in the same mock-`requests` style as the deleted-in-phase-2 test_atlas.py: inventory fetch and error paths, Bearer-header injection and its absence without a token (acceptance-criterion test), ASN/country coverage counting, ping+mtr scheduling body shape, AS-prefix normalisation, 422 propagation, poll terminal/timeout behavior, RTT aggregation with null-stats (100 % loss) handling, mtr path dedup/labeling/fall-through, and ipify parsing.
+
+**Schema verification (required by the phase before locking parsers):** confirmed against the live OpenAPI spec at api.globalping.io/v1/spec.yaml — mtr hops carry `asn` as an array of integers plus `resolvedHostname` (no network-name field), ping stats live at `result.stats.{min,avg,max}`, result items are `{probe, result}`, top-level status is `in-progress`/`finished`, 422 means no matching probes, 429 rate limit.
+
+**Deviations/refinements:** AS-path labels take their readable name from the hop hostname's registered domain ("AS174 (cogentco.com)") since Globalping provides no AS organisation names (decision logged). Errors from measurement creation propagate as requests.HTTPError with the response attached so Phase 2 can branch on 422/429/401 (decision logged).
+
+**Checks:** full suite 101 passed (baseline was 75, no pre-existing failures), `ruff check src tests` clean, `python -c "from netpath import globalping"` imports cleanly. No existing files touched — no user-visible change yet.

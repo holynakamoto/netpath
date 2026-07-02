@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 2,
   "createdAt": "2026-07-02T13:41:03Z",
-  "updatedAt": "2026-07-02T15:03:01Z",
+  "updatedAt": "2026-07-02T15:05:05Z",
   "events": [
     {
       "base_branch": "main",
@@ -193,6 +193,107 @@
       "phase": 1,
       "timestamp": "2026-07-02T15:03:01Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-07-02T15:03:39Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "Full suite: 101 passed in 0.10s (75 pre-existing + 26 new in tests/test_globalping.py). ruff check src tests: clean. Module imports in isolation. Baseline before changes was 75 passed with no pre-existing failures.",
+      "failed": 0,
+      "passed": 101,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-07-02T15:04:05Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Bare AS numbers only (loses all readability the Atlas labels had)",
+        "Cymru bulk lookup for AS names (explicitly dropped by scope)",
+        "Full resolvedHostname in the label (too noisy for the path line)"
+      ],
+      "decision": "Implementation: Globalping mtr hops carry no network-name field, so AS-path labels use the registered domain from each hop's resolvedHostname (\"AS174 (cogentco.com)\"), falling back to bare \"AS{n}\".",
+      "phase": 1,
+      "rationale": "Verified against the live OpenAPI spec (api.globalping.io/v1/spec.yaml): each mtr hop carries only resolvedAddress, resolvedHostname, asn (array of integers), stats, and timings — there is no network/organisation name. Reintroducing a Cymru lookup for names would defeat the scope's stated goal of dropping that round-trip, so a small pure _hostname_domain() heuristic (last two hostname labels) supplies a readable name where a hostname exists. Also confirmed live: ping stats live at result.stats.{min,avg,max}, results items are {probe, result}, measurement status values are in-progress/finished, 422 = no matching probes, 429 = rate limit.",
+      "timestamp": "2026-07-02T15:04:11Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Implementation: schedule_measurements() raises requests.HTTPError (with the response attached) for 422/429/401 rather than defining a custom exception type.",
+      "phase": 1,
+      "rationale": "Mirrors atlas.schedule_measurements' contract, so the Phase 2 cli.py wiring can catch HTTPError and branch on e.response.status_code to produce the per-ASN probe_errors messages the edge cases require (no coverage / rate limit with --gp-token hint / invalid token). All other fetchers (fetch_probes, fetch_results, get_public_ip) keep the Atlas convention of swallowing errors and returning an empty value, since the sweep must continue past per-ASN failures.",
+      "timestamp": "2026-07-02T15:04:15Z",
+      "type": "decision"
+    },
+    {
+      "change_summary": "Phase 1 complete: Build the Globalping backend module",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T15:04:27Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "description": "Phase 1 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 1,
+      "timestamp": "2026-07-02T15:04:35Z",
+      "type": "progress_report"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/globalping.py",
+        "tests/test_globalping.py"
+      ],
+      "phase": 0,
+      "summary": "Built the complete Globalping backend module (src/netpath/globalping.py): probe inventory via a single GET /v1/probes, client-side ASN and country coverage counting, ping+mtr measurement scheduling with magic AS-locations and limit 3, 2s/60s polling with timed_out marking, and pure result parsers (aggregated ping RTT; deduplicated AS-hop path from per-hop asn fields with hostname-domain names — no Cymru lookup). Optional Bearer token supported on every call, never required. Result schemas verified against the live Globalping OpenAPI spec before locking the parsers. 26 new mocked-requests tests; full suite 101 passed, ruff clean. No existing files touched.",
+      "timestamp": "2026-07-02T15:04:38Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Run `.venv/bin/python -m pytest tests/test_globalping.py -q` and confirm all 26 tests pass"
+        },
+        {
+          "description": "Run `.venv/bin/python -c \"from netpath import globalping; print(len(globalping.fetch_probes()))\"` with no token or env var set and confirm it prints a positive probe count from the live API"
+        },
+        {
+          "description": "Run `.venv/bin/python -c \"from netpath import globalping as gp; c = gp.coverage_by_country(gp.fetch_probes()); print(sorted(c.items(), key=lambda x: -x[1])[:5])\"` and confirm a plausible top-5 country list (e.g. `DE`, `US` near the top)"
+        },
+        {
+          "description": "Live end-to-end check against a well-covered network: run `.venv/bin/python -c \"from netpath import globalping as gp; m = gp.schedule_measurements('AS15169', '8.8.8.8', gp.get_public_ip()); s = gp.poll_until_done(list(m.values())); print(s); print(gp.parse_ping_rtt(gp.fetch_results(m['ping']))); print(gp.parse_mtr_as_path(gp.fetch_results(m['mtr'])))\"` and confirm finished statuses, a min/avg/max RTT dict, and an AS-path list like `['AS15169', 'AS174 (cogentco.com)', ...]` within about 30 seconds"
+        },
+        {
+          "description": "Run `.venv/bin/python -m ruff check src tests` and confirm it reports no issues"
+        },
+        {
+          "description": "Confirm no existing behavior changed: `git status` shows only the two new files `src/netpath/globalping.py` and `tests/test_globalping.py` (plus task metadata), and `netpath country --help` still shows `--atlas-key` (the switch-over happens in Phase 2)"
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Build the Globalping backend module",
+      "timestamp": "2026-07-02T15:04:53Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Build the Globalping backend module",
+      "server_phase": 0,
+      "timestamp": "2026-07-02T15:05:05Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Build the Globalping backend module",
+      "timestamp": "2026-07-02T15:05:05Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "40b3b30d491550fad11251ffbe68de2bf75e9974",
+      "worktree_status_digest": "4b98030264c8029b53384d322e124df65feb882c9adeb858b7714508b3bfe102"
     }
   ],
   "needsArchitecture": false,
@@ -212,7 +313,16 @@
   "stageApprovals": {
     "scope": "2026-07-02T14:57:36Z"
   },
+  "stageContent": {
+    "implementation": "## Phase 1: Build the Globalping backend module — complete\n\n**Files created:**\n- `src/netpath/globalping.py` — the complete Globalping integration: `get_public_ip()` (carried over from atlas.py unchanged), `fetch_probes()` (single GET /v1/probes inventory), `count_probes_by_asn()` and `coverage_by_country()` (pure client-side aggregation over the inventory, satisfying R2's one-request coverage model), `schedule_measurements()` (POST /v1/measurements: ping to the per-ASN test IP plus mtr back to the user's public IP, `locations: [{\"magic\": \"AS{n}\"}]`, `limit: 3`), `poll_until_done()` (2 s interval, 60 s default timeout, unfinished measurements marked \"timed_out\"), `fetch_results()`, `parse_ping_rtt()` (min-of-mins / mean-of-avgs / max-of-maxes across probes), and `parse_mtr_as_path()` (consecutive-ASN dedup using the per-hop `asn` field — no Cymru lookup).\n- `tests/test_globalping.py` — 26 tests in the same mock-`requests` style as the deleted-in-phase-2 test_atlas.py: inventory fetch and error paths, Bearer-header injection and its absence without a token (acceptance-criterion test), ASN/country coverage counting, ping+mtr scheduling body shape, AS-prefix normalisation, 422 propagation, poll terminal/timeout behavior, RTT aggregation with null-stats (100 % loss) handling, mtr path dedup/labeling/fall-through, and ipify parsing.\n\n**Schema verification (required by the phase before locking parsers):** confirmed against the live OpenAPI spec at api.globalping.io/v1/spec.yaml — mtr hops carry `asn` as an array of integers plus `resolvedHostname` (no network-name field), ping stats live at `result.stats.{min,avg,max}`, result items are `{probe, result}`, top-level status is `in-progress`/`finished`, 422 means no matching probes, 429 rate limit.\n\n**Deviations/refinements:** AS-path labels take their readable name from the hop hostname's registered domain (\"AS174 (cogentco.com)\") since Globalping provides no AS organisation names (decision logged). Errors from measurement creation propagate as requests.HTTPError with the response attached so Phase 2 can branch on 422/429/401 (decision logged).\n\n**Checks:** full suite 101 passed (baseline was 75, no pre-existing failures), `ruff check src tests` clean, `python -c \"from netpath import globalping\"` imports cleanly. No existing files touched — no user-visible change yet."
+  },
   "stages": {
+    "design": {
+      "status": "skipped"
+    },
+    "review": {
+      "status": "not_started"
+    },
     "release": {
       "status": "not_started"
     },
@@ -221,18 +331,12 @@
       "approvedAt": "2026-07-02T14:57:36Z",
       "startedAt": "2026-07-02T13:46:19Z"
     },
-    "review": {
-      "status": "not_started"
+    "architecture": {
+      "status": "skipped"
     },
     "implementation": {
       "status": "in_progress",
       "startedAt": "2026-07-02T14:57:38Z"
-    },
-    "design": {
-      "status": "skipped"
-    },
-    "architecture": {
-      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-migrating-atlas-globalping-dropping-key-01kwhgzgj8t8",
