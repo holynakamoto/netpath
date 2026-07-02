@@ -9,13 +9,13 @@ This project uses [defract](https://defract.dev) for structured AI-assisted deve
 | Auditing iperf3 + RIPE Atlas endpoint validity | release | active |
 | Country AS-path visual + Binat RTT anomaly | release | active |
 | Incomplete paths still showing in ZA country sweep | release | active |
-| README atlas-key docs + ASN names in trace/AS-path display | scope | active |
 | Automated PyPI Publishing with VCS Versioning | release | completed |
 | Fixing incomplete paths + richer path metrics | release | completed |
 | Globe AS-path latency viz + pip/uv install | release | completed |
 | Improve RIPE Atlas probe selection and traceroute depth in country mode | release | completed |
 | netpath as a One-Shot Diagnostic Path CLI | release | completed |
 | Publish netpath 0.2.0 + install on macOS | release | completed |
+| README atlas-key docs + ASN names in trace/AS-path display | release | completed |
 | Scoring the ZA Country-Sweep Output | release | completed |
 | Systems-design review of netpath | release | completed |
 | Ways to Improve Netpath | release | completed |
