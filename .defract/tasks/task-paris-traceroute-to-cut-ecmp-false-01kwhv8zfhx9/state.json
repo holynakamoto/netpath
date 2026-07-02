@@ -2,10 +2,10 @@
   "id": "task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9",
   "status": "active",
   "stage": "implementation",
-  "phase": 0,
+  "phase": 1,
   "totalPhases": 3,
   "createdAt": "2026-07-02T16:40:58Z",
-  "updatedAt": "2026-07-02T17:12:01Z",
+  "updatedAt": "2026-07-02T17:26:08Z",
   "events": [
     {
       "base_branch": "main",
@@ -279,6 +279,60 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "b87b49b6e045fc5c900d74a6b0c03f2e38373849",
       "worktree_status_digest": "e6aa26429bab3300909680ff9cc0645ee3fce3b58eaf0d1a944f6e1ec673eec4"
+    },
+    {
+      "approved_by": "user",
+      "phase": 0,
+      "phase_title": "Meaningful samples in the fallback prober",
+      "timestamp": "2026-07-02T17:22:38Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "phase": 0,
+      "timestamp": "2026-07-02T17:22:38Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-02T17:22:42Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwhxnc3x68mm8z15zyrhc790",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T17:22:42Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting phase 2: consistent-route probing via a Paris-capable prober",
+      "phase": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T17:22:54Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 2: Consistent-route probing via a Paris-capable prober",
+      "percentage": 0,
+      "phase": 2,
+      "timestamp": "2026-07-02T17:22:55Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes",
+      "percentage": 20,
+      "phase": 2,
+      "timestamp": "2026-07-02T17:26:08Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": false,
@@ -302,23 +356,23 @@
     "implementation": "## Phase 1: Meaningful samples in the fallback prober\n\n**What was built:**\n\n- `src/netpath/mtr.py` — `_run_traceroute_cmd` gains a `probes` parameter (default 2, matching the old hardcoded behavior) with a public `TRACEROUTE_MAX_PROBES = 5` cap; the effective count is clamped to 1–5 and the subprocess timeout scales with it (`30 * effective + 15` seconds, so probes=2 stays near the old 60 s while probes=5 gets 165 s headroom for a slow filtered path). `run_traceroute` now threads its `probes` parameter into all four `_run_traceroute_cmd` call sites (TCP-first, UDP fallback, UDP-first, TCP retry).\n- `src/netpath/cli.py` — after the trace section in `_measure()`, when `_trace_method` is `\"traceroute\"` the result's `probe_count` is corrected from `cycles` to the effective fallback count `min(cycles, mtr.TRACEROUTE_MAX_PROBES)`, covering all three trace branches (dual-stack, ECMP, plain).\n- `src/netpath/diagnosis.py` — new `JITTER_MIN_SAMPLES = 5` constant; check (5) now emits an ok-severity `jitter_low_sample` informational signal instead of the High Jitter warning when `probe_count` is present and below 5. `probe_count=None` (unknown) keeps legacy warning behavior. `jitter_low_sample` maps to \"Healthy\" in the condition-verdict table, mirroring the rate-limited-hop pattern.\n\n**Tests:** 3 new cases in `tests/test_mtr.py` (probe threading via mocked `subprocess.run`, cap at 5, timeout scaling) and 3 in `tests/test_diagnosis.py` (suppression at probe_count=2, warning at 5 and at 10). Two exact-call assertions in `tests/test_country.py` updated for the new `probes` kwarg. Suite: 109 passed, ruff clean.\n\n**Deviations from plan:** none."
   },
   "stages": {
+    "design": {
+      "status": "skipped"
+    },
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T17:22:42Z"
+    },
     "architecture": {
       "status": "skipped"
     },
     "review": {
       "status": "not_started"
     },
-    "design": {
-      "status": "skipped"
-    },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-02T17:06:38Z",
       "startedAt": "2026-07-02T16:49:13Z"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-02T17:06:46Z"
     },
     "release": {
       "status": "not_started"
@@ -326,5 +380,5 @@
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-paris-traceroute-to-cut-ecmp-false-01kwhv8zfhx9",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T17:06:46Z"
+  "worktreeLastSyncedAt": "2026-07-02T17:22:42Z"
 }
