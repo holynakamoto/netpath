@@ -64,6 +64,17 @@ class MtrPermissionError(RuntimeError):
     pass
 
 
+class TraceTimeout(RuntimeError):
+    """A trace pass exceeded its time budget but produced usable partial output.
+
+    hubs holds the hops parsed from the output collected before the kill.
+    """
+
+    def __init__(self, message: str, hubs: "list[Hub]"):
+        super().__init__(message)
+        self.hubs = hubs
+
+
 def run(host: str, cycles: int = 10, passes: int = 1) -> "list[Hub] | list[list[Hub]]":
     """
     Run mtr in JSON report mode. Raises MtrPermissionError on raw socket denial.
@@ -211,16 +222,33 @@ def _run_traceroute_cmd(host: str, tcp: bool = False, probes: int = 2) -> list[d
         cmd += ["-P", "tcp", "-p", "443"]
     cmd.append(host)
 
+    # Popen rather than subprocess.run: on timeout the partial stdout must be
+    # harvested after the kill, and subprocess.run does not reliably attach it
+    # to TimeoutExpired across Python 3.9-3.13.
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, errors="replace")
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True,
-                                timeout=30 * effective_probes + 15)
+        stdout, stderr = proc.communicate(timeout=30 * effective_probes + 15)
     except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            stdout, _ = proc.communicate()
+        except Exception:
+            stdout = None
+        hubs: list[dict] = []
+        if isinstance(stdout, str) and stdout:
+            try:
+                hubs = _parse_traceroute_output(stdout)
+            except Exception:
+                hubs = []
+        if hubs and not _all_stars(hubs):
+            raise TraceTimeout("traceroute timed out", hubs)
         raise RuntimeError("traceroute timed out")
 
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "traceroute failed")
+    if proc.returncode != 0:
+        raise RuntimeError((stderr or "").strip() or "traceroute failed")
 
-    return _parse_traceroute_output(result.stdout)
+    return _parse_traceroute_output(stdout or "")
 
 
 def run_traceroute(host: str, probes: int = 5, prefer_tcp: bool = False) -> list[dict]:
@@ -231,27 +259,38 @@ def run_traceroute(host: str, probes: int = 5, prefer_tcp: bool = False) -> list
     When prefer_tcp=False (default): tries UDP first; if all hops are filtered,
     retries with TCP SYN (port 443). TCP requires pcap — if that also fails
     (common on macOS), returns the filtered UDP result rather than raising.
+    A pass that times out with usable partial output raises TraceTimeout
+    carrying the name-enriched hops; no further pass runs, since a full time
+    budget has already been spent against a target that answers slowly.
     """
-    if prefer_tcp:
-        tcp_hubs = None
-        try:
-            tcp_hubs = _run_traceroute_cmd(host, tcp=True, probes=probes)
-        except RuntimeError:
-            pass
-        if tcp_hubs is not None and not _all_stars(tcp_hubs):
-            hubs = tcp_hubs
-        else:
-            hubs = _run_traceroute_cmd(host, tcp=False, probes=probes)
-    else:
-        hubs = _run_traceroute_cmd(host, tcp=False, probes=probes)
-
-        if _all_stars(hubs):
+    try:
+        if prefer_tcp:
+            tcp_hubs = None
             try:
                 tcp_hubs = _run_traceroute_cmd(host, tcp=True, probes=probes)
-                if not _all_stars(tcp_hubs):
-                    hubs = tcp_hubs
+            except TraceTimeout:
+                raise
             except RuntimeError:
-                pass  # pcap unavailable or path still filtered — keep UDP result
+                pass
+            if tcp_hubs is not None and not _all_stars(tcp_hubs):
+                hubs = tcp_hubs
+            else:
+                hubs = _run_traceroute_cmd(host, tcp=False, probes=probes)
+        else:
+            hubs = _run_traceroute_cmd(host, tcp=False, probes=probes)
+
+            if _all_stars(hubs):
+                try:
+                    tcp_hubs = _run_traceroute_cmd(host, tcp=True, probes=probes)
+                    if not _all_stars(tcp_hubs):
+                        hubs = tcp_hubs
+                except TraceTimeout:
+                    raise
+                except RuntimeError:
+                    pass  # pcap unavailable or path still filtered — keep UDP result
+    except TraceTimeout as e:
+        _enrich_names(e.hubs)
+        raise
 
     _enrich_names(hubs)
     return hubs

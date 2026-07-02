@@ -200,6 +200,7 @@ def _measure(host: str, port: int, target_asn: str,
         "pmtu": None, "tcp_connect_ms": None, "tls_handshake_ms": None,
         "ecmp_paths": None, "path_changes": 0,
         "hubs_v4": None, "hubs_v6": None,
+        "trace_truncated": False,
         "_trace_method": None,
         "_iperf_upload": None, "_iperf_download": None,
         "_iperf_idle_rtt": None, "_iperf_loaded_rtt": None,
@@ -230,12 +231,25 @@ def _measure(host: str, port: int, target_asn: str,
                 except Exception:
                     return None
 
-            trace_timeout = cycles * 4 + 35
+            # The outer wait is a safety net only — it must cover the
+            # worst-case inner subprocess budgets (mtr attempt, then Paris,
+            # then up to two traceroute passes under prefer_tcp), or it fires
+            # first and discards the partial path the prober recovered.
+            trace_timeout = (
+                (cycles * 4 + 30)
+                + paris._PER_RUN_TIMEOUT * min(cycles, paris.PARIS_MAX_PROBES)
+                + 2 * (30 * min(cycles, mtr.TRACEROUTE_MAX_PROBES) + 15)
+                + 15
+            )
             fut_v4 = executor.submit(_do_v4)
             fut_v6 = executor.submit(_do_v6)
 
             try:
                 hubs, method = fut_v4.result(timeout=trace_timeout)
+            except mtr.TraceTimeout as exc:
+                hubs, method = exc.hubs, "traceroute"
+                result["probe_errors"]["v4_trace"] = "timed out (partial path shown)"
+                result["trace_truncated"] = True
             except concurrent.futures.TimeoutError:
                 result["probe_errors"]["v4_trace"] = "timed out"
                 return result
@@ -259,7 +273,12 @@ def _measure(host: str, port: int, target_asn: str,
                 hubs = all_passes[0] if all_passes else []
                 result["_trace_method"] = "mtr"
             except mtr.MtrPermissionError:
-                hubs, method = _fallback_trace(host, cycles, prefer_tcp=prefer_tcp)
+                try:
+                    hubs, method = _fallback_trace(host, cycles, prefer_tcp=prefer_tcp)
+                except mtr.TraceTimeout as exc:
+                    hubs, method = exc.hubs, "traceroute"
+                    result["probe_errors"]["v4_trace"] = "timed out (partial path shown)"
+                    result["trace_truncated"] = True
                 result["_trace_method"] = method
             except RuntimeError as e:
                 result["probe_errors"]["v4_trace"] = str(e)
@@ -269,6 +288,11 @@ def _measure(host: str, port: int, target_asn: str,
             try:
                 hubs, method = _trace(host, cycles, prefer_tcp=prefer_tcp)
                 result["_trace_method"] = method
+            except mtr.TraceTimeout as exc:
+                hubs = exc.hubs
+                result["_trace_method"] = "traceroute"
+                result["probe_errors"]["v4_trace"] = "timed out (partial path shown)"
+                result["trace_truncated"] = True
             except RuntimeError as e:
                 result["probe_errors"]["v4_trace"] = str(e)
                 return result
@@ -404,7 +428,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
                           prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6)
 
-    if result.get("probe_errors", {}).get("v4_trace"):
+    if result.get("probe_errors", {}).get("v4_trace") and not result.get("hubs"):
         if not json_mode:
             display.error(f"trace: {result['probe_errors']['v4_trace']}")
         return result
@@ -418,12 +442,14 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         )
 
     if not json_mode:
+        truncated = result.get("trace_truncated", False)
         if compare_v6 and result.get("hubs_v6") is not None:
-            display.dual_stack_columns(result["hubs_v4"], result["hubs_v6"], target_asn)
+            display.dual_stack_columns(result["hubs_v4"], result["hubs_v6"], target_asn,
+                                       truncated=truncated)
         else:
             if compare_v6 and result.get("_v6_warn"):
                 display.warn(result["_v6_warn"])
-            display.path_table(result["hubs"], target_asn)
+            display.path_table(result["hubs"], target_asn, truncated=truncated)
         display.as_path_summary(result["hubs"])
 
     rum_data = result.get("rum")

@@ -220,7 +220,14 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
     return table
 
 
-def path_table(hubs: list[dict], target_asn: str):
+def _truncation_note():
+    console.print(
+        "  [yellow]⚠[/yellow] [dim]Path truncated — the trace timed out before completing; "
+        "showing the hops collected so far[/dim]"
+    )
+
+
+def path_table(hubs: list[dict], target_asn: str, truncated: bool = False):
     if _all_stars(hubs):
         console.print(
             f"  [yellow]⚠[/yellow] [dim]Path filtered — all {len(hubs)} hops dropped ICMP probes "
@@ -237,9 +244,12 @@ def path_table(hubs: list[dict], target_asn: str):
             f"  [dim]  + {trailing} hop{'s' if trailing != 1 else ''} beyond "
             f"— ICMP TTL-exceeded filtered[/dim]"
         )
+    if truncated:
+        _truncation_note()
 
 
-def dual_stack_columns(hubs_v4: list[dict], hubs_v6: list[dict] | None, target_asn: str):
+def dual_stack_columns(hubs_v4: list[dict], hubs_v6: list[dict] | None, target_asn: str,
+                       truncated: bool = False):
     """Display IPv4 and IPv6 path tables side-by-side using Rich Columns."""
     trimmed_v4, _ = _trim_trailing(hubs_v4) if hubs_v4 else ([], 0)
     v4_table = _build_hub_table(trimmed_v4, target_asn, show_p95=False)
@@ -258,6 +268,8 @@ def dual_stack_columns(hubs_v4: list[dict], hubs_v6: list[dict] | None, target_a
         )
 
     console.print(Columns([v4_panel, v6_panel], equal=False, expand=False))
+    if truncated:
+        _truncation_note()
     console.print()
 
 
