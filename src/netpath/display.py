@@ -4,13 +4,16 @@ from rich import box
 from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
-from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
 from netpath.asn import cymru_bulk_lookup_rich, normalize_asn
+from netpath import ixp as ixp_mod
 
 _IP_PAT = re.compile(r'^\d{1,3}(?:\.\d{1,3}){3}$')
+
+LATENCY_GREEN_MS = 20
+LATENCY_YELLOW_MS = 80
 
 console = Console()
 
@@ -23,9 +26,13 @@ def clean_asn_name(name: str) -> str:
         return name
     prefix, _, rest = name.partition(' - ')
     prefix = prefix.strip()
+    rest = rest.strip()
+    # Exact duplicate: "Dimension Data - Dimension Data" → "Dimension Data"
+    if prefix == rest:
+        return rest.replace('_', ' ').strip()
     # Short code: no spaces, ≤25 chars (handles PARTNER-AS, NV-ASN, Internet_Binat, Tehila-AS…)
     if ' ' not in prefix and 1 <= len(prefix) <= 25:
-        return rest.strip().replace('_', ' ').strip()
+        return rest.replace('_', ' ').strip()
     return name
 
 
@@ -44,9 +51,9 @@ def fmt_latency(ms: float) -> Text:
     s = f"{ms:.1f} ms"
     if ms <= 0:
         return Text("—", style="dim")
-    if ms < 20:
+    if ms < LATENCY_GREEN_MS:
         return Text(s, style="bold green")
-    if ms < 80:
+    if ms < LATENCY_YELLOW_MS:
         return Text(s, style="yellow")
     return Text(s, style="bold red")
 
@@ -119,26 +126,19 @@ def _all_stars(hubs: list[dict]) -> bool:
     return bool(hubs) and all(h.get("host") in ("???", None) for h in hubs)
 
 
-def path_table(hubs: list[dict], target_asn: str):
-    if _all_stars(hubs):
-        console.print(
-            f"  [yellow]⚠[/yellow] [dim]Path filtered — all {len(hubs)} hops dropped ICMP probes "
-            f"(destination may still be reachable)[/dim]\n"
-        )
-        return
-
-    # Trim trailing unreachable hops — after the last responsive hop they're just noise
+def _trim_trailing(hubs: list[dict]) -> tuple[list[dict], int]:
+    """Remove trailing unreachable hops. Returns (trimmed_hubs, count_removed)."""
     last_real = max(
         (i for i, h in enumerate(hubs) if h.get("host") not in ("???", None, "")),
         default=-1,
     )
-    trailing = 0
     if last_real >= 0 and last_real < len(hubs) - 1:
-        trailing = len(hubs) - last_real - 1
-        hubs = hubs[:last_real + 1]
+        return hubs[:last_real + 1], len(hubs) - last_real - 1
+    return hubs, 0
 
-    show_p95 = console.width >= 90
 
+def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -> Table:
+    """Build and return a Rich Table for a pre-trimmed hub list. Adds a Type column."""
     table = Table(
         box=box.SIMPLE_HEAD,
         show_header=True,
@@ -148,13 +148,16 @@ def path_table(hubs: list[dict], target_asn: str):
     )
     table.add_column("#", style="dim", width=3, justify="right")
     table.add_column("Host", min_width=18)
-    table.add_column("ASN", min_width=9)
+    table.add_column("ASN", min_width=20)
+    table.add_column("Type", width=8)
     table.add_column("Loss", justify="right", width=7)
     table.add_column("Avg", justify="right", width=9)
     table.add_column("Best", justify="right", width=9)
     table.add_column("Worst", justify="right", width=9)
     if show_p95:
         table.add_column("p95", justify="right", width=9)
+
+    target_norm = normalize_asn(target_asn) if target_asn else None
 
     prev_asn = None
     for hub in hubs:
@@ -169,7 +172,7 @@ def path_table(hubs: list[dict], target_asn: str):
         if host in ("???", "", None):
             row = [hop, Text("* * *", style="dim"), Text("—", style="dim"),
                    Text("—", style="dim"), Text("—", style="dim"),
-                   Text("—", style="dim"), Text("—", style="dim")]
+                   Text("—", style="dim"), Text("—", style="dim"), Text("—", style="dim")]
             if show_p95:
                 row.append(Text("—", style="dim"))
             table.add_row(*row)
@@ -177,16 +180,35 @@ def path_table(hubs: list[dict], target_asn: str):
             continue
 
         # AS boundary: highlight the hop where we enter a new AS
-        asn_text = Text(asn if asn != "AS???" else "—")
+        asn_name_val = hub.get("asn_name", "")
+        if asn == "AS???":
+            asn_display = "—"
+        elif asn_name_val:
+            asn_display = f"{asn} ({asn_name_val[:20]})"
+        else:
+            asn_display = asn
+        asn_text = Text(asn_display)
+        hub_asn_norm = normalize_asn(asn) if asn and asn != "AS???" else None
+        is_dest = target_norm and hub_asn_norm == target_norm
         if asn != "AS???" and asn != prev_asn and prev_asn is not None:
             asn_text.stylize("bold yellow")
-            if asn == target_asn:
+            if is_dest:
                 asn_text.stylize("bold green")
-        elif asn == target_asn:
+        elif is_dest:
             asn_text.stylize("green")
 
+        # Hop type classification
+        if is_dest:
+            type_text = Text("dest", style="bold green")
+        else:
+            hop_type = ixp_mod.classify_hop(host)
+            if hop_type == "ixp":
+                type_text = Text("IXP", style="bold blue")
+            else:
+                type_text = Text("transit", style="dim")
+
         row = [
-            hop, host, asn_text,
+            hop, host, asn_text, type_text,
             fmt_loss(loss), fmt_latency(avg), fmt_latency(best), fmt_latency(worst),
         ]
         if show_p95:
@@ -195,6 +217,20 @@ def path_table(hubs: list[dict], target_asn: str):
         table.add_row(*row)
         prev_asn = asn
 
+    return table
+
+
+def path_table(hubs: list[dict], target_asn: str):
+    if _all_stars(hubs):
+        console.print(
+            f"  [yellow]⚠[/yellow] [dim]Path filtered — all {len(hubs)} hops dropped ICMP probes "
+            f"(destination may still be reachable)[/dim]\n"
+        )
+        return
+
+    trimmed, trailing = _trim_trailing(hubs)
+    show_p95 = console.width >= 90
+    table = _build_hub_table(trimmed, target_asn, show_p95=show_p95)
     console.print(table)
     if trailing:
         console.print(
@@ -203,24 +239,50 @@ def path_table(hubs: list[dict], target_asn: str):
         )
 
 
+def dual_stack_columns(hubs_v4: list[dict], hubs_v6: list[dict] | None, target_asn: str):
+    """Display IPv4 and IPv6 path tables side-by-side using Rich Columns."""
+    trimmed_v4, _ = _trim_trailing(hubs_v4) if hubs_v4 else ([], 0)
+    v4_table = _build_hub_table(trimmed_v4, target_asn, show_p95=False)
+    v4_panel = Panel(v4_table, title="[bold]IPv4 Path[/bold]", border_style="blue", expand=False)
+
+    if hubs_v6:
+        trimmed_v6, _ = _trim_trailing(hubs_v6)
+        v6_table = _build_hub_table(trimmed_v6, target_asn, show_p95=False)
+        v6_panel = Panel(v6_table, title="[bold]IPv6 Path[/bold]", border_style="cyan", expand=False)
+    else:
+        v6_panel = Panel(
+            "  [dim]unavailable[/dim]",
+            title="[bold]IPv6 Path[/bold]",
+            border_style="dim",
+            expand=False,
+        )
+
+    console.print(Columns([v4_panel, v6_panel], equal=False, expand=False))
+    console.print()
+
+
 def as_path_summary(hubs: list[dict]):
-    asns = []
+    path: list[tuple[str, str]] = []  # (bare_asn, display_label)
     for hub in hubs:
         asn = hub.get("ASN", "")
-        if asn and asn != "AS???" and (not asns or asns[-1] != asn):
-            asns.append(asn)
+        if not asn or asn == "AS???":
+            continue
+        name = hub.get("asn_name", "")
+        label = f"{asn} ({name})" if name else asn
+        if not path or path[-1][0] != asn:
+            path.append((asn, label))
 
-    if not asns:
+    if not path:
         return
 
     parts = []
-    for i, asn in enumerate(asns):
+    for i, (_, label) in enumerate(path):
         if i == 0:
-            parts.append(f"[dim]{asn}[/dim]")
-        elif i == len(asns) - 1:
-            parts.append(f"[bold green]{asn}[/bold green]")
+            parts.append(f"[dim]{label}[/dim]")
+        elif i == len(path) - 1:
+            parts.append(f"[bold green]{label}[/bold green]")
         else:
-            parts.append(f"[yellow]{asn}[/yellow]")
+            parts.append(f"[yellow]{label}[/yellow]")
 
     console.print("  [dim]AS path:[/dim] " + " [dim]→[/dim] ".join(parts))
     console.print()
@@ -320,6 +382,29 @@ def baseline_panel(upload: dict, download: dict):
     console.print()
 
 
+def _render_atlas_subrow(r: dict, is_last_in_group: bool) -> None:
+    """Print optional Atlas RTT + outbound AS-path line beneath an ISP summary row."""
+    atlas = r.get("atlas", {})
+    if not atlas:
+        return
+    source = atlas.get("source", "probe")
+    rtt = atlas.get("ping_rtt")
+    path = atlas.get("outbound_as_path", [])
+    parts = []
+    if rtt:
+        parts.append(f"RTT {rtt['avg']:.1f} ms avg ({rtt['min']:.1f}–{rtt['max']:.1f})")
+    if path:
+        parts.append("outbound: " + "→".join(path[:6]))
+    tag = "[Atlas anchor]" if source == "atlas_anchor" else "[Atlas]"
+    if not parts and source != "atlas_anchor":
+        return
+    cont = "   " if is_last_in_group else "  │"
+    if parts:
+        console.print(f"  {cont}         [dim]{tag} {', '.join(parts)}[/dim]")
+    else:
+        console.print(f"  {cont}         [dim]{tag}[/dim]")
+
+
 def country_summary(code: str, results: list[dict]):
     """Tree summary grouped by transit entry point with color-coded latency."""
     if not results:
@@ -392,6 +477,7 @@ def country_summary(code: str, results: list[dict]):
             line.append(f"  {connector} {star}{r['asn']:<10}  {_trim(r['name']):<26}  ")
             line.append_text(fmt_country_latency(r["verified_rtt_ms"]))
             console.print(line)
+            _render_atlas_subrow(r, ri == len(rows) - 1)
         console.print()
 
     if incomplete:
@@ -401,8 +487,22 @@ def country_summary(code: str, results: list[dict]):
             line = Text()
             line.append(f"  {connector}   {r['asn']:<10}  {_trim(r['name']):<26}  ", style="dim")
             line.append("⚠ ", style="yellow")
-            line.append("incomplete", style="dim")
+            stall_asn = r.get("entry_transit_asn")
+            stall_hop = r.get("stall_hop")
+            last_rtt = r.get("last_rtt_ms")
+            if stall_asn or stall_hop is not None or last_rtt is not None:
+                parts = []
+                if stall_asn:
+                    parts.append(stall_asn)
+                if stall_hop is not None:
+                    parts.append(f"hop {stall_hop}")
+                if last_rtt is not None:
+                    parts.append(f"{last_rtt:.1f} ms")
+                line.append(f"stalled at {', '.join(parts)}", style="dim")
+            else:
+                line.append("incomplete", style="dim")
             console.print(line)
+            _render_atlas_subrow(r, ri == len(incomplete) - 1)
         console.print()
 
     if sorted_keys:
@@ -443,17 +543,27 @@ def verdict_panel(verdict: dict) -> None:
     label = verdict.get("verdict", "Healthy")
     detail = verdict.get("detail", "")
     signals = verdict.get("signals", [])
+    partial = verdict.get("partial_results", False)
+    probe_errors = verdict.get("probe_errors", {})
 
     severity_styles = {"ok": "bold green", "warning": "bold yellow", "critical": "bold red"}
     border_colors   = {"ok": "green",      "warning": "yellow",       "critical": "red"}
     style  = severity_styles.get(severity, "bold green")
     border = border_colors.get(severity, "green")
 
-    lines = [f"  [{style}]{label}[/{style}]", f"  {detail}"]
+    if partial and probe_errors:
+        failed = ", ".join(probe_errors.keys())
+        label_text = f"{label} (partial results: {failed})"
+    elif partial:
+        label_text = f"{label} (partial results)"
+    else:
+        label_text = label
+
+    lines = [f"  [{style}]{label_text}[/{style}]", f"  {detail}"]
     if signals:
         lines.append("")
         for sig in signals:
-            lines.append(f"  • {sig}")
+            lines.append(f"  • {sig['detail']}")
 
     console.print(
         Panel("\n".join(lines), title="[bold]Diagnosis[/bold]",

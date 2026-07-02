@@ -1,17 +1,21 @@
+import concurrent.futures
 import json
-import os
-import queue
 import re
+import socket
 import subprocess
-import threading
+import sys
 import typer
+from rich import box
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 from netpath import __version__
 from netpath import country as country_mod
-from netpath import display, iperf as iperf_mod, mtr, rum as rum_mod, servers, speedtest
+from netpath import atlas as atlas_mod, display, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
+from netpath import mtr, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
+from netpath.types import MeasurementResult
 
 app = typer.Typer(
     help="netpath — probe throughput, latency, and packet loss to an ASN.",
@@ -29,6 +33,20 @@ _CF_TOK  = typer.Option(None,  "--cf-token",
                          envvar="NETPATH_CF_TOKEN",
                          help="Cloudflare API token with radar:read (or set NETPATH_CF_TOKEN)")
 
+_SEVERITY_CODE = {"ok": 0, "warning": 1, "critical": 2}
+
+
+def _set_atlas_error(rows: list[dict], asn: str, msg: str) -> None:
+    """Record an Atlas error on the summary row matching asn."""
+    for row in rows:
+        if row["asn"] == asn:
+            row.setdefault("probe_errors", {})["atlas"] = msg
+            return
+
+
+def _worst_exit_code(verdicts: list[dict]) -> int:
+    return max((_SEVERITY_CODE.get(v.get("severity", "ok"), 0) for v in verdicts), default=0)
+
 
 # ── internal helpers ──────────────────────────────────────────────────────────
 
@@ -44,11 +62,12 @@ def _extract_as_path(hubs: list[dict]) -> list[str]:
 def _classify_path(hubs: list[dict], target_asn: str) -> dict:
     """
     Determine whether the traceroute reached target_asn.
-    Returns {complete, rtt_ms, entry_transit_asn}.
+    Returns {complete, rtt_ms, entry_transit_asn, stall_hop}.
     complete is True only when target_asn appears in at least one hub's ASN field.
     rtt_ms is the Avg RTT of the last hub inside target_asn (None when incomplete).
     entry_transit_asn is the last non-AS??? ASN before target_asn (complete) or
     the last non-AS??? ASN seen (incomplete); None if no resolvable ASNs exist.
+    stall_hop is the count of the last responsive hub when path is incomplete (None when complete).
     """
     target_norm = normalize_asn(target_asn)
 
@@ -78,15 +97,22 @@ def _classify_path(hubs: list[dict], target_asn: str) -> dict:
                 entry_transit_asn = prev_asn
                 break
             prev_asn = asn_norm
+
+        return {"complete": True, "rtt_ms": rtt_ms, "entry_transit_asn": entry_transit_asn, "stall_hop": None}
     else:
         rtt_ms = None
         entry_transit_asn = None
+        stall_hop = None
         for h in hubs:
             asn = h.get("ASN", "")
             if asn and asn != "AS???":
                 entry_transit_asn = normalize_asn(asn)
+            if h.get("host") not in ("???", None, ""):
+                stall_hop = h.get("count")
+                if h.get("Avg", 0) > 0:
+                    rtt_ms = h["Avg"]
 
-    return {"complete": complete, "rtt_ms": rtt_ms, "entry_transit_asn": entry_transit_asn}
+        return {"complete": False, "rtt_ms": rtt_ms, "entry_transit_asn": entry_transit_asn, "stall_hop": stall_hop}
 
 
 def _parse_ping_avg(output: str) -> float | None:
@@ -99,7 +125,7 @@ def _parse_ping_avg(output: str) -> float | None:
     return None
 
 
-def _run_ping_probe(host: str, duration: int, result_q: queue.Queue) -> None:
+def _run_ping_probe_sync(host: str, duration: int) -> float | None:
     count = min(duration, 5)
     try:
         proc = subprocess.run(
@@ -109,17 +135,10 @@ def _run_ping_probe(host: str, duration: int, result_q: queue.Queue) -> None:
         if proc.returncode != 0:
             stderr_lower = proc.stderr.lower()
             if "permission" in stderr_lower or "operation not permitted" in stderr_lower:
-                result_q.put(None)
-                return
-        result_q.put(_parse_ping_avg(proc.stdout))
-    except FileNotFoundError:
-        result_q.put(None)
-    except PermissionError:
-        result_q.put(None)
-    except subprocess.TimeoutExpired:
-        result_q.put(None)
+                return None
+        return _parse_ping_avg(proc.stdout)
     except Exception:
-        result_q.put(None)
+        return None
 
 
 def _check_deps(no_throughput: bool) -> bool:
@@ -129,11 +148,11 @@ def _check_deps(no_throughput: bool) -> bool:
     return no_throughput
 
 
-def _trace(host: str, cycles: int) -> tuple[list[dict], str]:
+def _trace(host: str, cycles: int, prefer_tcp: bool = False) -> tuple[list[dict], str]:
     try:
         return mtr.run(host, cycles=cycles), "mtr"
     except mtr.MtrPermissionError:
-        return mtr.run_traceroute(host, probes=cycles), "traceroute"
+        return mtr.run_traceroute(host, probes=cycles, prefer_tcp=prefer_tcp), "traceroute"
 
 
 def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
@@ -148,152 +167,280 @@ def _fetch_rum(asn: str, cf_token: str | None) -> dict | None:
         return None
 
 
+def _measure(host: str, port: int, target_asn: str,
+             cycles: int, duration: int, skip_throughput: bool,
+             cf_token: str | None = None, prefer_tcp: bool = False,
+             ecmp_passes: int = 1, compare_v6: bool = False) -> MeasurementResult:
+    """Collect all measurement data. Returns enriched result dict.
+    No display calls, no json_mode parameter.
+    Internal _-prefixed keys carry state needed by _run_test() for display.
+    """
+    result: dict = {
+        "as_path": [], "last_rtt_ms": None, "rum": None,
+        "hubs": [], "bufferbloat_ms": None,
+        "download_mbps": None, "upload_mbps": None, "verdict": {},
+        "path_complete": False, "verified_rtt_ms": None,
+        "entry_transit_asn": None, "stall_hop": None,
+        "jitter_ms": None, "probe_count": cycles,
+        "pmtu": None, "tcp_connect_ms": None, "tls_handshake_ms": None,
+        "ecmp_paths": None, "path_changes": 0,
+        "hubs_v4": None, "hubs_v6": None,
+        "_trace_method": None,
+        "_iperf_upload": None, "_iperf_download": None,
+        "_iperf_idle_rtt": None, "_iperf_loaded_rtt": None,
+        "_speedtest_upload": None, "_speedtest_download": None,
+        "_v6_warn": None,
+        "probe_errors": {},
+    }
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        # ── Trace section ─────────────────────────────────────────────────
+        if compare_v6:
+            v6_host = None
+            try:
+                v6_info = socket.getaddrinfo(host, None, socket.AF_INET6)
+                v6_host = v6_info[0][4][0]
+            except socket.gaierror:
+                result["_v6_warn"] = "IPv6 resolution failed — showing IPv4 only"
+
+            def _do_v4() -> tuple[list[dict], str]:
+                return _trace(host, cycles, prefer_tcp=prefer_tcp)
+
+            def _do_v6() -> list[dict] | None:
+                if v6_host is None:
+                    return None
+                try:
+                    v6_hubs, _ = _trace(v6_host, cycles)
+                    return v6_hubs
+                except Exception:
+                    return None
+
+            trace_timeout = cycles * 4 + 35
+            fut_v4 = executor.submit(_do_v4)
+            fut_v6 = executor.submit(_do_v6)
+
+            try:
+                hubs, method = fut_v4.result(timeout=trace_timeout)
+            except concurrent.futures.TimeoutError:
+                result["probe_errors"]["v4_trace"] = "timed out"
+                return result
+            except RuntimeError as exc:
+                result["probe_errors"]["v4_trace"] = str(exc)
+                return result
+
+            result["_trace_method"] = method
+            result["hubs_v4"] = hubs
+            try:
+                result["hubs_v6"] = fut_v6.result(timeout=trace_timeout)
+            except Exception:
+                result["hubs_v6"] = None
+
+        elif ecmp_passes > 1:
+            try:
+                all_passes = mtr.run(host, cycles=cycles, passes=ecmp_passes)
+                comparison = mtr._compare_as_paths(all_passes)
+                result["ecmp_paths"] = comparison["ecmp_paths"]
+                result["path_changes"] = comparison["path_changes"]
+                hubs = all_passes[0] if all_passes else []
+                result["_trace_method"] = "mtr"
+            except mtr.MtrPermissionError:
+                hubs = mtr.run_traceroute(host, probes=cycles, prefer_tcp=prefer_tcp)
+                result["_trace_method"] = "traceroute"
+            except RuntimeError as e:
+                result["probe_errors"]["v4_trace"] = str(e)
+                return result
+
+        else:
+            try:
+                hubs, method = _trace(host, cycles, prefer_tcp=prefer_tcp)
+                result["_trace_method"] = method
+            except RuntimeError as e:
+                result["probe_errors"]["v4_trace"] = str(e)
+                return result
+
+        result["as_path"] = _extract_as_path(hubs)
+        result["hubs"] = hubs
+
+        for _h in reversed(hubs):
+            if _h.get("host") not in ("???", None, "") and _h.get("StDev") is not None:
+                result["jitter_ms"] = round(_h["StDev"] or 0.0, 2)
+                break
+
+        for _h in reversed(hubs):
+            if _h.get("host") not in ("???", None, "") and _h.get("Avg", 0) > 0:
+                result["last_rtt_ms"] = _h["Avg"]
+                break
+
+        classification = _classify_path(hubs, target_asn)
+        result["path_complete"] = classification["complete"]
+        result["verified_rtt_ms"] = classification["rtt_ms"]
+        result["entry_transit_asn"] = classification["entry_transit_asn"]
+        result["stall_hop"] = classification["stall_hop"]
+        if not classification["complete"] and classification["rtt_ms"] is not None:
+            result["last_rtt_ms"] = classification["rtt_ms"]
+
+        # ── Concurrent independent probes ─────────────────────────────────
+        fut_pmtu = executor.submit(pmtu_mod.probe, host)
+        fut_tcp  = executor.submit(latency_mod.measure_tcp_connect, host)
+        fut_tls  = executor.submit(latency_mod.measure_tls_handshake, host)
+        fut_rum  = executor.submit(_fetch_rum, target_asn, cf_token)
+
+        try:
+            result["pmtu"] = fut_pmtu.result(timeout=30)
+        except Exception:
+            result["probe_errors"]["pmtu"] = "timeout"
+
+        try:
+            result["tcp_connect_ms"] = fut_tcp.result(timeout=15)
+        except Exception:
+            result["probe_errors"]["tcp_connect"] = "timeout"
+
+        try:
+            result["tls_handshake_ms"] = fut_tls.result(timeout=15)
+        except Exception:
+            result["probe_errors"]["tls_handshake"] = "timeout"
+
+        try:
+            result["rum"] = fut_rum.result(timeout=15)
+        except Exception:
+            result["rum"] = None
+
+        if skip_throughput:
+            result["verdict"] = diagnose(result)
+            return result
+
+        # ── Throughput with concurrent ping ───────────────────────────────
+        if iperf_mod.available():
+            idle_rtt = result["last_rtt_ms"]
+            result["_iperf_idle_rtt"] = idle_rtt
+            fut_ping = executor.submit(_run_ping_probe_sync, host, duration)
+            try:
+                upload, download = iperf_mod.run_bidirectional(host, port, duration)
+                fut_ping.cancel()
+                try:
+                    loaded_rtt = fut_ping.result(timeout=duration + 10)
+                except Exception:
+                    loaded_rtt = None
+                result["_iperf_loaded_rtt"] = loaded_rtt
+                if idle_rtt is not None and loaded_rtt is not None:
+                    result["bufferbloat_ms"] = round(loaded_rtt - idle_rtt, 1)
+                result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
+                result["upload_mbps"] = upload.get("bps", 0) / 1e6
+                result["_iperf_upload"] = upload
+                result["_iperf_download"] = download
+            except RuntimeError as e:
+                fut_ping.cancel()
+                try:
+                    fut_ping.result(timeout=5)
+                except Exception:
+                    pass
+                result["probe_errors"]["iperf3"] = str(e)
+            result["verdict"] = diagnose(result)
+            return result
+
+        # ── Speedtest fallback ────────────────────────────────────────────
+        # This measures user → Cloudflare, NOT user → target ASN.
+        try:
+            st_result = speedtest.run(duration=duration)
+            upload, download = speedtest.extract_stats(st_result)
+            result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
+            result["upload_mbps"] = upload.get("bps", 0) / 1e6
+            result["_speedtest_upload"] = upload
+            result["_speedtest_download"] = download
+        except RuntimeError as e:
+            result["probe_errors"]["speedtest"] = str(e)
+
+        result["verdict"] = diagnose(result)
+        return result
+
+
 def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               cycles: int, duration: int, skip_throughput: bool,
               cf_token: str | None = None, show_server_heading: bool = True,
-              json_mode: bool = False) -> dict:
+              json_mode: bool = False, prefer_tcp: bool = False,
+              ecmp_passes: int = 1, compare_v6: bool = False) -> dict:
     """Run trace + optional throughput test. Returns enriched result dict."""
-    result: dict = {"as_path": [], "last_rtt_ms": None, "rum": None,
-                    "hubs": [], "bufferbloat_ms": None,
-                    "download_mbps": None, "upload_mbps": None, "verdict": {},
-                    "path_complete": False, "verified_rtt_ms": None,
-                    "entry_transit_asn": None}
-
     if show_server_heading and not json_mode:
         display.server_heading(server_meta)
 
     if not json_mode:
         display.console.print(f"  [dim]Tracing path ({cycles} probes)…[/dim]")
-    try:
+        if not skip_throughput:
+            if iperf_mod.available():
+                display.console.print(
+                    f"  [dim]Measuring throughput via iperf3 to {host}:{port} ({duration}s each direction)…[/dim]"
+                )
+            else:
+                display.console.print(
+                    "  [dim]iperf3 not installed — showing Cloudflare baseline "
+                    "(install iperf3 for cross-ASN measurement)…[/dim]"
+                )
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                      console=display.console, transient=True) as p:
+            p.add_task(f"probing → {host}", total=None)
+            result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
+                              prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6)
+    else:
+        result = _measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
+                          prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6)
+
+    if result.get("probe_errors", {}).get("v4_trace"):
         if not json_mode:
-            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                          console=display.console, transient=True) as p:
-                p.add_task(f"probing → {host}", total=None)
-                hubs, method = _trace(host, cycles)
-        else:
-            hubs, method = _trace(host, cycles)
-    except RuntimeError as e:
-        if not json_mode:
-            display.error(f"trace: {e}")
+            display.error(f"trace: {result['probe_errors']['v4_trace']}")
         return result
 
-    if method == "traceroute" and not json_mode:
+    if result.get("_trace_method") == "traceroute" and not json_mode:
         display.console.print("  [dim](mtr unavailable — using traceroute + Cymru ASN lookup)[/dim]\n")
 
     if not json_mode:
-        display.path_table(hubs, target_asn)
-        display.as_path_summary(hubs)
+        if compare_v6 and result.get("hubs_v6") is not None:
+            display.dual_stack_columns(result["hubs_v4"], result["hubs_v6"], target_asn)
+        else:
+            if compare_v6 and result.get("_v6_warn"):
+                display.warn(result["_v6_warn"])
+            display.path_table(result["hubs"], target_asn)
+        display.as_path_summary(result["hubs"])
 
-    result["as_path"] = _extract_as_path(hubs)
-    result["hubs"]    = hubs
-
-    # last_rtt_ms: last responsive hop regardless of ASN (backward compat for asn subcommand)
-    for _h in reversed(hubs):
-        if _h.get("host") not in ("???", None, "") and _h.get("Avg", 0) > 0:
-            result["last_rtt_ms"] = _h["Avg"]
-            break
-
-    classification = _classify_path(hubs, target_asn)
-    result["path_complete"]      = classification["complete"]
-    result["verified_rtt_ms"]    = classification["rtt_ms"]
-    result["entry_transit_asn"]  = classification["entry_transit_asn"]
-
-    rum_data = _fetch_rum(target_asn, cf_token)
-    result["rum"] = rum_data
+    rum_data = result.get("rum")
 
     if skip_throughput:
         if rum_data and not json_mode:
             display.rum_only_panel(rum_data, target_asn)
-        verdict = diagnose(result)
-        result["verdict"] = verdict
         if not json_mode:
-            display.verdict_panel(verdict)
+            display.verdict_panel(result["verdict"])
         return result
 
-    # iperf3 measures the actual path from this host to the server in target_asn.
-    # Fall back to HTTP speedtest only if iperf3 is unavailable (that measures
-    # user → Cloudflare, not user → target ASN).
     if iperf_mod.available():
-        if not json_mode:
-            display.console.print(
-                f"  [dim]Measuring throughput via iperf3 to {host}:{port} ({duration}s each direction)…[/dim]"
-            )
-        idle_rtt = result["last_rtt_ms"]
-        ping_q: queue.Queue = queue.Queue()
-        ping_thread = threading.Thread(
-            target=_run_ping_probe, args=(host, duration, ping_q), daemon=True
-        )
-        ping_thread.start()
-        try:
+        if result.get("_iperf_download") is not None:
             if not json_mode:
-                with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                              console=display.console, transient=True) as p:
-                    p.add_task(f"iperf3 → {host} ↑↓", total=None)
-                    upload, download = iperf_mod.run_bidirectional(host, port, duration)
-            else:
-                upload, download = iperf_mod.run_bidirectional(host, port, duration)
-            ping_thread.join(timeout=duration + 10)
-            try:
-                loaded_rtt = ping_q.get_nowait()
-            except queue.Empty:
-                loaded_rtt = None
-            if idle_rtt is not None and loaded_rtt is not None:
-                result["bufferbloat_ms"] = round(loaded_rtt - idle_rtt, 1)
-            result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
-            result["upload_mbps"]   = upload.get("bps", 0) / 1e6
-            verdict = diagnose(result)
-            result["verdict"] = verdict
+                display.throughput_and_rum(
+                    result["_iperf_upload"], result["_iperf_download"],
+                    rum=rum_data, server=f"{host} (iperf3)"
+                )
+                display.bufferbloat_line(result.get("_iperf_idle_rtt"), result.get("_iperf_loaded_rtt"))
+                display.verdict_panel(result["verdict"])
+        else:
             if not json_mode:
-                display.throughput_and_rum(upload, download, rum=rum_data,
-                                           server=f"{host} (iperf3)")
-                display.bufferbloat_line(idle_rtt, loaded_rtt)
-                display.verdict_panel(verdict)
-            return result
-        except RuntimeError as e:
-            ping_thread.join(timeout=5)
-            if not json_mode:
-                display.warn(f"iperf3 to {host}:{port} failed: {e}")
+                display.warn(f"iperf3 to {host}:{port} failed: {result.get('probe_errors', {}).get('iperf3', 'unknown error')}")
                 if rum_data:
                     display.rum_only_panel(rum_data, target_asn)
-            verdict = diagnose(result)
-            result["verdict"] = verdict
-            if not json_mode:
-                display.verdict_panel(verdict)
-            return result
+                display.verdict_panel(result["verdict"])
+        return result
 
-    # iperf3 not installed — fall back to HTTP speedtest as a baseline.
-    # This measures user → Cloudflare, NOT user → target ASN.
+    # iperf3 not installed path
+    if result.get("_speedtest_download") is not None:
+        if not json_mode:
+            display.throughput_and_rum(
+                result["_speedtest_upload"], result["_speedtest_download"],
+                rum=rum_data, server="speed.cloudflare.com (baseline — not cross-ASN)"
+            )
+    elif result.get("probe_errors", {}).get("speedtest") and not json_mode:
+        display.warn(f"speedtest: {result['probe_errors']['speedtest']}")
+        if rum_data:
+            display.rum_only_panel(rum_data, target_asn)
+
     if not json_mode:
-        display.console.print(
-            f"  [dim]iperf3 not installed — showing Cloudflare baseline "
-            f"(install iperf3 for cross-ASN measurement)…[/dim]"
-        )
-    try:
-        if not json_mode:
-            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                          console=display.console, transient=True) as p:
-                p.add_task("speed.cloudflare.com ↑↓", total=None)
-                st_result = speedtest.run(duration=duration)
-        else:
-            st_result = speedtest.run(duration=duration)
-
-        upload, download = speedtest.extract_stats(st_result)
-        result["download_mbps"] = download.get("recv_bps", download.get("bps", 0)) / 1e6
-        result["upload_mbps"]   = upload.get("bps", 0) / 1e6
-        if not json_mode:
-            display.throughput_and_rum(upload, download, rum=rum_data,
-                                       server="speed.cloudflare.com (baseline — not cross-ASN)")
-
-    except RuntimeError as e:
-        if not json_mode:
-            display.warn(f"speedtest: {e}")
-            if rum_data:
-                display.rum_only_panel(rum_data, target_asn)
-
-    verdict = diagnose(result)
-    result["verdict"] = verdict
-    if not json_mode:
-        display.verdict_panel(verdict)
+        display.verdict_panel(result["verdict"])
     return result
 
 
@@ -308,9 +455,15 @@ def asn(
     no_throughput: bool = _NO_TPUT,
     cf_token:      str | None = _CF_TOK,
     output_json:   bool = typer.Option(False, "--json", help="Output results as JSON to stdout; suppresses terminal display"),
+    globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probe"),
+    ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
+    compare_v6:    bool = typer.Option(False, "--compare-v6", help="Run parallel IPv4/IPv6 traces and display side-by-side"),
 ):
     """Test latency, packet loss, and throughput to servers in a specific ASN."""
     asn_norm = normalize_asn(target)
+    if globe and output_json:
+        print("Warning: --globe is ignored when --json is set", file=sys.stderr)
+        globe = False
     if not output_json:
         display.header(__version__)
     skip_throughput = _check_deps(no_throughput)
@@ -345,7 +498,7 @@ def asn(
             server_meta=server, target_asn=asn_norm,
             cycles=cycles, duration=duration,
             skip_throughput=skip_throughput, cf_token=cf_token,
-            json_mode=True,
+            json_mode=True, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
         )
         upload_mbps   = result.get("upload_mbps")
         download_mbps = result.get("download_mbps")
@@ -372,19 +525,39 @@ def asn(
                 if upload_mbps is not None or download_mbps is not None
                 else None
             ),
-            "bufferbloat_ms": result.get("bufferbloat_ms"),
-            "rum":            result.get("rum"),
-            "verdict":        result.get("verdict", {}),
+            "jitter_ms":        result.get("jitter_ms"),
+            "tcp_connect_ms":   result.get("tcp_connect_ms"),
+            "tls_handshake_ms": result.get("tls_handshake_ms"),
+            "pmtu":             result.get("pmtu"),
+            "ecmp_paths":       result.get("ecmp_paths"),
+            "path_changes":     result.get("path_changes"),
+            "bufferbloat_ms":   result.get("bufferbloat_ms"),
+            "rum":              result.get("rum"),
+            "verdict":          result.get("verdict", {}),
         }
         print(json.dumps(output, indent=2))
+        code = _worst_exit_code([result.get("verdict", {})])
+        if code:
+            raise typer.Exit(code)
     else:
+        last_hubs: list[dict] = []
+        verdicts: list[dict] = []
         for server in found:
-            _run_test(
+            r = _run_test(
                 host=server["HOST"], port=server["port"],
                 server_meta=server, target_asn=asn_norm,
                 cycles=cycles, duration=duration,
                 skip_throughput=skip_throughput, cf_token=cf_token,
+                ecmp_passes=ecmp_passes, compare_v6=compare_v6,
             )
+            last_hubs = r["hubs"]
+            if r.get("verdict"):
+                verdicts.append(r["verdict"])
+        if globe and last_hubs:
+            globe_mod.render({asn_norm: last_hubs})
+        code = _worst_exit_code(verdicts)
+        if code:
+            raise typer.Exit(code)
 
 
 # ── country subcommand ────────────────────────────────────────────────────────
@@ -398,6 +571,12 @@ def country(
     cycles:        int  = _CYCLES,
     no_throughput: bool = _NO_TPUT,
     cf_token:      str | None = _CF_TOK,
+    globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probes"),
+    atlas_key:     str | None = typer.Option(
+        None, "--atlas-key",
+        envvar="NETPATH_ATLAS_KEY",
+        help="RIPE Atlas API key for in-network measurements from inside each ISP",
+    ),
 ):
     """Test the top N ASNs (by allocated IPv4 address space) for a country."""
     code = code.upper()
@@ -448,7 +627,59 @@ def country(
         servers._fetch_and_resolve()
     display.console.print()
 
+    # Atlas: probe discovery + budget check (before regular sweep, no credits spent)
+    _atlas_probes: dict[str, list[int]] = {}   # asn → probe IDs
+    _atlas_anchor_asns: set[str] = set()       # ASNs served by anchor fallback
+    _atlas_test_ips: dict[str, str] = {}        # asn → test IP for ping target
+    _user_public_ip: str | None = None
+
+    if atlas_key:
+        display.console.print("[dim]Discovering RIPE Atlas probes…[/dim]")
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                      console=display.console, transient=True) as p:
+            p.add_task("Querying Atlas probe endpoints…", total=None)
+            for _ai in top_asns:
+                _probes = atlas_mod.find_probes_in_asn(_ai["asn"], atlas_key)
+                if _probes:
+                    _atlas_probes[_ai["asn"]] = _probes
+                else:
+                    _anchors = atlas_mod.find_anchors_in_asn(_ai["asn"], atlas_key)
+                    if _anchors:
+                        _atlas_probes[_ai["asn"]] = _anchors
+                        _atlas_anchor_asns.add(_ai["asn"])
+
+        if _atlas_probes:
+            _user_public_ip = atlas_mod.get_public_ip()
+            if _user_public_ip is None:
+                display.warn("Could not determine your public IP — Atlas measurements will be skipped")
+                _atlas_probes = {}
+            else:
+                try:
+                    _ok, _cost, _balance = atlas_mod.check_budget(_atlas_probes, atlas_key)
+                except Exception as _e:
+                    display.error(f"Atlas credit check failed: {_e}")
+                    raise typer.Exit(1)
+
+                if not _ok:
+                    display.error(
+                        f"Insufficient Atlas credits: {_cost} needed, "
+                        f"{_balance} available. "
+                        "Aborting before any credits are spent."
+                    )
+                    raise typer.Exit(1)
+
+                display.console.print(
+                    f"[green]✓[/green] Atlas probes found in "
+                    f"{len(_atlas_probes)}/{len(top_asns)} ASNs  "
+                    f"[dim](estimated cost: {_cost} credits, balance: {_balance})[/dim]\n"
+                )
+        else:
+            display.console.print(
+                "[dim]No Atlas probes found in any target ASN — skipping Atlas mode[/dim]\n"
+            )
+
     summary_rows: list[dict] = []
+    hubs_for_globe: dict[str, list[dict]] = {}
 
     for i, asn_info in enumerate(top_asns, 1):
         asn_str  = asn_info["asn"]
@@ -465,6 +696,8 @@ def country(
 
         if asn_servers:
             server = asn_servers[0]
+            if atlas_key:
+                _atlas_test_ips[asn_str] = server["HOST"]
             can_test_throughput = not no_throughput and iperf_mod.available()
             r = _run_test(
                 host=server["HOST"], port=server["port"],
@@ -473,6 +706,8 @@ def country(
                 skip_throughput=not can_test_throughput,
                 show_server_heading=True,
                 cf_token=cf_token,
+                ecmp_passes=2,
+                compare_v6=True,
             )
         else:
             test_ip = country_mod.get_test_ip_for_asn(asn_str)
@@ -481,9 +716,11 @@ def country(
                 summary_rows.append({"asn": asn_str, "name": display.clean_asn_name(isp_name),
                                      "as_path": [], "last_rtt_ms": None, "rum": None,
                                      "path_complete": False, "verified_rtt_ms": None,
-                                     "entry_transit_asn": None})
+                                     "entry_transit_asn": None, "stall_hop": None})
                 continue
 
+            if atlas_key:
+                _atlas_test_ips[asn_str] = test_ip
             display.console.print(
                 f"  [dim]→ {test_ip}  (traceroute target — no iperf3 server in {asn_str})[/dim]\n"
             )
@@ -496,6 +733,9 @@ def country(
                 skip_throughput=True,
                 show_server_heading=False,
                 cf_token=cf_token,
+                prefer_tcp=True,
+                ecmp_passes=2,
+                compare_v6=True,
             )
 
         summary_rows.append({
@@ -503,8 +743,192 @@ def country(
             "name": display.clean_asn_name(isp_name),
             **r,
         })
+        if globe:
+            hubs_for_globe[asn_str] = r.get("hubs", [])
+
+    # Atlas: schedule, poll, and merge results after all regular measurements
+    if atlas_key and _atlas_probes and _user_public_ip:
+        display.console.print("[dim]Scheduling RIPE Atlas measurements…[/dim]")
+        _atlas_mids: dict[str, dict[str, int]] = {}
+
+        for _asn_str, _probe_ids in _atlas_probes.items():
+            _tip = _atlas_test_ips.get(_asn_str)
+            if not _tip:
+                _set_atlas_error(summary_rows, _asn_str, "no test IP available")
+                continue
+            try:
+                _mids = atlas_mod.schedule_measurements(
+                    _probe_ids, _tip, _user_public_ip, atlas_key
+                )
+                _atlas_mids[_asn_str] = _mids
+                display.console.print(
+                    f"  [dim]{_asn_str}: ping #{_mids['ping']}  "
+                    f"traceroute #{_mids['traceroute']}[/dim]"
+                )
+            except Exception as _e:
+                _set_atlas_error(summary_rows, _asn_str, str(_e))
+
+        # Record no-probe ASNs
+        for _ai in top_asns:
+            if _ai["asn"] not in _atlas_probes:
+                _set_atlas_error(summary_rows, _ai["asn"], "no Atlas coverage")
+
+        _all_mids = [_m for _ms in _atlas_mids.values() for _m in _ms.values()]
+        if _all_mids:
+            display.console.print(
+                f"\n[dim]Waiting for {len(_all_mids)} Atlas measurements "
+                f"(up to 600 s)…[/dim]"
+            )
+            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                          console=display.console, transient=True) as _p:
+                _p.add_task("Polling Atlas API…", total=None)
+                _statuses = atlas_mod.poll_until_done(_all_mids, atlas_key, timeout=600)
+
+            for _asn_str, _mids in _atlas_mids.items():
+                _ping_id = _mids["ping"]
+                _trace_id = _mids["traceroute"]
+                _atlas_data: dict = {"measurement_ids": _mids}
+
+                if _statuses.get(_ping_id) == "stopped":
+                    _rtt = atlas_mod.parse_ping_rtt(
+                        atlas_mod.fetch_results(_ping_id, atlas_key)
+                    )
+                    if _rtt:
+                        _atlas_data["ping_rtt"] = _rtt
+                elif _statuses.get(_ping_id) == "timed_out":
+                    _set_atlas_error(summary_rows, _asn_str, "timed out")
+
+                if _statuses.get(_trace_id) == "stopped":
+                    _path = atlas_mod.parse_traceroute_as_path(
+                        atlas_mod.fetch_results(_trace_id, atlas_key)
+                    )
+                    if _path:
+                        _atlas_data["outbound_as_path"] = _path
+                elif _statuses.get(_trace_id) == "timed_out":
+                    _set_atlas_error(summary_rows, _asn_str, "timed out")
+
+                if _asn_str in _atlas_anchor_asns:
+                    _atlas_data["source"] = "atlas_anchor"
+                _row = next((r for r in summary_rows if r["asn"] == _asn_str), None)
+                if _row is not None:
+                    _row["atlas"] = _atlas_data
+
+    elif atlas_key:
+        # No probes found or public IP unavailable — record for all ASNs
+        for _ai in top_asns:
+            _set_atlas_error(summary_rows, _ai["asn"], "no Atlas coverage")
 
     display.country_summary(code, summary_rows)
+    if globe and hubs_for_globe:
+        globe_mod.render(hubs_for_globe)
+
+    verdicts = [row["verdict"] for row in summary_rows if row.get("verdict")]
+    exit_code = _worst_exit_code(verdicts)
+    if exit_code:
+        raise typer.Exit(exit_code)
+
+
+_COUNTRY_NAMES: dict[str, str] = {
+    "AD": "Andorra", "AE": "United Arab Emirates", "AF": "Afghanistan",
+    "AL": "Albania", "AM": "Armenia", "AO": "Angola", "AR": "Argentina",
+    "AT": "Austria", "AU": "Australia", "AZ": "Azerbaijan",
+    "BA": "Bosnia and Herzegovina", "BD": "Bangladesh", "BE": "Belgium",
+    "BG": "Bulgaria", "BH": "Bahrain", "BN": "Brunei", "BO": "Bolivia",
+    "BR": "Brazil", "BY": "Belarus", "CA": "Canada", "CH": "Switzerland",
+    "CL": "Chile", "CM": "Cameroon", "CN": "China", "CO": "Colombia",
+    "CR": "Costa Rica", "CU": "Cuba", "CY": "Cyprus", "CZ": "Czechia",
+    "DE": "Germany", "DK": "Denmark", "DO": "Dominican Republic",
+    "DZ": "Algeria", "EC": "Ecuador", "EE": "Estonia", "EG": "Egypt",
+    "ES": "Spain", "ET": "Ethiopia", "FI": "Finland", "FJ": "Fiji",
+    "FR": "France", "GB": "United Kingdom", "GE": "Georgia",
+    "GH": "Ghana", "GR": "Greece", "GT": "Guatemala", "HK": "Hong Kong",
+    "HN": "Honduras", "HR": "Croatia", "HU": "Hungary", "ID": "Indonesia",
+    "IE": "Ireland", "IL": "Israel", "IN": "India", "IQ": "Iraq",
+    "IR": "Iran", "IS": "Iceland", "IT": "Italy", "JM": "Jamaica",
+    "JO": "Jordan", "JP": "Japan", "KE": "Kenya", "KG": "Kyrgyzstan",
+    "KH": "Cambodia", "KR": "South Korea", "KW": "Kuwait", "KZ": "Kazakhstan",
+    "LB": "Lebanon", "LI": "Liechtenstein", "LK": "Sri Lanka",
+    "LT": "Lithuania", "LU": "Luxembourg", "LV": "Latvia", "LY": "Libya",
+    "MA": "Morocco", "MC": "Monaco", "MD": "Moldova", "ME": "Montenegro",
+    "MK": "North Macedonia", "ML": "Mali", "MM": "Myanmar", "MN": "Mongolia",
+    "MT": "Malta", "MX": "Mexico", "MY": "Malaysia", "MZ": "Mozambique",
+    "NA": "Namibia", "NG": "Nigeria", "NL": "Netherlands", "NO": "Norway",
+    "NP": "Nepal", "NZ": "New Zealand", "OM": "Oman", "PA": "Panama",
+    "PE": "Peru", "PH": "Philippines", "PK": "Pakistan", "PL": "Poland",
+    "PT": "Portugal", "PY": "Paraguay", "QA": "Qatar", "RO": "Romania",
+    "RS": "Serbia", "RU": "Russia", "RW": "Rwanda", "SA": "Saudi Arabia",
+    "SE": "Sweden", "SG": "Singapore", "SI": "Slovenia", "SK": "Slovakia",
+    "SM": "San Marino", "SN": "Senegal", "SO": "Somalia", "SR": "Suriname",
+    "SV": "El Salvador", "SY": "Syria", "TH": "Thailand", "TJ": "Tajikistan",
+    "TN": "Tunisia", "TR": "Turkey", "TT": "Trinidad and Tobago",
+    "TW": "Taiwan", "TZ": "Tanzania", "UA": "Ukraine", "UG": "Uganda",
+    "US": "United States", "UY": "Uruguay", "UZ": "Uzbekistan",
+    "VE": "Venezuela", "VN": "Vietnam", "YE": "Yemen",
+    "ZA": "South Africa", "ZM": "Zambia", "ZW": "Zimbabwe",
+}
+
+
+@app.command(name="atlas-profile")
+def atlas_profile(
+    atlas_key: str | None = typer.Option(
+        None, "--atlas-key",
+        envvar="NETPATH_ATLAS_KEY",
+        help="RIPE Atlas API key (or set NETPATH_ATLAS_KEY)",
+    ),
+    top: int = typer.Option(20, "--top", "-t", help="Number of top countries to show"),
+    globe: bool = typer.Option(False, "--globe", "-g", help="Render choropleth globe after fetching"),
+):
+    """Show RIPE Atlas probe and anchor coverage ranked by country."""
+    if not atlas_key:
+        display.error(
+            "No Atlas API key provided. Set NETPATH_ATLAS_KEY or pass --atlas-key.\n"
+            "  Get a free key at: https://atlas.ripe.net/keys/"
+        )
+        raise typer.Exit(1)
+
+    display.header(__version__)
+    coverage = atlas_mod.fetch_coverage_by_country(atlas_key)
+
+    if not coverage:
+        display.warn("No coverage data returned from the Atlas API.")
+        raise typer.Exit(1)
+
+    ranked = sorted(
+        coverage.items(),
+        key=lambda x: x[1]["probes"] + x[1]["anchors"],
+        reverse=True,
+    )[:top]
+
+    table = Table(
+        box=box.ROUNDED,
+        border_style="dim",
+        title=f"[bold]Atlas Coverage — Top {top} Countries[/bold]",
+    )
+    table.add_column("#", style="dim", justify="right")
+    table.add_column("Code", justify="center")
+    table.add_column("Country", min_width=22)
+    table.add_column("Probes", justify="right")
+    table.add_column("Anchors", justify="right")
+    table.add_column("Total", justify="right", style="bold")
+
+    for rank, (cc, data) in enumerate(ranked, 1):
+        probes = data["probes"]
+        anchors = data["anchors"]
+        total = probes + anchors
+        table.add_row(
+            str(rank),
+            cc,
+            _COUNTRY_NAMES.get(cc, cc),
+            str(probes),
+            str(anchors),
+            str(total),
+        )
+
+    display.console.print(table)
+
+    if globe:
+        globe_coverage = {cc: d["probes"] + d["anchors"] for cc, d in coverage.items()}
+        globe_mod.render_coverage(globe_coverage)
 
 
 def run():
