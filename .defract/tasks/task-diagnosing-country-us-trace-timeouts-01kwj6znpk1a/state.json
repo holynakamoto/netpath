@@ -1,11 +1,11 @@
 {
   "id": "task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 2,
   "createdAt": "2026-07-02T20:05:36Z",
-  "updatedAt": "2026-07-02T20:06:21Z",
+  "updatedAt": "2026-07-02T20:18:59Z",
   "events": [
     {
       "base_branch": "main",
@@ -54,30 +54,190 @@
       "timed_out": false,
       "timestamp": "2026-07-02T20:06:21Z",
       "type": "agent_exited"
+    },
+    {
+      "note": "Writing full scope (revision 2) after approved intent check",
+      "phase": 0,
+      "stage": "scope",
+      "timestamp": "2026-07-02T20:10:42Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Full scope: live-target ladder (server → Atlas probe → remote-only → no coverage), removal of guessed-prefix targets, honest no-coverage labelling, and partial-path recovery on trace timeout — 8 requirements, 7 acceptance criteria, 2 phases",
+      "revision": 2,
+      "timestamp": "2026-07-02T20:11:36Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Fixes broken existing behaviour (country sweeps timing out on guessed dead addresses) with no new user-facing features. Terminal-output-only tool, so no design stage. Work is well contained to the existing measurement pipeline (country.py, cli.py, mtr.py, display.py, types.py plus tests) and follows established patterns (MtrPermissionError-style exception, TypedDict total=False, probe_errors accumulation), so no architecture stage — phases carry full Files/Verification detail instead.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "bug-fix",
+      "tier": "standard",
+      "timestamp": "2026-07-02T20:11:50Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [
+        "Keep the prefix fallback but ping the guessed address first and only trace if it answers — rejected: adds latency per ISP and guessed hosts that drop traceroute usually drop ping too, so it filters little",
+        "Shorten the trace timeout for guessed targets instead of removing them — rejected: still wastes time and still yields empty results for hosts that never answer"
+      ],
+      "decision": "Remove the announced-prefix guessing fallback from get_test_ip_for_asn() entirely; a connected RIPE Atlas probe address becomes the only non-server local trace target",
+      "rationale": "Guessed prefix-derived hosts rarely answer, and each dead guess burns the full prober budget (up to ~150 s under prefer_tcp) before producing an empty result and a spurious warning verdict. Atlas probe addresses are liveness-verified by definition (status=1 connected probes).",
+      "timestamp": "2026-07-02T20:12:01Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Change _run_traceroute_cmd() to return (hubs, partial: bool) tuples — rejected: churns every caller and mixes the error path into the success contract",
+        "Recover partial output from mtr as well — rejected: mtr --json report prints only at process end, so a killed mtr yields nothing parseable; existing error behaviour kept there"
+      ],
+      "decision": "Surface partial trace output via a dedicated TraceTimeout(RuntimeError) exception carrying the parsed hubs, raised from a Popen-based _run_traceroute_cmd()",
+      "rationale": "Keeps the return-type contracts of run_traceroute() and callers unchanged and gives _measure() a single catch point to record probe_errors while continuing with partial hubs. Mirrors the existing MtrPermissionError pattern. Popen + communicate(timeout) + kill + drain is required because subprocess.run does not reliably attach partial stdout to TimeoutExpired across Python 3.9-3.13.",
+      "timestamp": "2026-07-02T20:12:12Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Ping a well-known anycast address (e.g. 1.1.1.1) from the ISP's probes — rejected: measures the ISP-to-CDN path, not the path the user cares about, and diverges from the mtr target",
+        "Skip such ISPs entirely as no coverage — rejected: discards usable remote coverage the sweep already discovers"
+      ],
+      "decision": "Remote-only ISPs (Globalping probes but no local live target) use the tester's public IP as the Globalping ping target, and no local trace is attempted",
+      "rationale": "With no live address inside the ASN, the only meaningful measurements run from inside the ISP outward; pointing both ping and mtr at the tester's public IP measures the ISP-to-tester path with zero changes to globalping.schedule_measurements() — only the target passed from cli.py differs.",
+      "timestamp": "2026-07-02T20:12:15Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope (revision 2) for country-mode live-target selection. Root cause confirmed in code: get_test_ip_for_asn() guesses the second host of an ASN's most-specific announced prefix when no Atlas probe exists, and traces to those dead guesses burn the full prober budget before scoring as spurious incomplete_path warnings. Scope defines a target ladder (iperf3 server → Atlas probe IP → Globalping remote-only using the tester's public IP → \"no coverage\" skip), honest summary labelling, and partial-path recovery on traceroute timeout via a TraceTimeout exception carrying parsed hubs — including aligning the outer future wait in _measure() with the inner subprocess budgets so partial results are not discarded. 8 requirements, 7 acceptance criteria, 2 phases (both Medium). Workflow: bug-fix / standard, no design or architecture stage. 3 decisions logged.",
+      "timestamp": "2026-07-02T20:12:26Z",
+      "type": "stage_work_complete",
+      "worktree_head": "6edc0657b74aca52ff996961a35213834b018b81",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-02T20:17:21Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-07-02T20:17:20Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "56d7f7a4118673f2cae93d6a340042b24167d444",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "6edc0657b74aca52ff996961a35213834b018b81",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-02T20:17:21Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-07-02T20:17:21Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-07-02T20:17:21Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-02T20:17:21Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwj710245kp2jzbe5f1fnzr7",
+      "timed_out": false,
+      "timestamp": "2026-07-02T20:17:21Z",
+      "type": "agent_exited"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwj7n5kq9xb6kvbkdsbj0g5n",
+      "stage": "implementation",
+      "timestamp": "2026-07-02T20:17:21Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting phase 1: live-target selection and coverage labelling",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-07-02T20:17:31Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Live-target selection and coverage labelling",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-07-02T20:17:32Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes: target ladder, coverage labelling, display grouping",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-07-02T20:18:59Z",
+      "type": "progress_report"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "bug-fix",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Fixes broken existing behaviour (country sweeps timing out on guessed dead addresses) with no new user-facing features. Terminal-output-only tool, so no design stage. Work is well contained to the existing measurement pipeline (country.py, cli.py, mtr.py, display.py, types.py plus tests) and follows established patterns (MtrPermissionError-style exception, TypedDict total=False, probe_errors accumulation), so no architecture stage — phases carry full Files/Verification detail instead."
+  },
+  "stageApprovals": {
+    "scope": "2026-07-02T20:17:20Z"
+  },
   "stages": {
-    "design": {
-      "status": "not_started"
-    },
-    "implementation": {
-      "status": "not_started"
-    },
     "architecture": {
+      "status": "skipped"
+    },
+    "design": {
+      "status": "skipped"
+    },
+    "release": {
       "status": "not_started"
     },
     "scope": {
-      "status": "in_progress",
+      "status": "approved",
+      "approvedAt": "2026-07-02T20:17:20Z",
       "startedAt": "2026-07-02T20:06:20Z"
     },
-    "review": {
-      "status": "not_started"
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T20:17:21Z"
     },
-    "release": {
+    "review": {
       "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-diagnosing-country-us-trace-timeouts-01kwj6znpk1a",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T20:06:20Z"
+  "worktreeLastSyncedAt": "2026-07-02T20:17:21Z"
 }
