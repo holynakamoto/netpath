@@ -1,0 +1,114 @@
+{
+  "id": "task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
+  "status": "active",
+  "stage": "scope",
+  "phase": 0,
+  "totalPhases": 1,
+  "createdAt": "2026-07-02T22:13:19Z",
+  "updatedAt": "2026-07-02T22:14:09Z",
+  "events": [
+    {
+      "models": {
+        "architecture": "opus",
+        "design": "sonnet",
+        "implementation": "opus",
+        "release": "haiku",
+        "review": "sonnet",
+        "scope_full": "opus",
+        "scope_initial": "haiku"
+      },
+      "timestamp": "2026-07-02T22:13:19Z",
+      "type": "stage_models_updated"
+    },
+    {
+      "base_branch": "main",
+      "branch": "feature/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
+      "path": "/Users/nickmoore/netpath/.defract-worktrees/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
+      "timestamp": "2026-07-02T22:13:20Z",
+      "type": "worktree_created"
+    },
+    {
+      "mode": "start",
+      "model": "haiku",
+      "session_id": "01kwje9hk2kttb7nbc2gym15tv",
+      "stage": "scope",
+      "timestamp": "2026-07-02T22:13:20Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting scope — pushing intent check for coverage expansion and data gap fixes",
+      "phase": 0,
+      "stage": "scope",
+      "timestamp": "2026-07-02T22:13:42Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Initial intent check — expand coverage to top 50 countries, address data gaps",
+      "revision": 1,
+      "timestamp": "2026-07-02T22:13:53Z",
+      "type": "scope_update"
+    },
+    {
+      "stage": "scope",
+      "summary": "Intent check pushed — expands coverage to top 50 countries and addresses output data gaps. Flags ambiguity about which specific data gaps to tackle.",
+      "timestamp": "2026-07-02T22:13:55Z",
+      "type": "stage_work_complete",
+      "worktree_head": "586625963bd1dac0fa24769e775a909cdab912d6",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-02T22:14:08Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "approve_initial",
+      "model": "opus",
+      "session_id": "01kwjeb0psggt2njkzp083kk63",
+      "stage": "scope",
+      "timestamp": "2026-07-02T22:14:08Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwje9hk2kttb7nbc2gym15tv",
+      "timed_out": false,
+      "timestamp": "2026-07-02T22:14:09Z",
+      "type": "agent_exited"
+    }
+  ],
+  "stages": {
+    "release": {
+      "status": "not_started"
+    },
+    "implementation": {
+      "status": "not_started"
+    },
+    "review": {
+      "status": "not_started"
+    },
+    "design": {
+      "status": "not_started"
+    },
+    "scope": {
+      "status": "in_progress",
+      "startedAt": "2026-07-02T22:14:08Z"
+    },
+    "architecture": {
+      "status": "not_started"
+    }
+  },
+  "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-it-looks-like-we-still-have-a-ton-of-01kwje9gdqn2",
+  "worktreeBaseBranch": "main",
+  "worktreeLastSyncedAt": "2026-07-02T22:14:08Z",
+  "stageModels": {
+    "review": "sonnet",
+    "architecture": "opus",
+    "release": "haiku",
+    "scope_initial": "haiku",
+    "implementation": "opus",
+    "scope_full": "opus",
+    "design": "sonnet"
+  }
+}
