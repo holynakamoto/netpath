@@ -3,9 +3,9 @@
   "status": "active",
   "stage": "scope",
   "phase": 0,
-  "totalPhases": 1,
+  "totalPhases": 2,
   "createdAt": "2026-07-02T22:13:19Z",
-  "updatedAt": "2026-07-02T22:14:09Z",
+  "updatedAt": "2026-07-02T22:18:28Z",
   "events": [
     {
       "models": {
@@ -76,26 +76,81 @@
       "timed_out": false,
       "timestamp": "2026-07-02T22:14:09Z",
       "type": "agent_exited"
+    },
+    {
+      "note": "Writing full scope (revision 2) for coverage top-50 + output data gap fills",
+      "phase": 0,
+      "stage": "scope",
+      "timestamp": "2026-07-02T22:16:58Z",
+      "type": "work_resumed"
+    },
+    {
+      "change_summary": "Full scope: expand coverage to top 50 countries; fill identified output data gaps (Radar overlay for uncovered/remote-only ISPs; resilient partial baseline speedtest)",
+      "revision": 2,
+      "timestamp": "2026-07-02T22:17:59Z",
+      "type": "scope_update"
+    },
+    {
+      "rationale": "Primarily fills incomplete/broken output behavior (blank ISP rows, discarded partial baseline) plus a one-line coverage default change. No new web UI — all output is existing Rich terminal patterns, so skip design. Well-contained to cli.py/display.py/speedtest.py building on existing patterns (reuses _fetch_rum, probe_errors convention), no new subsystems or system boundaries, so skip architecture. Detailed phases with Files/Verification written in-scope.",
+      "stages": [
+        "scope",
+        "implementation",
+        "review",
+        "release"
+      ],
+      "template": "bug-fix",
+      "tier": "standard",
+      "timestamp": "2026-07-02T22:18:06Z",
+      "type": "workflow_classified"
+    },
+    {
+      "alternatives_considered": [],
+      "decision": "Interpret \"cover all the gaps\" as the two concrete, observable gaps in the pasted country US run — (1) blank \"no coverage\"/\"remote-only\" ISP rows that never fetch ASN-level Cloudflare Radar data because they short-circuit before _measure(), and (2) speedtest.run() discarding a successful direction when the other fails. Backfill Radar via the existing _fetch_rum path rather than routing skipped ASNs through _measure() (which would trigger unwanted trace probes toward dead targets). Reverse-DNS hop enrichment and per-ISP throughput are explicitly deferred and flagged as an open question for the builder.",
+      "rationale": "\"Cover all the gaps\" is open-ended; committing to the observable gaps keeps the task bounded and verifiable while surfacing the ambiguity to the builder instead of silently guessing scope. Reusing _fetch_rum avoids side effects and matches existing patterns.",
+      "timestamp": "2026-07-02T22:18:14Z",
+      "type": "decision"
+    },
+    {
+      "stage": "scope",
+      "summary": "Full scope pushed as revision 2. Scope = coverage top-50 (one-line default change) + closing two concrete output gaps from the pasted country US run: (1) backfill Cloudflare Radar quality data for \"no coverage\"/\"remote-only\" ISP rows that today skip _measure() and render blank, surfacing it in both the per-ISP section and summary; (2) make speedtest.run() return partial results so an upload timeout no longer discards a successful download. 6 requirements, 7 acceptance criteria, 2 phases. Workflow: bug-fix / standard (scope → implementation → review → release; design and architecture skipped). Because \"cover all the gaps\" is open-ended, I flagged the open question in Technical Notes — reverse-DNS hop enrichment and per-ISP throughput are deferred/out of scope pending your confirmation.",
+      "timestamp": "2026-07-02T22:18:28Z",
+      "type": "stage_work_complete",
+      "worktree_head": "586625963bd1dac0fa24769e775a909cdab912d6",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
+  "needsArchitecture": false,
+  "needsDesign": false,
+  "workflow": {
+    "tier": "standard",
+    "template": "bug-fix",
+    "stages": [
+      "scope",
+      "implementation",
+      "review",
+      "release"
+    ],
+    "classifiedBy": "scope-agent",
+    "rationale": "Primarily fills incomplete/broken output behavior (blank ISP rows, discarded partial baseline) plus a one-line coverage default change. No new web UI — all output is existing Rich terminal patterns, so skip design. Well-contained to cli.py/display.py/speedtest.py building on existing patterns (reuses _fetch_rum, probe_errors convention), no new subsystems or system boundaries, so skip architecture. Detailed phases with Files/Verification written in-scope."
+  },
   "stages": {
-    "release": {
-      "status": "not_started"
-    },
-    "implementation": {
-      "status": "not_started"
+    "architecture": {
+      "status": "skipped"
     },
     "review": {
       "status": "not_started"
     },
-    "design": {
+    "release": {
       "status": "not_started"
     },
+    "design": {
+      "status": "skipped"
+    },
     "scope": {
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "startedAt": "2026-07-02T22:14:08Z"
     },
-    "architecture": {
+    "implementation": {
       "status": "not_started"
     }
   },
@@ -103,12 +158,12 @@
   "worktreeBaseBranch": "main",
   "worktreeLastSyncedAt": "2026-07-02T22:14:08Z",
   "stageModels": {
-    "review": "sonnet",
-    "architecture": "opus",
-    "release": "haiku",
-    "scope_initial": "haiku",
     "implementation": "opus",
+    "design": "sonnet",
+    "review": "sonnet",
+    "release": "haiku",
     "scope_full": "opus",
-    "design": "sonnet"
+    "scope_initial": "haiku",
+    "architecture": "opus"
   }
 }
