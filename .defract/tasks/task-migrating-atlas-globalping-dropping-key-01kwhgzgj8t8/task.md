@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 # Migrate from RIPE Atlas to Globalping and drop the API key requirement
 
 ## Story Brief
@@ -166,3 +165,52 @@ Conventions to follow: `_with_retry` for all HTTP calls, display-free pure parse
 **Deviation (decision logged):** the acceptance grep (`grep -ri atlas … README.md` must be empty) and the stale-env-var edge case (README note naming `NETPATH_ATLAS_KEY`) conflict literally. The grep criterion wins; the migration note describes the removed key-and-credits backend and says the old flag/env var are obsolete and silently ignored, without the literal string.
 
 **Checks:** full suite 96 passed (101 minus the 5 deleted Atlas tests), `ruff check src tests` clean, acceptance grep returns nothing, `netpath country --help` shows `--gp-token`/`--no-remote` with no Atlas/credit mention, `netpath coverage --help` works, and a live `netpath coverage --top 5` smoke test returned a ranked probe table with no token set.
+
+## Review
+
+## Verdict
+
+**Verdict:** APPROVE
+**Files reviewed:** 8 files changed across 2 phases
+
+All 9 acceptance criteria pass: in-network measurements run without any key, the coverage command works zero-config, the Atlas backend and its tests are fully deleted with no grep survivors, and the new test suite covers all required parse and inventory paths. Automated checks (96 tests, ruff) are clean.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Test suite (pytest) | PASS | 96 passed, 0 failed, 0 skipped |
+| Lint (ruff) | PASS | All checks passed |
+
+### Acceptance Criteria (9/9 passed)
+
+- [x] AC-1: netpath country ZA --top 5 performs in-network measurements with no token, key, or environment variable set; verified by running the command in a clean environment and observing a [Globalping] subrow or a per-ASN "no Globalping coverage" note — PASS: cli.py:579-580 gp_token defaults None, no_remote defaults False; cli.py:636-656 probe inventory fetched without token; cli.py:813 result merged under "globalping" row key; display.py:385-400 renders [Globalping] subrow
+- [x] AC-2: netpath coverage --top 10 prints a ranked per-country probe table with zero configuration, and --globe renders the choropleth — PASS: cli.py:870-908: coverage command; gp_token defaults None (cli.py:872); ranked table printed at cli.py:885-903; globe_mod.render_coverage called at cli.py:908; netpath coverage --help confirmed zero-config
+- [x] AC-3: --gp-token and NETPATH_GLOBALPING_TOKEN are accepted on the country and coverage commands and produce an Authorization: Bearer header; verified by a unit test asserting the header in tests/test_globalping.py — PASS: cli.py:36-38: _GP_TOK option with envvar=NETPATH_GLOBALPING_TOKEN; both commands use _GP_TOK (cli.py:579,872); tests/test_globalping.py:38-55 (Bearer with token, no header without); tests/test_globalping.py:120-128 (schedule_measurements Bearer)
+- [x] AC-4: --no-remote on the country command skips all Globalping activity; verified by running with the flag and observing no Globalping status lines — PASS: cli.py:636,680,703,731: all Globalping blocks gated by `if not no_remote:`; cli.py:580 no_remote declared with --no-remote flag; netpath country --help confirms flag present
+- [x] AC-5: src/netpath/atlas.py and tests/test_atlas.py no longer exist, and grep -ri atlas src/netpath/cli.py src/netpath/display.py src/netpath/globe.py README.md returns no matches — PASS: ls src/netpath/ shows no atlas.py; ls tests/ shows no test_atlas.py; grep -in atlas across all four target files returned no output
+- [x] AC-6: netpath --help, netpath country --help, and netpath coverage --help contain no mention of Atlas, API keys as a requirement, or credits — PASS: netpath --help: lists coverage not atlas-profile; country --help: shows --gp-token and --no-remote, no --atlas-key, no credits; coverage --help: zero-config help text confirmed
+- [x] AC-7: JSON output for country mode uses a globalping key for remote results and contains no atlas key or atlas_anchor source tag; verified by inspecting --json output or the MeasurementResult-adjacent row shape — PASS: cli.py:813: _row["globalping"] = _gp_data; cli.py:47: probe_errors["globalping"]; grep for atlas/atlas_anchor keys in cli.py/display.py returns no output; country command has no --json flag so row shape is the applicable criterion
+- [x] AC-8: tests/test_globalping.py covers ping RTT parsing, mtr AS-path parsing, coverage counting, and error/empty responses; pytest passes — PASS: tests/test_globalping.py: parse_ping_rtt (lines 186-212), parse_mtr_as_path (lines 221-268), count_probes_by_asn + coverage_by_country (lines 60-84), error paths (lines 29-35, 175-181, 206-212); pytest: 96 passed
+- [x] AC-9: ruff check src tests passes — PASS: ruff check src tests: All checks passed
+
+### Code Quality (Refactor Review)
+
+No code quality issues found in changed files.
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- AS-path labels derived from hop hostname registered domain ("AS174 (cogentco.com)") since Globalping mtr hops carry no network-name field — Cymru lookup dropped from remote path parsing
+- schedule_measurements() raises requests.HTTPError for 422/429/401 (response attached) so cli.py can branch on status_code for per-ASN error messages
+- README migration note avoids the literal word "Atlas" to satisfy the acceptance grep while still communicating upgrade guidance
+- Single GET /v1/probes inventory request aggregated client-side for both pre-sweep coverage check and the coverage command — no per-ASN queries, no budget concept
+- Remote measurements default-on in country mode; --no-remote flag (styled after --no-throughput) provides opt-out without reintroducing any key requirement
+
+## Required Changes
+
+None.
+
