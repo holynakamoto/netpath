@@ -263,7 +263,7 @@ def _build_coverage_html(a3_codes: list[str], raw_values: list[int], log_values:
 <html>
 <head>
   <meta charset="utf-8">
-  <title>netpath — Atlas coverage globe</title>
+  <title>netpath — Globalping coverage globe</title>
   <style>body{{margin:0;background:#0a0a1a}}#g{{width:100vw;height:100vh}}</style>
 </head>
 <body>
@@ -283,13 +283,13 @@ var trace = {{
     [0.4, '#533483'], [0.7, '#e94560'], [1.0, '#ff9800']
   ],
   colorbar: {{
-    title: 'Probes + Anchors<br>(log scale)',
+    title: 'Probes<br>(log scale)',
     bgcolor: 'rgba(0,0,0,0.6)',
     tickfont: {{color: '#ccc'}},
     titlefont: {{color: '#ccc'}}
   }},
   marker: {{line: {{color: '#333', width: 0.5}}}},
-  hovertemplate: '%{{location}}: %{{text}} probes+anchors<extra></extra>'
+  hovertemplate: '%{{location}}: %{{text}} probes<extra></extra>'
 }};
 var layout = {{
   geo: {{
@@ -307,7 +307,7 @@ var layout = {{
   }},
   paper_bgcolor: '#0a0a1a',
   font: {{color: '#ccc'}},
-  title: {{text: 'RIPE Atlas Coverage by Country', font: {{color: '#ccc', size: 18}}}}
+  title: {{text: 'Globalping Coverage by Country', font: {{color: '#ccc', size: 18}}}}
 }};
 Plotly.newPlot('g', [trace], layout, {{responsive: true}});
   </script>
@@ -316,7 +316,7 @@ Plotly.newPlot('g', [trace], layout, {{responsive: true}});
 
 
 def render_coverage(coverage: dict[str, int]) -> None:
-    """Render a choropleth globe showing Atlas probe+anchor density by country."""
+    """Render a choropleth globe showing Globalping probe density by country."""
     if not coverage:
         console.print(Panel(
             "  No coverage data to visualize.",
