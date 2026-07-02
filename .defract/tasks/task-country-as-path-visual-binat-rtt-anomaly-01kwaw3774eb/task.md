@@ -3,7 +3,7 @@ defract:
   id: task-country-as-path-visual-binat-rtt-anomaly-01kwaw3774eb
   type: bug
   status: active
-  stage: release
+  stage: implementation
   phase: 0
   total_phases: 2
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 ## Story Brief
 
