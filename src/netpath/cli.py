@@ -713,32 +713,52 @@ def country(
             )
         else:
             test_ip = country_mod.get_test_ip_for_asn(asn_str)
-            if not test_ip:
-                display.warn(f"Could not find a test IP for {asn_str} — skipping")
-                summary_rows.append({"asn": asn_str, "name": display.clean_asn_name(isp_name),
-                                     "as_path": [], "last_rtt_ms": None, "rum": None,
-                                     "path_complete": False, "verified_rtt_ms": None,
-                                     "entry_transit_asn": None, "stall_hop": None})
+            if test_ip:
+                if not no_remote:
+                    _gp_test_ips[asn_str] = test_ip
+                display.console.print(
+                    f"  [dim]→ {test_ip}  (Atlas probe trace target — no iperf3 server in {asn_str})[/dim]\n"
+                )
+                meta = {"HOST": test_ip, "SITE": isp_name, "COUNTRY": code,
+                        "asn": asn_str, "port": 5201}
+                r = _run_test(
+                    host=test_ip, port=5201,
+                    server_meta=meta, target_asn=asn_str,
+                    cycles=cycles, duration=duration,
+                    skip_throughput=True,
+                    show_server_heading=False,
+                    cf_token=cf_token,
+                    prefer_tcp=True,
+                    ecmp_passes=2,
+                    compare_v6=True,
+                )
+            elif asn_str in _gp_covered_asns:
+                # No live local target, but Globalping probes exist inside the
+                # ASN — measure remotely (ISP → tester) instead of tracing a
+                # dead address. The scheduling block below targets the
+                # tester's public IP for these rows.
+                display.console.print(
+                    f"  [dim]→ remote-only — no live trace target in {asn_str}; "
+                    f"Globalping probes will measure toward your public IP[/dim]\n"
+                )
+                summary_rows.append({
+                    "asn": asn_str,
+                    "name": display.clean_asn_name(isp_name),
+                    "remote_only": True,
+                })
                 continue
-
-            if not no_remote:
-                _gp_test_ips[asn_str] = test_ip
-            display.console.print(
-                f"  [dim]→ {test_ip}  (traceroute target — no iperf3 server in {asn_str})[/dim]\n"
-            )
-            meta = {"HOST": test_ip, "SITE": isp_name, "COUNTRY": code,
-                    "asn": asn_str, "port": 5201}
-            r = _run_test(
-                host=test_ip, port=5201,
-                server_meta=meta, target_asn=asn_str,
-                cycles=cycles, duration=duration,
-                skip_throughput=True,
-                show_server_heading=False,
-                cf_token=cf_token,
-                prefer_tcp=True,
-                ecmp_passes=2,
-                compare_v6=True,
-            )
+            else:
+                if no_remote:
+                    reason = "no iperf3 server or Atlas probe; remote measurement disabled (--no-remote)"
+                else:
+                    reason = "no iperf3 server, Atlas probe, or usable Globalping coverage"
+                display.console.print(f"  [dim]→ no coverage — {reason}[/dim]\n")
+                summary_rows.append({
+                    "asn": asn_str,
+                    "name": display.clean_asn_name(isp_name),
+                    "skip_reason": reason,
+                })
+                continue
 
         summary_rows.append({
             "asn":  asn_str,
@@ -755,10 +775,9 @@ def country(
 
         _pending_asns = [_ai["asn"] for _ai in top_asns if _ai["asn"] in _gp_covered_asns]
         for _idx, _asn_str in enumerate(_pending_asns):
-            _tip = _gp_test_ips.get(_asn_str)
-            if not _tip:
-                _set_globalping_error(summary_rows, _asn_str, "no test IP available")
-                continue
+            # Remote-only ISPs have no local target — point Globalping at the
+            # tester's public IP so the ISP → tester path is measured instead.
+            _tip = _gp_test_ips.get(_asn_str) or _user_public_ip
             try:
                 _mids = globalping_mod.schedule_measurements(
                     _asn_str, _tip, _user_public_ip, gp_token

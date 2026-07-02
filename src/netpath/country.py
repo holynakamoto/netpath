@@ -6,7 +6,6 @@ from collections import defaultdict
 from .asn import cymru_bulk_lookup_rich
 
 RIPE_COUNTRY_RESOURCES = "https://stat.ripe.net/data/country-resource-list/data.json"
-RIPE_PREFIXES          = "https://stat.ripe.net/data/announced-prefixes/data.json"
 RIPE_ATLAS_PROBES      = "https://atlas.ripe.net/api/v2/probes/"
 
 # Global CDN / cloud ASNs that appear in every country's allocation —
@@ -135,38 +134,10 @@ def _get_atlas_probe_ip(asn: str) -> str | None:
 
 
 def get_test_ip_for_asn(asn: str) -> str | None:
-    """Return a routable IPv4 in the ASN — Atlas probe first, RIPE prefix as fallback."""
-    atlas_ip = _get_atlas_probe_ip(asn)
-    if atlas_ip:
-        return atlas_ip
+    """Return a live IPv4 trace target in the ASN, or None.
 
-    asn_num = asn.lstrip("ASas")
-    try:
-        resp = requests.get(
-            RIPE_PREFIXES, params={"resource": f"AS{asn_num}"}, timeout=15
-        )
-        resp.raise_for_status()
-        prefixes = resp.json().get("data", {}).get("prefixes", [])
-    except Exception:
-        return None
-
-    # Build valid IPv4 networks sorted most-specific first (highest prefixlen)
-    ipv4_nets: list[ipaddress.IPv4Network] = []
-    for entry in prefixes:
-        prefix = entry.get("prefix", "")
-        if ":" in prefix:
-            continue
-        try:
-            net = ipaddress.IPv4Network(prefix, strict=False)
-            if not net.is_private and net.prefixlen >= 8:
-                ipv4_nets.append(net)
-        except ValueError:
-            continue
-
-    ipv4_nets.sort(key=lambda n: n.prefixlen, reverse=True)
-
-    for net in ipv4_nets:
-        hosts = list(net.hosts())
-        if len(hosts) >= 2:
-            return str(hosts[1])
-    return None
+    Only a connected RIPE Atlas probe address qualifies — it is known to be
+    alive. Addresses guessed from announced prefixes rarely answer and burn
+    the full prober budget before failing, so that fallback was removed.
+    """
+    return _get_atlas_probe_ip(asn)

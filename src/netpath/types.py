@@ -41,6 +41,8 @@ class MeasurementResult(TypedDict, total=False):
     path_changes: int
     hubs_v4: Optional[list]
     hubs_v6: Optional[list]
+    remote_only: bool
+    skip_reason: Optional[str]
     _trace_method: Optional[str]
     _trace_error: Optional[str]
     _iperf_upload: Optional[dict]
