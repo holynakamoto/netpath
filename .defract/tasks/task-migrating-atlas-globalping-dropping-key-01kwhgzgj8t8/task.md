@@ -3,7 +3,7 @@ defract:
   id: task-migrating-atlas-globalping-dropping-key-01kwhgzgj8t8
   type: bug
   status: active
-  stage: scope
+  stage: implementation
   phase: 0
   total_phases: 2
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 # Migrate from RIPE Atlas to Globalping and drop the API key requirement
 
