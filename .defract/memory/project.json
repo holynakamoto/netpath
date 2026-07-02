@@ -30,12 +30,12 @@
       "timestamp": "2026-07-02T12:11:06.855606+00:00"
     }
   ],
-  "usage_sweep_cursor": "2026-07-02T15:38:39Z",
+  "usage_sweep_cursor": "2026-07-02T16:49:12Z",
   "feedback_sweep_cursor": "2026-07-02T15:32:12.108Z",
   "last_emit_hashes": {
-    "decisions.md": "dcec2520d1ee8f24de826ed7eb0328dce44297cacaf46d905a87ea709e2e0e18",
-    "mistakes.md": "22dc31162f7b1cdea2323c56b8da6513430c260031b5dae80360031536c9d5ad",
     "builder-preferences.md": "647af80def437a14311602b3132b0a098e5f941da229b4a94f60a4103de40517",
+    "mistakes.md": "22dc31162f7b1cdea2323c56b8da6513430c260031b5dae80360031536c9d5ad",
+    "decisions.md": "dcec2520d1ee8f24de826ed7eb0328dce44297cacaf46d905a87ea709e2e0e18",
     "project-facts.md": "ff77800fd7ec9260feadd229c993b57a21c32ecf918f10d752cab0cfc6836273",
     "workflows.md": "fe0ef018bba98248fd8036982868181bf6c6217c27c709c6f40fcab54c519cdb"
   },
