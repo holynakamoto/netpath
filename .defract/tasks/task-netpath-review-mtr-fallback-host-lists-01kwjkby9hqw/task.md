@@ -248,3 +248,24 @@ None.
 - pytest: 155 passed (162 baseline minus the 7 deleted Atlas tests), ruff clean
 - `grep -r "netpath.atlas\|from .atlas" src tests` returns nothing; both files gone from the working tree
 - README section on the removed backend mentions the surviving keyless probe-address lookup
+
+## Phase 3: Stop tracking generated and virtual-environment files
+
+### What was built
+
+**Bulk git untracking (R11)**
+- Removed all 3,278 tracked generated/virtual-environment paths from the git index with `git rm -r --cached -- .venv src/netpath/__pycache__`, keeping every working copy on disk. Breakdown: 3,265 paths under `.venv/` and 13 under `src/netpath/__pycache__/` — every tracked `.pyc` lived inside those two trees, so the two-pathspec removal covered everything.
+- No source or `.gitignore` edits — the existing ignore rules (`.venv/`, `__pycache__/`, `*.pyc`, `src/netpath/_version.py`) were already correct and now take effect.
+- The 3,278 staged deletions are left in the index for the backend-driven phase approval commit (per the deferred-commit flow); verified `git add -A` re-adds none of them, so the approval sweep lands exactly the deletions.
+
+### Deviations from plan
+- `src/netpath/_version.py` turned out not to be tracked in the current index (contrary to the review finding), so no removal was needed for it — the acceptance criterion is satisfied as-is. Everything else matched the plan.
+
+### Files changed
+- No file content changed — index-only removal of 3,278 tracked paths (`.venv/**`, `src/netpath/__pycache__/**`)
+
+### Verification
+- `git ls-files | grep -E "\.venv/|__pycache__|\.pyc$|_version\.py"` returns nothing; staged diff is exactly 3,278 deletions and nothing else
+- Working tree intact: `.venv/` and `src/netpath/__pycache__/` still on disk; `netpath --help` runs from the editable install
+- pytest: 155 passed (unchanged), ruff clean
+- `git add -A` after the removal stages no re-additions — the ignore rules are effective

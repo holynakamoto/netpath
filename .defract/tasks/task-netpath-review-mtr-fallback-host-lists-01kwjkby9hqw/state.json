@@ -2,10 +2,10 @@
   "id": "task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw",
   "status": "active",
   "stage": "implementation",
-  "phase": 1,
+  "phase": 2,
   "totalPhases": 3,
   "createdAt": "2026-07-02T23:42:02Z",
-  "updatedAt": "2026-07-03T11:59:20Z",
+  "updatedAt": "2026-07-03T12:05:26Z",
   "events": [
     {
       "base_branch": "main",
@@ -427,6 +427,133 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "5979faf1ff6af195a4f0b6d09c34569ea0648a0f",
       "worktree_status_digest": "33df0fbbb1d720b0d71a0a8a47ebff61c58a8bc8e9f3a06b810aea61566f778a"
+    },
+    {
+      "approved_by": "user",
+      "phase": 1,
+      "phase_title": "Retire the dead Atlas measurement code and reconcile the docs",
+      "timestamp": "2026-07-03T12:01:58Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 1,
+      "timestamp": "2026-07-03T12:01:58Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-03T12:01:59Z",
+      "type": "worktree_synced"
+    },
+    {
+      "mode": "continue",
+      "session_id": "01kwkxptwhbdf90yvnsyk19zsb",
+      "stage": "implementation",
+      "timestamp": "2026-07-03T12:01:59Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "note": "Starting Phase 3: bulk git rm --cached of generated and virtual-environment files",
+      "phase": 2,
+      "stage": "implementation",
+      "timestamp": "2026-07-03T12:02:37Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 3: Stop tracking generated and virtual-environment files",
+      "percentage": 0,
+      "phase": 3,
+      "timestamp": "2026-07-03T12:02:44Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Removing .venv and __pycache__ paths from the git index (keeping working copies)",
+      "percentage": 20,
+      "phase": 3,
+      "timestamp": "2026-07-03T12:03:21Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Index cleaned (3,278 staged deletions) — running full check suite",
+      "percentage": 60,
+      "phase": 3,
+      "timestamp": "2026-07-03T12:03:53Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "pytest: 155 passed (unchanged from Phase 2 — no source edits this phase). ruff check src tests: clean. netpath CLI smoke check: editable install still works with .venv untracked. Index verification: 3,278 staged deletions, `git ls-files` reports zero .venv/, __pycache__/, or .pyc paths; `git add -A` re-adds nothing (ignore rules now effective). Note: src/netpath/_version.py was not actually tracked in the current index — no removal needed for it.",
+      "failed": 0,
+      "passed": 155,
+      "phase": 2,
+      "skipped": 0,
+      "timestamp": "2026-07-03T12:04:26Z",
+      "type": "test_results"
+    },
+    {
+      "change_summary": "Phase 3 complete: Stop tracking generated and virtual-environment files",
+      "revision": 3,
+      "stage": "implementation",
+      "timestamp": "2026-07-03T12:04:58Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "git index: 3278 staged deletions (.venv/**, src/netpath/__pycache__/**)"
+      ],
+      "phase": 2,
+      "summary": "Removed all 3,278 tracked generated/virtual-environment paths from the git index (3,265 under .venv/, 13 under src/netpath/__pycache__/ — all tracked .pyc files lived in those trees) via git rm -r --cached, keeping working copies on disk. src/netpath/_version.py was found not to be tracked, so no removal was needed for it. Verified git ls-files reports zero offenders, git add -A re-adds nothing (ignore rules now effective), the editable install still works, and pytest (155 passed) plus ruff stay clean. The staged deletions are left in the index for the backend-driven approval commit.",
+      "timestamp": "2026-07-03T12:05:07Z",
+      "type": "phase_completed"
+    },
+    {
+      "description": "Phase 3 implementation complete — awaiting approval",
+      "percentage": 100,
+      "phase": 3,
+      "timestamp": "2026-07-03T12:05:14Z",
+      "type": "progress_report"
+    },
+    {
+      "items": [
+        {
+          "description": "Confirm no ignored paths remain tracked: `git ls-files | grep -E \"\\.venv/|__pycache__|\\.pyc$|_version\\.py\"` prints nothing."
+        },
+        {
+          "description": "Confirm the staged change is deletions only: `git diff --cached --stat | tail -1` reports 3278 files changed with only deletions, and `git diff --cached --name-status | grep -cv '^D'` prints `0`."
+        },
+        {
+          "description": "Confirm working copies survived: `ls .venv/bin/netpath src/netpath/__pycache__` shows both still on disk."
+        },
+        {
+          "description": "Confirm the editable install still works from the untracked venv: `.venv/bin/netpath --help` prints the usage screen."
+        },
+        {
+          "description": "Confirm the ignore rules now bite: run `git add -A && git status --porcelain | grep -cv '^D '` and expect `0` — nothing under `.venv/` or `__pycache__/` gets re-added."
+        },
+        {
+          "description": "Run `pytest` (expect 155 passed, unchanged from Phase 2) and `ruff check src tests` (expect clean)."
+        }
+      ],
+      "phase": 2,
+      "phase_title": "Stop tracking generated and virtual-environment files",
+      "timestamp": "2026-07-03T12:05:19Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 3,
+      "phase_title": "Stop tracking generated and virtual-environment files",
+      "server_phase": 2,
+      "timestamp": "2026-07-03T12:05:26Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 2,
+      "phase_title": "Stop tracking generated and virtual-environment files",
+      "timestamp": "2026-07-03T12:05:26Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "914ff5d84934457cffc604317bc10a1c7c662b22",
+      "worktree_status_digest": "5d6825dc2111bdc46f15d1ce2973cccb8d05fedecd4b0854328feea73c2ec708"
     }
   ],
   "needsArchitecture": false,
@@ -447,16 +574,20 @@
     "scope": "2026-07-03T00:14:17Z"
   },
   "stageContent": {
-    "implementation": "## Phase 1: Behaviour fixes for probing, ranking, and remote verdicts\n\n### What was built\n\n**Prober fallback (R1-R5)**\n- `mtr.py`: new `traceroute_path()` resolver (PATH lookup via `shutil.which`, then an existence-and-executability check on `/usr/sbin/traceroute` for macOS shells; cached with `functools.lru_cache`) and `traceroute_available()`. `_run_traceroute_cmd()` now uses the resolved binary and raises a clear \"traceroute binary not found\" error when nothing resolves — no hardcoded path in command construction.\n- `cli.py` `_check_deps()`: exits only when no prober exists at all (mtr absent AND `paris.detect()` None AND traceroute unresolvable); the error names both install options.\n- `cli.py` `_trace()`: routes directly to `_fallback_trace()` when `mtr.available()` is false, alongside the existing `MtrPermissionError` path. The ECMP branch in `_measure()` is gated with `and mtr.available()` so multi-pass runs without mtr fall into the single-pass fallback branch (ECMP comparison skipped, same as the existing permission-error behaviour). The existing \"(mtr unavailable — using traceroute/Paris + Cymru ASN lookup)\" notice covers R3 unchanged.\n\n**Country ranking memory (R6)**\n- `country.py` `get_top_asns()`: sample IP derived arithmetically — `net.network_address + 1` for /30 and wider, the network address itself for /31 and /32. `list(net.hosts())` is gone; `ip_to_size` still uses `net.num_addresses`. Output is byte-identical to the old `hosts[0]` for all prefix lengths.\n\n**Remote-only verdicts (R7, R8)**\n- `cli.py`: the post-merge verdict recompute no longer requires an existing verdict key — any row whose Globalping loss or jitter merged gets `diagnose()` run, so remote-only rows gain verdicts, render `verdict X (near-target)` in the summary subrow (display support already existed), and flow into the exit-code collection unchanged.\n- `diagnosis.py` needed no changes: all reads are defensive `.get()` calls, and a missing `path_complete` key yields None (not False), so no spurious incomplete-path signal. Verified by tests.\n\n**Globalping auth (R9, R10)**\n- `globalping.py`: new `GlobalpingAuthError(RuntimeError)`; `fetch_probes()` raises it on HTTP 401/403 and keeps the `return []` contract for every other failure.\n- `cli.py` country: the inventory fetch is wrapped in try/except; auth failure prints the token-rejected message (worded per token presence — anonymous 401s do not blame a nonexistent token), suppresses the misleading \"No Globalping probes found\" line, and records \"invalid Globalping token\" / \"Globalping authentication failed\" on all rows instead of \"no Globalping coverage\". The `coverage` command also catches the error and exits 1 instead of tracebacking.\n\n### Deviations from plan\nNone. README needed no Phase 1 touch-up — the line 23 claim (\"falls back to traceroute if unavailable\") is now accurate as written.\n\n### Files changed\n- src/netpath/mtr.py\n- src/netpath/cli.py\n- src/netpath/country.py\n- src/netpath/globalping.py\n- tests/test_country.py (+5 tests)\n- tests/test_diagnosis.py (+2 tests)\n- tests/test_globalping.py (+3 tests)\n\n### Verification\n- pytest: 162 passed (153 baseline + 9 new), ruff clean\n- Live smoke: with `mtr.available` patched False, `_check_deps` passed and `_trace` completed a real 9-hop traceroute fallback via `/usr/sbin/traceroute`\n- Greps: no `list(net.hosts())` in country.py; `/usr/sbin/traceroute` appears only as the existence-checked `_TRACEROUTE_SBIN` constant\n\n## Phase 2: Retire the dead Atlas measurement code and reconcile the docs\n\n### What was built\n\n**Atlas dead-code removal (R12)**\n- Deleted `src/netpath/atlas.py` (316 lines: key-based scheduling, credit checks, result polling/parsing) and `tests/test_atlas.py` (its only importer — verified again this phase: no reference in `src/netpath/__init__.py`, `pyproject.toml`, or any production module). Removed via `git rm` so the deletions are staged for the approval commit.\n\n**Surviving keyless lookup documented (R13)**\n- `country.py` `_get_atlas_probe_ip()` docstring now states it is a public, keyless lookup against the RIPE Atlas probes API — no key, credits, or account — used only as a trace target, and is the sole remnant of the removed Atlas measurement backend.\n- `country.py` `get_test_target_for_asn()` docstring similarly clarifies the Atlas-preferred target comes from a keyless public query and that no Atlas measurements are scheduled.\n- The \"Atlas probe trace target\" display strings in cli.py (lines 779, 818, 820) are unchanged — they accurately describe this surviving lookup.\n\n**README reconciliation (R14)**\n- The \"Upgrading from earlier versions\" paragraph now names RIPE Atlas as the removed backend (making \"fully removed\" true as of this phase) and adds a sentence that one narrow touchpoint survives: a public, keyless lookup of the RIPE Atlas probes API in country mode, solely to discover a live trace-target address — no key, credits, or measurements involved.\n- The traceroute-fallback claim at README line 23 was verified accurate against the Phase 1 gate behaviour; no change needed.\n\n### Deviations from plan\nNone.\n\n### Files changed\n- src/netpath/atlas.py (deleted)\n- tests/test_atlas.py (deleted)\n- src/netpath/country.py (docstrings only)\n- README.md\n\n### Verification\n- pytest: 155 passed (162 baseline minus the 7 deleted Atlas tests), ruff clean\n- `grep -r \"netpath.atlas\\|from .atlas\" src tests` returns nothing; both files gone from the working tree\n- README section on the removed backend mentions the surviving keyless probe-address lookup"
+    "implementation": "## Phase 1: Behaviour fixes for probing, ranking, and remote verdicts\n\n### What was built\n\n**Prober fallback (R1-R5)**\n- `mtr.py`: new `traceroute_path()` resolver (PATH lookup via `shutil.which`, then an existence-and-executability check on `/usr/sbin/traceroute` for macOS shells; cached with `functools.lru_cache`) and `traceroute_available()`. `_run_traceroute_cmd()` now uses the resolved binary and raises a clear \"traceroute binary not found\" error when nothing resolves — no hardcoded path in command construction.\n- `cli.py` `_check_deps()`: exits only when no prober exists at all (mtr absent AND `paris.detect()` None AND traceroute unresolvable); the error names both install options.\n- `cli.py` `_trace()`: routes directly to `_fallback_trace()` when `mtr.available()` is false, alongside the existing `MtrPermissionError` path. The ECMP branch in `_measure()` is gated with `and mtr.available()` so multi-pass runs without mtr fall into the single-pass fallback branch (ECMP comparison skipped, same as the existing permission-error behaviour). The existing \"(mtr unavailable — using traceroute/Paris + Cymru ASN lookup)\" notice covers R3 unchanged.\n\n**Country ranking memory (R6)**\n- `country.py` `get_top_asns()`: sample IP derived arithmetically — `net.network_address + 1` for /30 and wider, the network address itself for /31 and /32. `list(net.hosts())` is gone; `ip_to_size` still uses `net.num_addresses`. Output is byte-identical to the old `hosts[0]` for all prefix lengths.\n\n**Remote-only verdicts (R7, R8)**\n- `cli.py`: the post-merge verdict recompute no longer requires an existing verdict key — any row whose Globalping loss or jitter merged gets `diagnose()` run, so remote-only rows gain verdicts, render `verdict X (near-target)` in the summary subrow (display support already existed), and flow into the exit-code collection unchanged.\n- `diagnosis.py` needed no changes: all reads are defensive `.get()` calls, and a missing `path_complete` key yields None (not False), so no spurious incomplete-path signal. Verified by tests.\n\n**Globalping auth (R9, R10)**\n- `globalping.py`: new `GlobalpingAuthError(RuntimeError)`; `fetch_probes()` raises it on HTTP 401/403 and keeps the `return []` contract for every other failure.\n- `cli.py` country: the inventory fetch is wrapped in try/except; auth failure prints the token-rejected message (worded per token presence — anonymous 401s do not blame a nonexistent token), suppresses the misleading \"No Globalping probes found\" line, and records \"invalid Globalping token\" / \"Globalping authentication failed\" on all rows instead of \"no Globalping coverage\". The `coverage` command also catches the error and exits 1 instead of tracebacking.\n\n### Deviations from plan\nNone. README needed no Phase 1 touch-up — the line 23 claim (\"falls back to traceroute if unavailable\") is now accurate as written.\n\n### Files changed\n- src/netpath/mtr.py\n- src/netpath/cli.py\n- src/netpath/country.py\n- src/netpath/globalping.py\n- tests/test_country.py (+5 tests)\n- tests/test_diagnosis.py (+2 tests)\n- tests/test_globalping.py (+3 tests)\n\n### Verification\n- pytest: 162 passed (153 baseline + 9 new), ruff clean\n- Live smoke: with `mtr.available` patched False, `_check_deps` passed and `_trace` completed a real 9-hop traceroute fallback via `/usr/sbin/traceroute`\n- Greps: no `list(net.hosts())` in country.py; `/usr/sbin/traceroute` appears only as the existence-checked `_TRACEROUTE_SBIN` constant\n\n## Phase 2: Retire the dead Atlas measurement code and reconcile the docs\n\n### What was built\n\n**Atlas dead-code removal (R12)**\n- Deleted `src/netpath/atlas.py` (316 lines: key-based scheduling, credit checks, result polling/parsing) and `tests/test_atlas.py` (its only importer — verified again this phase: no reference in `src/netpath/__init__.py`, `pyproject.toml`, or any production module). Removed via `git rm` so the deletions are staged for the approval commit.\n\n**Surviving keyless lookup documented (R13)**\n- `country.py` `_get_atlas_probe_ip()` docstring now states it is a public, keyless lookup against the RIPE Atlas probes API — no key, credits, or account — used only as a trace target, and is the sole remnant of the removed Atlas measurement backend.\n- `country.py` `get_test_target_for_asn()` docstring similarly clarifies the Atlas-preferred target comes from a keyless public query and that no Atlas measurements are scheduled.\n- The \"Atlas probe trace target\" display strings in cli.py (lines 779, 818, 820) are unchanged — they accurately describe this surviving lookup.\n\n**README reconciliation (R14)**\n- The \"Upgrading from earlier versions\" paragraph now names RIPE Atlas as the removed backend (making \"fully removed\" true as of this phase) and adds a sentence that one narrow touchpoint survives: a public, keyless lookup of the RIPE Atlas probes API in country mode, solely to discover a live trace-target address — no key, credits, or measurements involved.\n- The traceroute-fallback claim at README line 23 was verified accurate against the Phase 1 gate behaviour; no change needed.\n\n### Deviations from plan\nNone.\n\n### Files changed\n- src/netpath/atlas.py (deleted)\n- tests/test_atlas.py (deleted)\n- src/netpath/country.py (docstrings only)\n- README.md\n\n### Verification\n- pytest: 155 passed (162 baseline minus the 7 deleted Atlas tests), ruff clean\n- `grep -r \"netpath.atlas\\|from .atlas\" src tests` returns nothing; both files gone from the working tree\n- README section on the removed backend mentions the surviving keyless probe-address lookup\n\n## Phase 3: Stop tracking generated and virtual-environment files\n\n### What was built\n\n**Bulk git untracking (R11)**\n- Removed all 3,278 tracked generated/virtual-environment paths from the git index with `git rm -r --cached -- .venv src/netpath/__pycache__`, keeping every working copy on disk. Breakdown: 3,265 paths under `.venv/` and 13 under `src/netpath/__pycache__/` — every tracked `.pyc` lived inside those two trees, so the two-pathspec removal covered everything.\n- No source or `.gitignore` edits — the existing ignore rules (`.venv/`, `__pycache__/`, `*.pyc`, `src/netpath/_version.py`) were already correct and now take effect.\n- The 3,278 staged deletions are left in the index for the backend-driven phase approval commit (per the deferred-commit flow); verified `git add -A` re-adds none of them, so the approval sweep lands exactly the deletions.\n\n### Deviations from plan\n- `src/netpath/_version.py` turned out not to be tracked in the current index (contrary to the review finding), so no removal was needed for it — the acceptance criterion is satisfied as-is. Everything else matched the plan.\n\n### Files changed\n- No file content changed — index-only removal of 3,278 tracked paths (`.venv/**`, `src/netpath/__pycache__/**`)\n\n### Verification\n- `git ls-files | grep -E \"\\.venv/|__pycache__|\\.pyc$|_version\\.py\"` returns nothing; staged diff is exactly 3,278 deletions and nothing else\n- Working tree intact: `.venv/` and `src/netpath/__pycache__/` still on disk; `netpath --help` runs from the editable install\n- pytest: 155 passed (unchanged), ruff clean\n- `git add -A` after the removal stages no re-additions — the ignore rules are effective"
   },
   "stages": {
+    "design": {
+      "status": "skipped"
+    },
     "review": {
       "status": "not_started"
     },
-    "architecture": {
-      "status": "skipped"
+    "implementation": {
+      "status": "in_progress",
+      "startedAt": "2026-07-03T12:01:59Z"
     },
-    "design": {
+    "architecture": {
       "status": "skipped"
     },
     "scope": {
@@ -466,13 +597,9 @@
     },
     "release": {
       "status": "not_started"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-03T11:55:50Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-03T11:55:50Z"
+  "worktreeLastSyncedAt": "2026-07-03T12:01:59Z"
 }
