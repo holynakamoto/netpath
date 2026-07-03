@@ -105,7 +105,7 @@ netpath aspath AS14593 AS12400 --globe
 netpath citypath "Los Angeles" "Tokyo"
 ```
 
-This geocodes the source and destination cities, measures from Globalping probes in the source city, chooses the nearest connected RIPE Atlas IPv4 target near the destination city, and ranks the AS paths it observes.
+Quote multi-word city names. This geocodes the source and destination cities, measures from Globalping probes in the source city, chooses the nearest connected RIPE Atlas IPv4 target near the destination city, and ranks the AS paths it observes.
 
 Options:
 
@@ -218,6 +218,32 @@ netpath coverage --top 20 --globe
 ### Upgrading from earlier versions
 
 Earlier releases performed in-network measurements through a RIPE Atlas backend that required an API key and a credit balance. That backend has been fully removed: the old key flag no longer exists, its environment variable is obsolete and silently ignored (you can delete it from your shell profile), and the old coverage command is now `netpath coverage`. Nothing needs to be configured — in-network measurements work out of the box. One narrow Atlas touchpoint survives: country mode performs a public, keyless lookup of the RIPE Atlas probes API solely to discover a live trace-target address inside an ASN — no key, credits, or measurements are involved.
+
+## Maintainer Release Flow
+
+This repository expects releases to be cut from `main` with the local `release-tag` helper:
+
+```bash
+release-tag v0.23.0 "Describe the change"
+```
+
+The helper runs the full release path without an interactive prompt:
+
+1. Fetches `origin/main` and tags.
+2. Fails if the tag already exists locally or on GitHub.
+3. Verifies `main` has not diverged from `origin/main`.
+4. Runs `git diff --check`.
+5. Runs `uv run --extra dev pytest`.
+6. Stages and commits any current changes with the message you passed.
+7. Pushes `main`.
+8. Creates and pushes an annotated tag at the pushed commit.
+9. Verifies the remote tag points at the same commit as local `HEAD`.
+
+If you just updated the helper in `~/.zshrc`, reload your shell before releasing:
+
+```bash
+source ~/.zshrc
+```
 
 ## Cloudflare Radar RUM Overlay
 
