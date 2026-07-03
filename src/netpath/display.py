@@ -422,7 +422,7 @@ def _render_globalping_subrow(r: dict, is_last_in_group: bool) -> None:
     if jitter is not None:
         parts.append(f"jitter {jitter:.1f} ms")
     if path:
-        parts.append("outbound: " + "→".join(path[:6]))
+        parts.append("outbound: " + " → ".join(path[:6]))
     if (loss is not None or jitter is not None) and (r.get("verdict") or {}).get("verdict"):
         parts.append(f"verdict {r['verdict']['verdict']} (near-target)")
     if not parts:
@@ -586,6 +586,67 @@ def country_summary(code: str, results: list[dict]):
         console.print()
 
 
+def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) -> None:
+    """Render ranked Globalping AS-path candidates for source_asn -> dest_asn."""
+    candidates = result.get("candidates") or []
+    ping = result.get("ping_rtt") or {}
+    loss = result.get("ping_loss_pct")
+    jitter = result.get("ping_jitter_ms")
+
+    console.print()
+    console.rule(f" AS path {source_asn} → {dest_asn} ", style="bold cyan")
+    console.print(f"  [dim]Target:[/dim] {target_ip}")
+    metrics = []
+    if ping:
+        metrics.append(f"RTT {ping['avg']:.1f} ms avg ({ping['min']:.1f}-{ping['max']:.1f})")
+    if loss is not None:
+        metrics.append(f"loss {loss:.1f}%")
+    if jitter is not None:
+        metrics.append(f"jitter {jitter:.1f} ms")
+    if metrics:
+        console.print(f"  [dim]Probe aggregate:[/dim] {', '.join(metrics)}")
+    console.print()
+
+    if not candidates:
+        warn("No AS path could be derived from the Globalping MTR results.")
+        return
+
+    best = candidates[0]
+    console.print(
+        "  [bold green]Optimal measured path:[/bold green] "
+        + " [dim]→[/dim] ".join(best["path"])
+    )
+    console.print(
+        "  [dim]Ranking uses MTR RTT when available, then AS-hop count. "
+        "BGP policy control is outside netpath; this is the best measured path.[/dim]\n"
+    )
+
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style="bold cyan",
+        expand=False,
+        padding=(0, 1),
+    )
+    table.add_column("#", style="dim", justify="right", width=3)
+    table.add_column("RTT", justify="right", width=10)
+    table.add_column("AS hops", justify="right", width=8)
+    table.add_column("Probe", min_width=18)
+    table.add_column("Path", min_width=32)
+    for idx, candidate in enumerate(candidates, 1):
+        rtt = candidate.get("rtt_ms")
+        rtt_text = fmt_latency(rtt) if rtt is not None else Text("—", style="dim")
+        table.add_row(
+            str(idx),
+            rtt_text,
+            str(candidate.get("as_hops", len(candidate.get("path", [])))),
+            candidate.get("probe", "Globalping probe"),
+            " → ".join(candidate.get("path", [])),
+        )
+    console.print(table)
+    console.print()
+
+
 def bufferbloat_line(idle_ms: float | None, loaded_ms: float | None) -> None:
     idle_str = f"{idle_ms:.1f} ms" if idle_ms is not None else "—"
     if loaded_ms is None:
@@ -633,10 +694,13 @@ def verdict_panel(verdict: dict) -> None:
     else:
         label_text = label
 
-    lines = [f"  [{style}]{label_text}[/{style}]", f"  {detail}"]
-    if signals:
+    lines = [f"  [{style}]{label_text}[/{style}]"]
+    if detail:
+        lines.append(f"  {detail}")
+    extra_signals = [sig for sig in signals if sig.get("detail") != detail]
+    if extra_signals:
         lines.append("")
-        for sig in signals:
+        for sig in extra_signals:
             lines.append(f"  • {sig['detail']}")
 
     console.print(

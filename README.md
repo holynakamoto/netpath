@@ -68,9 +68,27 @@ Options:
 -c, --cycles INTEGER      mtr probe cycles (default: 10)
 --no-throughput           Skip throughput test
 --no-remote               Skip Globalping in-network measurements
+--compare-v6              Show IPv4/IPv6 traces side by side
+--ecmp-passes INTEGER     Run multiple mtr passes to detect path changes
+--show-ids                Show Globalping measurement IDs while scheduling
 --cf-token TEXT           Cloudflare API token (or set NETPATH_CF_TOKEN)
 --gp-token TEXT           Globalping token for a higher rate limit (optional; or set NETPATH_GLOBALPING_TOKEN)
 --globe                   Open interactive 3D globe after probes complete
+```
+
+### Compare AS paths between two ASNs
+
+```bash
+netpath aspath AS7922 AS7018
+```
+
+This schedules Globalping ping + MTR measurements from probes inside the source ASN toward a live target in the destination ASN, then ranks distinct AS paths by measured RTT and AS-hop count. It reports the best measured path plus any alternate paths visible from the selected probes.
+
+Options:
+
+```
+--gp-token TEXT           Globalping token for a higher rate limit (optional; or set NETPATH_GLOBALPING_TOKEN)
+--json                    Output results as JSON
 ```
 
 ### Probe coverage
@@ -135,7 +153,7 @@ netpath country ZA --top 10 --no-remote
 When Globalping probes exist in a target ASN, a `[Globalping]` row appears below the regular measurement showing the inbound RTT and the outbound AS path as seen from inside that ISP:
 
 ```
-  [Globalping] RTT 12.3 ms avg (9.8–15.1), outbound: AS37611→AS3356→AS7018
+  [Globalping] RTT 12.3 ms avg (9.8–15.1), outbound: AS37611 → AS3356 → AS7018
 ```
 
 When no probes exist in a target ASN, the tool reports "no Globalping coverage" and continues to the next ASN.

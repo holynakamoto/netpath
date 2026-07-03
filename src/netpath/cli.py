@@ -638,6 +638,9 @@ def country(
     globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probes"),
     gp_token:      Optional[str] = _GP_TOK,
     no_remote:     bool = typer.Option(False, "--no-remote", help="Skip Globalping in-network measurements"),
+    compare_v6:    bool = typer.Option(False, "--compare-v6", help="Run parallel IPv4/IPv6 traces in country mode"),
+    ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
+    show_ids:      bool = typer.Option(False, "--show-ids", help="Show Globalping measurement IDs while scheduling"),
 ):
     """Test the top N ASNs (by allocated IPv4 address space) for a country."""
     code = code.upper()
@@ -765,8 +768,8 @@ def country(
                 skip_throughput=not can_test_throughput,
                 show_server_heading=True,
                 cf_token=cf_token,
-                ecmp_passes=2,
-                compare_v6=True,
+                ecmp_passes=ecmp_passes,
+                compare_v6=compare_v6,
             )
         else:
             test_ip, target_origin = country_mod.get_test_target_for_asn(asn_str)
@@ -791,8 +794,8 @@ def country(
                     show_server_heading=False,
                     cf_token=cf_token,
                     prefer_tcp=True,
-                    ecmp_passes=2,
-                    compare_v6=True,
+                    ecmp_passes=ecmp_passes,
+                    compare_v6=compare_v6,
                 )
             elif asn_str in _gp_covered_asns:
                 # No live local target, but Globalping probes exist inside the
@@ -844,6 +847,7 @@ def country(
         _gp_mids: dict[str, dict[str, str]] = {}
 
         _pending_asns = [_ai["asn"] for _ai in top_asns if _ai["asn"] in _gp_covered_asns]
+        _scheduled_count = 0
         for _idx, _asn_str in enumerate(_pending_asns):
             # Remote-only ISPs have no local target — point Globalping at the
             # tester's public IP so the ISP → tester path is measured instead.
@@ -853,10 +857,12 @@ def country(
                     _asn_str, _tip, _user_public_ip, gp_token
                 )
                 _gp_mids[_asn_str] = _mids
-                display.console.print(
-                    f"  [dim]{_asn_str}: ping {_mids['ping']}  "
-                    f"mtr {_mids['mtr']}[/dim]"
-                )
+                _scheduled_count += 1
+                if show_ids:
+                    display.console.print(
+                        f"  [dim]{_asn_str}: ping {_mids['ping']}  "
+                        f"mtr {_mids['mtr']}[/dim]"
+                    )
             except requests.HTTPError as _e:
                 _status = _e.response.status_code if _e.response is not None else None
                 if _status == 422:
@@ -880,6 +886,11 @@ def country(
                 _set_globalping_error(summary_rows, _asn_str, str(_e))
 
         # Record no-probe ASNs
+        if _scheduled_count and not show_ids:
+            display.console.print(
+                f"  [dim]Scheduled {_scheduled_count} Globalping measurement "
+                f"pair{'s' if _scheduled_count != 1 else ''}[/dim]"
+            )
         for _ai in top_asns:
             if _ai["asn"] not in _gp_covered_asns:
                 _set_globalping_error(summary_rows, _ai["asn"], "no Globalping coverage")
@@ -957,6 +968,125 @@ def country(
     exit_code = _worst_exit_code(verdicts)
     if exit_code:
         raise typer.Exit(exit_code)
+
+
+@app.command("aspath")
+def aspath(
+    source:      str = typer.Argument(..., help="Source ASN, e.g. AS7922 or 7922"),
+    dest:        str = typer.Argument(..., help="Destination ASN, e.g. AS7018 or 7018"),
+    gp_token:    Optional[str] = _GP_TOK,
+    output_json: bool = typer.Option(False, "--json", help="Output results as JSON to stdout"),
+):
+    """Rank measured AS paths from probes inside one ASN toward another ASN."""
+    source_asn = normalize_asn(source)
+    dest_asn = normalize_asn(dest)
+    if not output_json:
+        display.header(__version__)
+        display.console.print(
+            f"[dim]Finding Globalping probes in [bold]{source_asn}[/bold] "
+            f"and a live target in [bold]{dest_asn}[/bold]…[/dim]\n"
+        )
+
+    try:
+        probes = globalping_mod.fetch_probes(gp_token)
+    except globalping_mod.GlobalpingAuthError:
+        if output_json:
+            print(json.dumps({"error": "Globalping authentication failed"}, indent=2))
+        else:
+            display.error("Globalping rejected the token from --gp-token / NETPATH_GLOBALPING_TOKEN")
+        raise typer.Exit(1)
+
+    probe_counts = globalping_mod.count_probes_by_asn(probes)
+    if not probe_counts.get(int(source_asn[2:])):
+        msg = f"No connected Globalping probes are currently available in {source_asn}"
+        if output_json:
+            print(json.dumps({"error": msg}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    target_ip = None
+    target_origin = None
+    found = servers.find_servers_in_asn(dest_asn, max_count=1)
+    if found:
+        target_ip = found[0]["HOST"]
+        target_origin = "iperf3"
+    else:
+        target_ip, target_origin = country_mod.get_test_target_for_asn(dest_asn)
+
+    if not target_ip:
+        msg = f"No live target found in {dest_asn}"
+        if output_json:
+            print(json.dumps({"error": msg}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    if not output_json:
+        origin = {
+            "iperf3": "iperf3 server",
+            "atlas": "Atlas probe address",
+            "peeringdb": "PeeringDB IXP address",
+        }.get(target_origin or "", "trace target")
+        display.console.print(f"[dim]Using {target_ip} ({origin}) as the destination target.[/dim]")
+        display.console.print("[dim]Scheduling Globalping ping + MTR…[/dim]\n")
+
+    try:
+        mids = globalping_mod.schedule_path_measurements(source_asn, target_ip, gp_token)
+    except requests.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else None
+        if status == 429:
+            msg = "Globalping rate limit reached — pass --gp-token for higher limits"
+        elif status == 422:
+            msg = f"No Globalping probes matched {source_asn}"
+        elif status == 401:
+            msg = "Globalping authentication failed"
+        else:
+            msg = str(exc)
+        if output_json:
+            print(json.dumps({"error": msg}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    statuses = globalping_mod.poll_until_done(list(mids.values()), gp_token)
+    result: dict = {
+        "source_asn": source_asn,
+        "dest_asn": dest_asn,
+        "target_ip": target_ip,
+        "target_origin": target_origin,
+        "measurement_ids": mids,
+        "statuses": statuses,
+        "candidates": [],
+    }
+
+    if statuses.get(mids["ping"]) == "finished":
+        ping_results = globalping_mod.fetch_results(mids["ping"], gp_token)
+        rtt = globalping_mod.parse_ping_rtt(ping_results)
+        if rtt:
+            result["ping_rtt"] = rtt
+        stats = globalping_mod.parse_ping_stats(ping_results)
+        if stats:
+            result["ping_packets"] = stats.get("packets")
+            if "loss_pct" in stats:
+                result["ping_loss_pct"] = stats["loss_pct"]
+            if "jitter_ms" in stats:
+                result["ping_jitter_ms"] = stats["jitter_ms"]
+
+    if statuses.get(mids["mtr"]) == "finished":
+        mtr_results = globalping_mod.fetch_results(mids["mtr"], gp_token)
+        result["candidates"] = globalping_mod.parse_mtr_path_candidates(mtr_results)
+
+    if result["candidates"]:
+        result["optimal_path"] = result["candidates"][0]
+
+    if output_json:
+        print(json.dumps(result, indent=2))
+    else:
+        display.aspath_report(source_asn, dest_asn, target_ip, result)
+
+    if not result["candidates"]:
+        raise typer.Exit(1)
 
 
 _COUNTRY_NAMES: dict[str, str] = {

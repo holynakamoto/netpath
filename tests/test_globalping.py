@@ -375,6 +375,44 @@ def test_parse_mtr_as_path_returns_empty_on_no_results():
     assert parse_mtr_as_path([]) == []
 
 
+def test_parse_mtr_path_candidates_ranks_distinct_paths():
+    from netpath.globalping import parse_mtr_path_candidates
+    results = [
+        _mtr_result([
+            {"asn": [64500], "resolvedHostname": "edge.source.example"},
+            {"asn": [3356], "resolvedHostname": "core.level3.net",
+             "stats": {"avg": 40.0}},
+            {"asn": [64501], "resolvedHostname": "dst.example.net",
+             "stats": {"avg": 55.0}},
+        ]),
+        _mtr_result([
+            {"asn": [64500], "resolvedHostname": "edge.source.example"},
+            {"asn": [1299], "resolvedHostname": "core.twelve99.net",
+             "stats": {"avg": 45.0}},
+            {"asn": [64501], "resolvedHostname": "dst.example.net",
+             "stats": {"avg": 50.0}},
+        ]),
+        _mtr_result([
+            {"asn": [64500], "resolvedHostname": "dup.source.example"},
+            {"asn": [1299], "resolvedHostname": "dup.twelve99.net",
+             "stats": {"avg": 42.0}},
+            {"asn": [64501], "resolvedHostname": "dup.example.net",
+             "stats": {"avg": 48.0}},
+        ]),
+    ]
+
+    candidates = parse_mtr_path_candidates(results)
+
+    assert len(candidates) == 2
+    assert candidates[0]["path"] == [
+        "AS64500 (source.example)",
+        "AS1299 (twelve99.net)",
+        "AS64501 (example.net)",
+    ]
+    assert candidates[0]["rtt_ms"] == 50.0
+    assert candidates[1]["path"][1] == "AS3356 (level3.net)"
+
+
 # --- get_public_ip ---
 
 def test_get_public_ip_returns_ip():

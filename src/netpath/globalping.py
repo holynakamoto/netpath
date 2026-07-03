@@ -135,6 +135,52 @@ def schedule_measurements(
     return {"ping": ping_id, "mtr": mtr_id}
 
 
+def schedule_path_measurements(
+    source_asn: str,
+    target_ip: str,
+    token: str | None = None,
+) -> dict[str, str]:
+    """
+    Schedule ping + mtr from probes inside source_asn toward target_ip.
+
+    This is used by the aspath command to compare candidate paths between two
+    ASNs as seen from Globalping probes in the source network.
+    """
+    asn_num = str(source_asn).lstrip("ASas")
+    locations = [{"magic": f"AS{asn_num}"}]
+
+    r = _with_retry(lambda: requests.post(
+        f"{_BASE}/measurements",
+        json={
+            "type": "ping",
+            "target": target_ip,
+            "locations": locations,
+            "limit": _PROBE_LIMIT,
+            "measurementOptions": {"packets": _PING_PACKETS},
+        },
+        headers=_hdr(token),
+        timeout=30,
+    ))
+    r.raise_for_status()
+    ping_id = r.json()["id"]
+
+    r = _with_retry(lambda: requests.post(
+        f"{_BASE}/measurements",
+        json={
+            "type": "mtr",
+            "target": target_ip,
+            "locations": locations,
+            "limit": _PROBE_LIMIT,
+        },
+        headers=_hdr(token),
+        timeout=30,
+    ))
+    r.raise_for_status()
+    mtr_id = r.json()["id"]
+
+    return {"ping": ping_id, "mtr": mtr_id}
+
+
 def poll_until_done(
     measurement_ids: list[str],
     token: str | None = None,
@@ -294,3 +340,76 @@ def parse_mtr_as_path(results: list[dict]) -> list[str]:
         if path_labels:
             return path_labels
     return []
+
+
+def _hop_avg_ms(hop: dict) -> float | None:
+    stats = hop.get("stats") or {}
+    for key in ("avg", "mean"):
+        val = stats.get(key)
+        if isinstance(val, (int, float)):
+            return float(val)
+    timings = hop.get("timings") or []
+    rtts = [
+        t.get("rtt") for t in timings
+        if isinstance(t, dict) and isinstance(t.get("rtt"), (int, float))
+    ]
+    if rtts:
+        return float(sum(rtts) / len(rtts))
+    return None
+
+
+def _probe_label(item: dict) -> str:
+    probe = item.get("probe") or {}
+    location = probe.get("location") or item.get("location") or {}
+    city = location.get("city")
+    country = location.get("country")
+    network = location.get("network")
+    parts = [p for p in (city, country, network) if p]
+    return ", ".join(parts) if parts else "Globalping probe"
+
+
+def parse_mtr_path_candidates(results: list[dict]) -> list[dict]:
+    """
+    Return ranked AS-path candidates from Globalping mtr results.
+
+    Each candidate has: path, as_hops, probe, rtt_ms. Consecutive duplicate ASNs
+    are collapsed. Multiple probes can reveal different policy paths from the
+    same source ASN; callers can rank these alongside ping loss/jitter.
+    """
+    candidates: list[dict] = []
+    seen: set[tuple[str, ...]] = set()
+    for item in results:
+        hops = item.get("result", {}).get("hops", [])
+        path_asns: list[int] = []
+        path_labels: list[str] = []
+        final_rtt = None
+        for hop in hops:
+            hop_rtt = _hop_avg_ms(hop)
+            if hop_rtt is not None:
+                final_rtt = hop_rtt
+            asns = hop.get("asn") or []
+            if not asns:
+                continue
+            asn = asns[0]
+            if path_asns and path_asns[-1] == asn:
+                continue
+            domain = _hostname_domain(hop.get("resolvedHostname"))
+            label = f"AS{asn} ({domain})" if domain else f"AS{asn}"
+            path_asns.append(asn)
+            path_labels.append(label)
+        key = tuple(path_labels)
+        if not path_labels or key in seen:
+            continue
+        seen.add(key)
+        candidates.append({
+            "path": path_labels,
+            "as_hops": len(path_labels),
+            "probe": _probe_label(item),
+            "rtt_ms": round(final_rtt, 2) if final_rtt is not None else None,
+        })
+    candidates.sort(key=lambda c: (
+        c["rtt_ms"] is None,
+        c["rtt_ms"] if c["rtt_ms"] is not None else 0,
+        c["as_hops"],
+    ))
+    return candidates
