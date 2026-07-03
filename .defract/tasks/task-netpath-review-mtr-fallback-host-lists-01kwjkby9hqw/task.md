@@ -218,3 +218,33 @@ None. README needed no Phase 1 touch-up — the line 23 claim ("falls back to tr
 - pytest: 162 passed (153 baseline + 9 new), ruff clean
 - Live smoke: with `mtr.available` patched False, `_check_deps` passed and `_trace` completed a real 9-hop traceroute fallback via `/usr/sbin/traceroute`
 - Greps: no `list(net.hosts())` in country.py; `/usr/sbin/traceroute` appears only as the existence-checked `_TRACEROUTE_SBIN` constant
+
+## Phase 2: Retire the dead Atlas measurement code and reconcile the docs
+
+### What was built
+
+**Atlas dead-code removal (R12)**
+- Deleted `src/netpath/atlas.py` (316 lines: key-based scheduling, credit checks, result polling/parsing) and `tests/test_atlas.py` (its only importer — verified again this phase: no reference in `src/netpath/__init__.py`, `pyproject.toml`, or any production module). Removed via `git rm` so the deletions are staged for the approval commit.
+
+**Surviving keyless lookup documented (R13)**
+- `country.py` `_get_atlas_probe_ip()` docstring now states it is a public, keyless lookup against the RIPE Atlas probes API — no key, credits, or account — used only as a trace target, and is the sole remnant of the removed Atlas measurement backend.
+- `country.py` `get_test_target_for_asn()` docstring similarly clarifies the Atlas-preferred target comes from a keyless public query and that no Atlas measurements are scheduled.
+- The "Atlas probe trace target" display strings in cli.py (lines 779, 818, 820) are unchanged — they accurately describe this surviving lookup.
+
+**README reconciliation (R14)**
+- The "Upgrading from earlier versions" paragraph now names RIPE Atlas as the removed backend (making "fully removed" true as of this phase) and adds a sentence that one narrow touchpoint survives: a public, keyless lookup of the RIPE Atlas probes API in country mode, solely to discover a live trace-target address — no key, credits, or measurements involved.
+- The traceroute-fallback claim at README line 23 was verified accurate against the Phase 1 gate behaviour; no change needed.
+
+### Deviations from plan
+None.
+
+### Files changed
+- src/netpath/atlas.py (deleted)
+- tests/test_atlas.py (deleted)
+- src/netpath/country.py (docstrings only)
+- README.md
+
+### Verification
+- pytest: 155 passed (162 baseline minus the 7 deleted Atlas tests), ruff clean
+- `grep -r "netpath.atlas\|from .atlas" src tests` returns nothing; both files gone from the working tree
+- README section on the removed backend mentions the surviving keyless probe-address lookup
