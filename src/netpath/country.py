@@ -63,10 +63,13 @@ def get_top_asns(country_code: str, top_n: int = 4) -> list[dict]:
             net = ipaddress.IPv4Network(prefix_str, strict=False)
             if net.is_private:
                 continue
-            hosts = list(net.hosts())
-            if not hosts:
-                continue
-            ip = str(hosts[0])
+            # First usable host via arithmetic — never materialize net.hosts(),
+            # which allocates every address in the prefix. /31 and /32 have no
+            # distinct first host, so the network address itself is used.
+            if net.prefixlen >= 31:
+                ip = str(net.network_address)
+            else:
+                ip = str(net.network_address + 1)
             sample_ips.append(ip)
             ip_to_size[ip] = net.num_addresses
         except ValueError:

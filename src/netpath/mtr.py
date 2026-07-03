@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import functools
 import json
 import math
+import os
 import re
 import shutil
 import statistics
@@ -56,6 +58,26 @@ def _enrich_names(hubs: list[dict]) -> None:
 
 def available() -> bool:
     return shutil.which("mtr") is not None
+
+
+_TRACEROUTE_SBIN = "/usr/sbin/traceroute"
+
+
+@functools.lru_cache(maxsize=1)
+def traceroute_path() -> "str | None":
+    """Resolve the traceroute binary once per process: PATH lookup first,
+    then /usr/sbin/traceroute for macOS shells where /usr/sbin is not on PATH.
+    Returns None when neither resolves."""
+    path = shutil.which("traceroute")
+    if path:
+        return path
+    if os.path.isfile(_TRACEROUTE_SBIN) and os.access(_TRACEROUTE_SBIN, os.X_OK):
+        return _TRACEROUTE_SBIN
+    return None
+
+
+def traceroute_available() -> bool:
+    return traceroute_path() is not None
 
 
 _SOCKET_ERR_MARKERS = ("failure to open", "operation not permitted", "permission denied")
@@ -219,7 +241,10 @@ def _run_traceroute_cmd(host: str, tcp: bool = False, probes: int = 2) -> list[d
     tcp=True uses TCP SYN to port 443 (requires pcap — may fail on macOS without privs).
     """
     effective_probes = max(1, min(probes, TRACEROUTE_MAX_PROBES))
-    cmd = ["/usr/sbin/traceroute", "-n", "-w", "1", "-m", "30", "-q", str(effective_probes)]
+    binary = traceroute_path()
+    if binary is None:
+        raise RuntimeError("traceroute binary not found — install traceroute or add it to PATH")
+    cmd = [binary, "-n", "-w", "1", "-m", "30", "-q", str(effective_probes)]
     if tcp:
         cmd += ["-P", "tcp", "-p", "443"]
     cmd.append(host)

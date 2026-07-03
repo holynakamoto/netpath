@@ -150,8 +150,11 @@ def _run_ping_probe_sync(host: str, duration: int) -> Optional[float]:
 
 
 def _check_deps(no_throughput: bool) -> bool:
-    if not mtr.available():
-        display.error("mtr not found — install with: brew install mtr")
+    if not mtr.available() and paris.detect() is None and not mtr.traceroute_available():
+        display.error(
+            "no path prober found — install mtr (brew install mtr / apt install mtr) "
+            "or traceroute (apt install traceroute; ships with macOS at /usr/sbin/traceroute)"
+        )
         raise typer.Exit(1)
     return no_throughput
 
@@ -168,6 +171,8 @@ def _fallback_trace(host: str, cycles: int, prefer_tcp: bool = False) -> tuple[l
 
 
 def _trace(host: str, cycles: int, prefer_tcp: bool = False) -> tuple[list[dict], str]:
+    if not mtr.available():
+        return _fallback_trace(host, cycles, prefer_tcp=prefer_tcp)
     try:
         return mtr.run(host, cycles=cycles), "mtr"
     except mtr.MtrPermissionError:
@@ -268,7 +273,7 @@ def _measure(host: str, port: int, target_asn: str,
             except Exception:
                 result["hubs_v6"] = None
 
-        elif ecmp_passes > 1:
+        elif ecmp_passes > 1 and mtr.available():
             try:
                 all_passes = mtr.run(host, cycles=cycles, passes=ecmp_passes)
                 comparison = mtr._compare_as_paths(all_passes)
@@ -690,13 +695,28 @@ def country(
     _gp_covered_asns: set[str] = set()          # ASNs with at least one connected probe
     _gp_test_ips: dict[str, str] = {}           # asn → test IP for ping target
     _user_public_ip: Optional[str] = None
+    _gp_auth_failed = False
 
     if not no_remote:
         display.console.print("[dim]Discovering Globalping probes…[/dim]")
-        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                      console=display.console, transient=True) as p:
-            p.add_task("Fetching Globalping probe inventory…", total=None)
-            _gp_probes = globalping_mod.fetch_probes(gp_token)
+        try:
+            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                          console=display.console, transient=True) as p:
+                p.add_task("Fetching Globalping probe inventory…", total=None)
+                _gp_probes = globalping_mod.fetch_probes(gp_token)
+        except globalping_mod.GlobalpingAuthError:
+            if gp_token:
+                display.error(
+                    "Globalping rejected the token from --gp-token / "
+                    "NETPATH_GLOBALPING_TOKEN — skipping remote measurements"
+                )
+            else:
+                display.error(
+                    "Globalping rejected the probe inventory request as unauthorized "
+                    "— skipping remote measurements"
+                )
+            _gp_probes = []
+            _gp_auth_failed = True
         _gp_asn_counts = globalping_mod.count_probes_by_asn(_gp_probes)
         for _ai in top_asns:
             if _gp_asn_counts.get(int(normalize_asn(_ai["asn"])[2:])):
@@ -712,7 +732,7 @@ def country(
                     f"[green]✓[/green] Globalping probes found in "
                     f"{len(_gp_covered_asns)}/{len(top_asns)} ASNs\n"
                 )
-        else:
+        elif not _gp_auth_failed:
             display.console.print(
                 "[dim]No Globalping probes found in any target ASN — skipping remote measurements[/dim]\n"
             )
@@ -909,16 +929,21 @@ def country(
                     _row["globalping"] = _gp_data
 
     elif not no_remote:
-        # No probes found or public IP unavailable — record for all ASNs
+        # No probes found, auth failure, or public IP unavailable — record for all ASNs
+        if _gp_auth_failed:
+            _gp_msg = "invalid Globalping token" if gp_token else "Globalping authentication failed"
+        else:
+            _gp_msg = "no Globalping coverage"
         for _ai in top_asns:
-            _set_globalping_error(summary_rows, _ai["asn"], "no Globalping coverage")
+            _set_globalping_error(summary_rows, _ai["asn"], _gp_msg)
 
     # Re-derive verdicts for rows that gained near-target figures — diagnose()
-    # already ran inside _measure() before the Globalping merge, so the summary
-    # table and exit code would otherwise ignore the remote data.
+    # already ran inside _measure() before the Globalping merge (and never ran
+    # at all for remote-only rows), so the summary table and exit code would
+    # otherwise ignore the remote data.
     for _row in summary_rows:
         _gp = _row.get("globalping") or {}
-        if _row.get("verdict") and (
+        if (
             _gp.get("ping_loss_pct") is not None
             or _gp.get("ping_jitter_ms") is not None
         ):
@@ -982,7 +1007,16 @@ def coverage(
 ):
     """Show Globalping probe coverage ranked by country."""
     display.header(__version__)
-    probes = globalping_mod.fetch_probes(gp_token)
+    try:
+        probes = globalping_mod.fetch_probes(gp_token)
+    except globalping_mod.GlobalpingAuthError:
+        if gp_token:
+            display.error(
+                "Globalping rejected the token from --gp-token / NETPATH_GLOBALPING_TOKEN"
+            )
+        else:
+            display.error("Globalping rejected the probe inventory request as unauthorized")
+        raise typer.Exit(1)
     coverage_map = globalping_mod.coverage_by_country(probes)
 
     if not coverage_map:

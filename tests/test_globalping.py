@@ -35,6 +35,43 @@ def test_fetch_probes_returns_empty_on_error():
     assert result == []
 
 
+def _http_error_response(status: int) -> MagicMock:
+    mock_resp = MagicMock()
+    mock_resp.status_code = status
+    mock_resp.raise_for_status.side_effect = req_lib.HTTPError(
+        f"HTTP {status}", response=mock_resp
+    )
+    return mock_resp
+
+
+def test_fetch_probes_raises_auth_error_on_401():
+    """fetch_probes() surfaces an invalid token as GlobalpingAuthError, not []."""
+    import pytest
+    from netpath.globalping import fetch_probes, GlobalpingAuthError
+    with patch("netpath.globalping.requests.get",
+               return_value=_http_error_response(401)):
+        with pytest.raises(GlobalpingAuthError):
+            fetch_probes(token="bad-token")
+
+
+def test_fetch_probes_raises_auth_error_on_403():
+    """fetch_probes() surfaces a forbidden token as GlobalpingAuthError."""
+    import pytest
+    from netpath.globalping import fetch_probes, GlobalpingAuthError
+    with patch("netpath.globalping.requests.get",
+               return_value=_http_error_response(403)):
+        with pytest.raises(GlobalpingAuthError):
+            fetch_probes(token="limited-token")
+
+
+def test_fetch_probes_returns_empty_on_other_http_error():
+    """fetch_probes() keeps the [] contract for non-auth HTTP failures."""
+    from netpath.globalping import fetch_probes
+    with patch("netpath.globalping.requests.get",
+               return_value=_http_error_response(404)):
+        assert fetch_probes() == []
+
+
 def test_fetch_probes_sends_bearer_header_with_token():
     """fetch_probes() carries Authorization: Bearer when a token is set."""
     from netpath.globalping import fetch_probes

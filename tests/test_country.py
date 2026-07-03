@@ -11,6 +11,14 @@ from netpath.cli import _worst_exit_code
 from netpath import mtr as mtr_mod
 
 
+def _ripe_response(prefixes: list) -> MagicMock:
+    """Build a mock requests.Response for the RIPE country-resource-list API."""
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"data": {"resources": {"ipv4": prefixes}}}
+    mock_resp.raise_for_status.return_value = None
+    return mock_resp
+
+
 def _atlas_response(probes: list) -> MagicMock:
     """Build a mock requests.Response for the Atlas probes API."""
     mock_resp = MagicMock()
@@ -110,6 +118,75 @@ def test_netixlan_ipv4_caches_per_asn():
 
     assert first == second == "185.1.2.3"
     assert mock_get.call_count == 1  # second lookup served from cache
+
+
+def test_get_top_asns_first_host_arithmetic():
+    """One sample IP per prefix, derived arithmetically: first usable host for
+    /30 and wider, the network address itself for /31 and /32. A wide prefix
+    (/8) costs no more than a /32 — list(net.hosts()) is never materialized."""
+    from netpath.country import get_top_asns
+    ripe = _ripe_response([
+        "5.0.0.0/8",     # wide prefix — would allocate ~16M objects via list(net.hosts())
+        "8.8.8.0/24",
+        "9.9.9.8/31",
+        "1.1.1.1/32",
+        "not-a-prefix",  # malformed entries keep being swallowed
+    ])
+    captured: dict = {}
+
+    def fake_cymru(ips):
+        captured["ips"] = list(ips)
+        return {ip: {"asn": "AS64500", "name": "Example ISP"} for ip in ips}
+
+    with patch("netpath.country.requests.get", return_value=ripe), \
+         patch("netpath.country.cymru_bulk_lookup_rich", side_effect=fake_cymru):
+        result = get_top_asns("ZZ", top_n=1)
+
+    assert captured["ips"] == ["5.0.0.1", "8.8.8.1", "9.9.9.8", "1.1.1.1"]
+    assert result[0]["asn"] == "AS64500"
+    assert result[0]["prefix_count"] == 4
+    assert result[0]["addresses"] == 2**24 + 256 + 2 + 1
+
+
+def test_check_deps_passes_without_mtr_when_traceroute_present():
+    """The dependency gate lets the run proceed when mtr is absent but a
+    fallback prober (traceroute) resolves."""
+    from netpath import cli
+    with patch("netpath.cli.mtr.available", return_value=False), \
+         patch("netpath.cli.paris.detect", return_value=None), \
+         patch("netpath.cli.mtr.traceroute_available", return_value=True):
+        assert cli._check_deps(True) is True
+
+
+def test_check_deps_exits_when_no_prober_at_all():
+    """With mtr, Paris probers, and traceroute all unavailable, the gate exits 1
+    with an error naming both install options."""
+    import pytest
+    import typer
+    from netpath import cli
+    with patch("netpath.cli.mtr.available", return_value=False), \
+         patch("netpath.cli.paris.detect", return_value=None), \
+         patch("netpath.cli.mtr.traceroute_available", return_value=False), \
+         patch("netpath.cli.display.error") as mock_err:
+        with pytest.raises(typer.Exit) as exc_info:
+            cli._check_deps(False)
+    assert exc_info.value.exit_code == 1
+    msg = mock_err.call_args[0][0]
+    assert "mtr" in msg and "traceroute" in msg
+
+
+def test_trace_routes_to_fallback_when_mtr_absent():
+    """_trace() goes straight to the fallback prober when mtr is not installed,
+    without attempting to run mtr."""
+    from netpath import cli
+    hub = [{"count": 1, "host": "192.0.2.1"}]
+    with patch("netpath.cli.mtr.available", return_value=False), \
+         patch("netpath.cli._fallback_trace", return_value=(hub, "traceroute")) as mock_fb, \
+         patch("netpath.cli.mtr.run") as mock_run:
+        hubs, method = cli._trace("192.0.2.1", cycles=5)
+    assert (hubs, method) == (hub, "traceroute")
+    mock_fb.assert_called_once()
+    mock_run.assert_not_called()
 
 
 def test_rows_without_verdict_do_not_affect_exit_code():

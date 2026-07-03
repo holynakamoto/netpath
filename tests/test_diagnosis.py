@@ -384,3 +384,41 @@ def test_routing_loop_no_repeat():
     """Unique AS path produces no routing_loop signal."""
     result = diagnose({"as_path": ["AS1", "AS2", "AS3", "AS4"]})
     assert not any(s["condition"] == "routing_loop" for s in result["signals"])
+
+
+def test_remote_only_row_healthy():
+    # A remote-only summary row: merged Globalping metrics plus optional RUM,
+    # no hubs, no local trace, no throughput. Must produce a clean verdict
+    # without raising and without spurious signals from absent local probes.
+    row = {
+        "asn": "AS64500",
+        "name": "Remote Only ISP",
+        "remote_only": True,
+        "rum": None,
+        "globalping": {
+            "measurement_ids": {"ping": "p1", "mtr": "m1"},
+            "ping_rtt": {"min": 5.0, "avg": 6.0, "max": 7.0},
+            "ping_loss_pct": 0.0,
+            "ping_jitter_ms": 1.2,
+            "ping_packets": 48,
+            "outbound_as_path": ["AS64500", "AS174"],
+        },
+    }
+    result = diagnose(row)
+    assert result["verdict"] == "Healthy"
+    assert result["severity"] == "ok"
+    assert result["signals"] == []
+
+
+def test_remote_only_row_loss_sets_warning():
+    # Globalping loss above threshold on a remote-only row must yield a warning
+    # verdict so the row can raise the exit code.
+    row = {
+        "asn": "AS64500",
+        "name": "Remote Only ISP",
+        "remote_only": True,
+        "globalping": {"ping_loss_pct": 12.5, "ping_jitter_ms": 1.0, "ping_packets": 48},
+    }
+    result = diagnose(row)
+    assert result["verdict"] == "Near-target Packet Loss"
+    assert result["severity"] == "warning"

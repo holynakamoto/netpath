@@ -37,8 +37,16 @@ def get_public_ip() -> str | None:
         return None
 
 
+class GlobalpingAuthError(RuntimeError):
+    """The Globalping API rejected the request as unauthorized (HTTP 401/403)."""
+
+
 def fetch_probes(token: str | None = None) -> list[dict]:
-    """Return all currently connected Globalping probes. Returns [] on failure."""
+    """Return all currently connected Globalping probes.
+
+    Raises GlobalpingAuthError on HTTP 401/403 (rejected token) so callers can
+    report an authentication problem instead of missing coverage. Returns []
+    on any other failure so remote measurements are skipped gracefully."""
     try:
         r = _with_retry(lambda: requests.get(
             f"{_BASE}/probes",
@@ -48,6 +56,12 @@ def fetch_probes(token: str | None = None) -> list[dict]:
         r.raise_for_status()
         data = r.json()
         return data if isinstance(data, list) else []
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code in (401, 403):
+            raise GlobalpingAuthError(
+                f"Globalping probe inventory request rejected (HTTP {e.response.status_code})"
+            ) from e
+        return []
     except Exception:
         return []
 
