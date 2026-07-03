@@ -162,7 +162,7 @@ netpath coverage --top 20 --globe
 
 ### Upgrading from earlier versions
 
-Earlier releases performed in-network measurements through a backend that required an API key and a credit balance. That backend has been fully removed: the old key flag no longer exists, its environment variable is obsolete and silently ignored (you can delete it from your shell profile), and the old coverage command is now `netpath coverage`. Nothing needs to be configured — in-network measurements work out of the box.
+Earlier releases performed in-network measurements through a RIPE Atlas backend that required an API key and a credit balance. That backend has been fully removed: the old key flag no longer exists, its environment variable is obsolete and silently ignored (you can delete it from your shell profile), and the old coverage command is now `netpath coverage`. Nothing needs to be configured — in-network measurements work out of the box. One narrow Atlas touchpoint survives: country mode performs a public, keyless lookup of the RIPE Atlas probes API solely to discover a live trace-target address inside an ASN — no key, credits, or measurements are involved.
 
 ## Cloudflare Radar RUM Overlay
 
