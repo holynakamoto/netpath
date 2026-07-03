@@ -3,7 +3,7 @@ defract:
   id: task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw
   type: bug
   status: active
-  stage: implementation
+  stage: review
   phase: 0
   total_phases: 3
   priority: normal
@@ -13,6 +13,7 @@ defract:
   created_by: holynakamoto
   assignee: holynakamoto
 ---
+
 
 # Netpath review fixes: mtr fallback, host lists, Globalping verdicts
 

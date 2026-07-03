@@ -1,11 +1,11 @@
 {
   "id": "task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw",
   "status": "active",
-  "stage": "implementation",
-  "phase": 2,
+  "stage": "review",
+  "phase": 3,
   "totalPhases": 3,
   "createdAt": "2026-07-02T23:42:02Z",
-  "updatedAt": "2026-07-03T12:05:26Z",
+  "updatedAt": "2026-07-03T12:15:28Z",
   "events": [
     {
       "base_branch": "main",
@@ -554,6 +554,86 @@
       "type": "phase_awaiting_approval",
       "worktree_head": "914ff5d84934457cffc604317bc10a1c7c662b22",
       "worktree_status_digest": "5d6825dc2111bdc46f15d1ce2973cccb8d05fedecd4b0854328feea73c2ec708"
+    },
+    {
+      "approved_by": "user",
+      "phase": 2,
+      "phase_title": "Stop tracking generated and virtual-environment files",
+      "timestamp": "2026-07-03T12:12:12Z",
+      "type": "phase_approved"
+    },
+    {
+      "checked_indices": [],
+      "phase": 2,
+      "timestamp": "2026-07-03T12:12:12Z",
+      "type": "manual_tests_checks_persisted"
+    },
+    {
+      "stage": "implementation",
+      "summary": "All phases approved — implementation ready for review.",
+      "timestamp": "2026-07-03T12:12:12Z",
+      "type": "stage_work_complete",
+      "worktree_head": "f3f5d5aab7969da00b76d587c87e250184589050",
+      "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 1,
+      "timestamp": "2026-07-03T12:12:13Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "implementation",
+      "timestamp": "2026-07-03T12:12:13Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "b223c5897a0220f064a8714e5477213a1b9dee8e",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "implementation",
+      "stale_worktree_head": "f3f5d5aab7969da00b76d587c87e250184589050",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-03T12:12:13Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "implementation",
+      "timestamp": "2026-07-03T12:12:13Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "implementation",
+      "timestamp": "2026-07-03T12:12:13Z",
+      "to": "review",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-03T12:12:13Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "model": "sonnet",
+      "session_id": "01kwky9k0w9nz07pfr0czej4m6",
+      "stage": "review",
+      "timestamp": "2026-07-03T12:12:13Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "details": "pytest: 155 passed (the 7 Atlas tests removed in Phase 2 are intentionally absent). ruff check src tests: all checks passed. Both suites clean across all three phases.",
+      "failed": 0,
+      "passed": 155,
+      "phase": 3,
+      "skipped": 0,
+      "timestamp": "2026-07-03T12:15:28Z",
+      "type": "test_results"
     }
   ],
   "needsArchitecture": false,
@@ -571,6 +651,7 @@
     "rationale": "Seven review-surfaced bug fixes in a CLI tool: no UI exists, so design is skipped. Each fix is well-contained to 1-2 files following existing patterns (dependency gate, binary resolution, arithmetic replacement, verdict recomputation, exception surfacing, file deletion, git index cleanup) — no new system boundaries, so architecture is skipped; detailed per-phase Files/Verification are in the scope instead. Review is included because the diagnose()-on-remote-only-rows change and the prober-gate rework carry behavioural risk."
   },
   "stageApprovals": {
+    "implementation": "2026-07-03T12:12:13Z",
     "scope": "2026-07-03T00:14:17Z"
   },
   "stageContent": {
@@ -580,26 +661,28 @@
     "design": {
       "status": "skipped"
     },
-    "review": {
+    "release": {
       "status": "not_started"
-    },
-    "implementation": {
-      "status": "in_progress",
-      "startedAt": "2026-07-03T12:01:59Z"
     },
     "architecture": {
       "status": "skipped"
+    },
+    "implementation": {
+      "status": "approved",
+      "approvedAt": "2026-07-03T12:12:13Z",
+      "startedAt": "2026-07-03T12:01:59Z"
+    },
+    "review": {
+      "status": "in_progress",
+      "startedAt": "2026-07-03T12:12:13Z"
     },
     "scope": {
       "status": "approved",
       "approvedAt": "2026-07-03T00:14:17Z",
       "startedAt": "2026-07-02T23:48:32Z"
-    },
-    "release": {
-      "status": "not_started"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-03T12:01:59Z"
+  "worktreeLastSyncedAt": "2026-07-03T12:12:13Z"
 }
