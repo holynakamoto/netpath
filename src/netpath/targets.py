@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import math
 import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -10,6 +11,7 @@ from netpath import country as country_mod, servers
 from netpath.asn import cymru_bulk_lookup_rich, normalize_asn
 
 RIPE_ANNOUNCED_PREFIXES = "https://stat.ripe.net/data/announced-prefixes/data.json"
+OPEN_METEO_GEOCODING = "https://geocoding-api.open-meteo.com/v1/search"
 
 
 def _tcp_status(ip: str, port: int, timeout: float = 0.75) -> str | None:
@@ -77,6 +79,87 @@ def announced_prefix_candidates(asn: str, max_prefixes: int = 12) -> list[str]:
     for net in parsed[:max_prefixes]:
         ips.extend(_prefix_candidate_ips(str(net)))
     return list(dict.fromkeys(ips))
+
+
+def geocode_city(query: str) -> dict | None:
+    """Resolve a city name to approximate coordinates using Open-Meteo geocoding."""
+    r = requests.get(
+        OPEN_METEO_GEOCODING,
+        params={"name": query, "count": 1, "language": "en", "format": "json"},
+        timeout=15,
+    )
+    r.raise_for_status()
+    results = r.json().get("results") or []
+    if not results:
+        return None
+    item = results[0]
+    return {
+        "name": item.get("name") or query,
+        "admin1": item.get("admin1") or "",
+        "country": item.get("country") or "",
+        "country_code": item.get("country_code") or "",
+        "lat": item.get("latitude"),
+        "lon": item.get("longitude"),
+        "timezone": item.get("timezone") or "",
+    }
+
+
+def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    r = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lam = math.radians(lon2 - lon1)
+    a = (
+        math.sin(d_phi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(d_lam / 2) ** 2
+    )
+    return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def atlas_target_near_city(city: dict, max_distance_km: float = 100.0) -> dict | None:
+    """Find the nearest connected RIPE Atlas probe IPv4 near a geocoded city."""
+    lat, lon = city.get("lat"), city.get("lon")
+    country_code = city.get("country_code")
+    if lat is None or lon is None or not country_code:
+        return None
+    try:
+        r = requests.get(
+            country_mod.RIPE_ATLAS_PROBES,
+            params={"status": 1, "country_code": country_code, "page_size": 500},
+            timeout=20,
+        )
+        r.raise_for_status()
+    except requests.RequestException:
+        return None
+
+    matches: list[tuple[float, dict]] = []
+    for probe in r.json().get("results", []):
+        ip = probe.get("address_v4")
+        coords = (probe.get("geometry") or {}).get("coordinates")
+        if not ip or not coords or len(coords) != 2:
+            continue
+        p_lon, p_lat = coords
+        distance = _distance_km(float(lat), float(lon), float(p_lat), float(p_lon))
+        if distance <= max_distance_km:
+            matches.append((distance, probe))
+    if not matches:
+        return None
+    matches.sort(key=lambda x: (x[0], not x[1].get("is_anchor", False)))
+    distance, probe = matches[0]
+    return {
+        "ip": probe["address_v4"],
+        "origin": "atlas-city",
+        "confidence": "high",
+        "reason": (
+            f"nearest connected RIPE Atlas probe to {city['name']}, "
+            f"{city['country_code']} ({distance:.1f} km)"
+        ),
+        "distance_km": round(distance, 1),
+        "asn": f"AS{probe.get('asn_v4')}" if probe.get("asn_v4") else None,
+        "probe_id": probe.get("id"),
+        "lat": (probe.get("geometry") or {}).get("coordinates", [None, None])[1],
+        "lon": (probe.get("geometry") or {}).get("coordinates", [None, None])[0],
+    }
 
 
 def _validated_prefix_target(asn: str) -> dict | None:

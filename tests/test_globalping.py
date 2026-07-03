@@ -176,6 +176,25 @@ def test_schedule_measurements_sends_bearer_header():
         assert call[1]["headers"]["Authorization"] == "Bearer tok"
 
 
+def test_schedule_location_path_measurements_posts_city_country():
+    from netpath.globalping import schedule_location_path_measurements
+    responses = [_json_response({"id": "p"}), _json_response({"id": "m"})]
+    with patch("netpath.globalping.requests.post",
+               side_effect=responses) as mock_post:
+        result = schedule_location_path_measurements(
+            {"city": "Denver", "country": "US"},
+            "62.90.179.61",
+            token="tok",
+        )
+
+    assert result == {"ping": "p", "mtr": "m"}
+    ping_body = mock_post.call_args_list[0][1]["json"]
+    mtr_body = mock_post.call_args_list[1][1]["json"]
+    assert ping_body["locations"] == [{"city": "Denver", "country": "US"}]
+    assert mtr_body["locations"] == [{"city": "Denver", "country": "US"}]
+    assert ping_body["measurementOptions"] == {"packets": 16}
+
+
 def test_schedule_measurements_raises_on_no_matching_probes():
     """schedule_measurements() propagates HTTPError on a 422 (no probes)."""
     import pytest

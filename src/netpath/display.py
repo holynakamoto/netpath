@@ -646,6 +646,29 @@ def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) 
     table.add_column("Probe", min_width=18)
     table.add_column("Path", min_width=32)
     table.add_column("Approx. cities", min_width=20)
+
+    def _city_sequence(candidate: dict) -> str:
+        cities: list[str] = []
+        source_label = (candidate.get("path") or [""])[0]
+        for idx, point in enumerate(candidate.get("geo_points", [])):
+            # Starlink and some other networks geolocate their internal public
+            # hops to registration/HQ locations. Keep the probe's real city,
+            # but avoid implying same-AS internal hops are physical detours.
+            if idx > 0 and point.get("label") == source_label:
+                continue
+            city = point.get("city")
+            cc = point.get("country_code")
+            label = ", ".join(p for p in (city, cc) if p)
+            if label and (not cities or cities[-1] != label):
+                cities.append(label)
+        if target_city and (not cities or cities[-1] != target_city):
+            cities.append(target_city)
+        if not cities:
+            return "—"
+        if len(cities) > 5:
+            cities = cities[:4] + [cities[-1]]
+        return " → ".join(cities)
+
     for idx, candidate in enumerate(candidates, 1):
         rtt = candidate.get("rtt_ms")
         if rtt is not None:
@@ -654,13 +677,6 @@ def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) 
             rtt_text = Text(f"last {candidate['last_responsive_rtt_ms']:.1f}", style="dim")
         else:
             rtt_text = Text("—", style="dim")
-        cities = []
-        for point in candidate.get("geo_points", []):
-            city = point.get("city")
-            cc = point.get("country_code")
-            label = ", ".join(p for p in (city, cc) if p)
-            if label and (not cities or cities[-1] != label):
-                cities.append(label)
         table.add_row(
             str(idx),
             rtt_text,
@@ -668,7 +684,7 @@ def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) 
             str(candidate.get("as_hops", len(candidate.get("path", [])))),
             candidate.get("probe", "Globalping probe"),
             " → ".join(candidate.get("path", [])),
-            " → ".join(cities[:5]) if cities else "—",
+            _city_sequence(candidate),
         )
     console.print(table)
     console.print()

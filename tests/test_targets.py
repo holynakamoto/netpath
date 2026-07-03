@@ -87,3 +87,50 @@ def test_discover_target_returns_low_confidence_routed_sample_without_tcp_livene
     assert result["origin"] == "ripe-prefix"
     assert result["confidence"] == "low"
     assert "no TCP liveness" in result["reason"]
+
+
+def test_geocode_city_returns_first_result():
+    resp = _response({
+        "results": [{
+            "name": "Tel Aviv",
+            "country": "Israel",
+            "country_code": "IL",
+            "admin1": "Tel Aviv",
+            "latitude": 32.08088,
+            "longitude": 34.78057,
+            "timezone": "Asia/Jerusalem",
+        }]
+    })
+    with patch("netpath.targets.requests.get", return_value=resp):
+        result = targets.geocode_city("Tel Aviv")
+
+    assert result["name"] == "Tel Aviv"
+    assert result["country_code"] == "IL"
+    assert result["lat"] == 32.08088
+
+
+def test_atlas_target_near_city_picks_nearest_ipv4_probe():
+    city = {"name": "Tel Aviv", "country_code": "IL", "lat": 32.08088, "lon": 34.78057}
+    resp = _response({
+        "results": [
+            {
+                "id": 1,
+                "address_v4": "192.0.2.20",
+                "asn_v4": 64520,
+                "geometry": {"coordinates": [35.0, 32.5]},
+            },
+            {
+                "id": 2,
+                "address_v4": "192.0.2.10",
+                "asn_v4": 64510,
+                "geometry": {"coordinates": [34.7805, 32.0815]},
+            },
+        ]
+    })
+    with patch("netpath.targets.requests.get", return_value=resp):
+        result = targets.atlas_target_near_city(city)
+
+    assert result["ip"] == "192.0.2.10"
+    assert result["origin"] == "atlas-city"
+    assert result["asn"] == "AS64510"
+    assert result["distance_km"] < 1

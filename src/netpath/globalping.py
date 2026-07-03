@@ -181,6 +181,53 @@ def schedule_path_measurements(
     return {"ping": ping_id, "mtr": mtr_id}
 
 
+def schedule_location_path_measurements(
+    location: dict,
+    target_ip: str,
+    token: str | None = None,
+) -> dict[str, str]:
+    """Schedule ping + mtr from a Globalping city/country location."""
+    loc = {
+        k: v for k, v in {
+            "city": location.get("city") or location.get("name"),
+            "country": location.get("country") or location.get("country_code"),
+            "state": location.get("state"),
+        }.items() if v
+    }
+    locations = [loc]
+
+    r = _with_retry(lambda: requests.post(
+        f"{_BASE}/measurements",
+        json={
+            "type": "ping",
+            "target": target_ip,
+            "locations": locations,
+            "limit": _PROBE_LIMIT,
+            "measurementOptions": {"packets": _PING_PACKETS},
+        },
+        headers=_hdr(token),
+        timeout=30,
+    ))
+    r.raise_for_status()
+    ping_id = r.json()["id"]
+
+    r = _with_retry(lambda: requests.post(
+        f"{_BASE}/measurements",
+        json={
+            "type": "mtr",
+            "target": target_ip,
+            "locations": locations,
+            "limit": _PROBE_LIMIT,
+        },
+        headers=_hdr(token),
+        timeout=30,
+    ))
+    r.raise_for_status()
+    mtr_id = r.json()["id"]
+
+    return {"ping": ping_id, "mtr": mtr_id}
+
+
 def poll_until_done(
     measurement_ids: list[str],
     token: str | None = None,

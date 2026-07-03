@@ -192,6 +192,72 @@ def _fetch_rum(asn: str, cf_token: Optional[str]) -> Optional[dict]:
         return None
 
 
+def _geo_for_mtr_results(mtr_results: list[dict], extra_hosts: list[str] | None = None) -> dict:
+    geo_hosts: list[str] = []
+    for item in mtr_results:
+        for hop in item.get("result", {}).get("hops", []):
+            ip = hop.get("resolvedAddress")
+            if not ip:
+                continue
+            try:
+                if ipaddress.ip_address(ip).is_private:
+                    continue
+            except ValueError:
+                pass
+            geo_hosts.append(ip)
+    geo_hosts.extend(extra_hosts or [])
+    if not geo_hosts:
+        return {}
+    try:
+        return globe_mod.geolocate_hosts(list(dict.fromkeys(geo_hosts)))
+    except Exception:
+        return {}
+
+
+def _merge_globalping_path_results(
+    result: dict,
+    mids: dict[str, str],
+    statuses: dict[str, str],
+    target_ip: str,
+    target_asn: str | None,
+    target_info: dict,
+    gp_token: Optional[str],
+) -> None:
+    if statuses.get(mids["ping"]) == "finished":
+        ping_results = globalping_mod.fetch_results(mids["ping"], gp_token)
+        rtt = globalping_mod.parse_ping_rtt(ping_results)
+        if rtt:
+            result["ping_rtt"] = rtt
+        stats = globalping_mod.parse_ping_stats(ping_results)
+        if stats:
+            result["ping_packets"] = stats.get("packets")
+            if "loss_pct" in stats:
+                result["ping_loss_pct"] = stats["loss_pct"]
+            if "jitter_ms" in stats:
+                result["ping_jitter_ms"] = stats["jitter_ms"]
+
+    if statuses.get(mids["mtr"]) == "finished":
+        mtr_results = globalping_mod.fetch_results(mids["mtr"], gp_token)
+        geo = _geo_for_mtr_results(mtr_results, [target_ip])
+        if target_ip and geo.get(target_ip):
+            target_info["geo"] = geo[target_ip]
+        result["target"] = target_info
+        result["candidates"] = globalping_mod.parse_mtr_path_candidates(
+            mtr_results, target_asn, geo=geo
+        )
+
+    complete_candidates = [c for c in result["candidates"] if c.get("reaches_target")]
+    if complete_candidates:
+        result["optimal_path"] = complete_candidates[0]
+    elif result["candidates"]:
+        result["partial_paths"] = result["candidates"]
+        result["path_status"] = "incomplete"
+        result["path_note"] = (
+            "Globalping MTR did not expose a complete AS path to the destination; "
+            "the selected target may be non-responsive or filtered."
+        )
+
+
 def _measure(host: str, port: int, target_asn: str,
              cycles: int, duration: int, skip_throughput: bool,
              cf_token: Optional[str] = None, prefer_tcp: bool = False,
@@ -1062,61 +1128,123 @@ def aspath(
         "candidates": [],
     }
 
-    if statuses.get(mids["ping"]) == "finished":
-        ping_results = globalping_mod.fetch_results(mids["ping"], gp_token)
-        rtt = globalping_mod.parse_ping_rtt(ping_results)
-        if rtt:
-            result["ping_rtt"] = rtt
-        stats = globalping_mod.parse_ping_stats(ping_results)
-        if stats:
-            result["ping_packets"] = stats.get("packets")
-            if "loss_pct" in stats:
-                result["ping_loss_pct"] = stats["loss_pct"]
-            if "jitter_ms" in stats:
-                result["ping_jitter_ms"] = stats["jitter_ms"]
-
-    if statuses.get(mids["mtr"]) == "finished":
-        mtr_results = globalping_mod.fetch_results(mids["mtr"], gp_token)
-        geo_hosts: list[str] = []
-        for item in mtr_results:
-            for hop in item.get("result", {}).get("hops", []):
-                ip = hop.get("resolvedAddress")
-                if not ip:
-                    continue
-                try:
-                    if ipaddress.ip_address(ip).is_private:
-                        continue
-                except ValueError:
-                    pass
-                geo_hosts.append(ip)
-        if target_ip:
-            geo_hosts.append(target_ip)
-        geo = {}
-        if geo_hosts:
-            try:
-                geo = globe_mod.geolocate_hosts(list(dict.fromkeys(geo_hosts)))
-            except Exception:
-                geo = {}
-        if target_ip and geo.get(target_ip):
-            target_info["geo"] = geo[target_ip]
-        result["target"] = target_info
-        result["candidates"] = globalping_mod.parse_mtr_path_candidates(mtr_results, dest_asn, geo=geo)
-
-    complete_candidates = [c for c in result["candidates"] if c.get("reaches_target")]
-    if complete_candidates:
-        result["optimal_path"] = complete_candidates[0]
-    elif result["candidates"]:
-        result["partial_paths"] = result["candidates"]
-        result["path_status"] = "incomplete"
-        result["path_note"] = (
-            "Globalping MTR did not expose a complete AS path to the destination ASN; "
-            "the selected target may be non-responsive or filtered."
-        )
+    _merge_globalping_path_results(
+        result, mids, statuses, target_ip, dest_asn, target_info, gp_token
+    )
 
     if output_json:
         print(json.dumps(result, indent=2))
     else:
         display.aspath_report(source_asn, dest_asn, target_ip, result)
+        if globe:
+            globe_mod.render_aspath(result)
+
+    if not result.get("optimal_path"):
+        raise typer.Exit(1)
+
+
+@app.command("citypath")
+def citypath(
+    source_city: str = typer.Argument(..., help='Source city, e.g. "Denver"'),
+    dest_city:   str = typer.Argument(..., help='Destination city, e.g. "Tel Aviv"'),
+    gp_token:    Optional[str] = _GP_TOK,
+    globe:       bool = typer.Option(False, "--globe", "-g", help="Open interactive globe visualization for the measured city path"),
+    output_json: bool = typer.Option(False, "--json", help="Output results as JSON to stdout"),
+):
+    """Rank measured AS paths between two cities using Globalping + RIPE Atlas."""
+    if not output_json:
+        display.header(__version__)
+        display.console.print(
+            f"[dim]Finding source probes in [bold]{source_city}[/bold] "
+            f"and a target near [bold]{dest_city}[/bold]…[/dim]\n"
+        )
+
+    try:
+        source = targets_mod.geocode_city(source_city)
+        dest = targets_mod.geocode_city(dest_city)
+    except Exception as exc:
+        msg = f"City geocoding failed: {exc}"
+        if output_json:
+            print(json.dumps({"error": msg}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    if not source or not dest:
+        msg = "Could not geocode one or both cities"
+        if output_json:
+            print(json.dumps({"error": msg, "source": source_city, "dest": dest_city}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    target_info = targets_mod.atlas_target_near_city(dest)
+    if not target_info:
+        msg = f"No connected RIPE Atlas IPv4 target found near {dest['name']}, {dest['country_code']}"
+        if output_json:
+            print(json.dumps({"error": msg, "source_city": source, "dest_city": dest}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    if not output_json:
+        display.console.print(
+            f"[dim]Using {target_info['ip']} "
+            f"(Atlas probe {target_info.get('distance_km')} km from "
+            f"{dest['name']}, {dest['country_code']}) as the destination target.[/dim]"
+        )
+        if target_info.get("reason"):
+            display.console.print(f"[dim]{target_info['reason']}[/dim]")
+        display.console.print("[dim]Scheduling Globalping ping + MTR…[/dim]\n")
+
+    source_location = {
+        "name": source["name"],
+        "city": source["name"],
+        "country": source["country_code"],
+    }
+    try:
+        mids = globalping_mod.schedule_location_path_measurements(
+            source_location, target_info["ip"], gp_token
+        )
+    except requests.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else None
+        if status == 429:
+            msg = "Globalping rate limit reached — pass --gp-token for higher limits"
+        elif status == 422:
+            msg = f"No Globalping probes matched {source['name']}, {source['country_code']}"
+        elif status == 401:
+            msg = "Globalping authentication failed"
+        else:
+            msg = str(exc)
+        if output_json:
+            print(json.dumps({"error": msg}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    statuses = globalping_mod.poll_until_done(list(mids.values()), gp_token)
+    target_asn = target_info.get("asn")
+    result: dict = {
+        "source_city": source,
+        "dest_city": dest,
+        "source_asn": f"{source['name']}, {source['country_code']}",
+        "dest_asn": f"{dest['name']}, {dest['country_code']}",
+        "target_ip": target_info["ip"],
+        "target_origin": target_info.get("origin"),
+        "target": target_info,
+        "measurement_ids": mids,
+        "statuses": statuses,
+        "candidates": [],
+    }
+
+    _merge_globalping_path_results(
+        result, mids, statuses, target_info["ip"], target_asn, target_info, gp_token
+    )
+
+    if output_json:
+        print(json.dumps(result, indent=2))
+    else:
+        display.aspath_report(result["source_asn"], result["dest_asn"], target_info["ip"], result)
         if globe:
             globe_mod.render_aspath(result)
 
