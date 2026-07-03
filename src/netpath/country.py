@@ -63,10 +63,13 @@ def get_top_asns(country_code: str, top_n: int = 4) -> list[dict]:
             net = ipaddress.IPv4Network(prefix_str, strict=False)
             if net.is_private:
                 continue
-            hosts = list(net.hosts())
-            if not hosts:
-                continue
-            ip = str(hosts[0])
+            # First usable host via arithmetic — never materialize net.hosts(),
+            # which allocates every address in the prefix. /31 and /32 have no
+            # distinct first host, so the network address itself is used.
+            if net.prefixlen >= 31:
+                ip = str(net.network_address)
+            else:
+                ip = str(net.network_address + 1)
             sample_ips.append(ip)
             ip_to_size[ip] = net.num_addresses
         except ValueError:
@@ -112,6 +115,11 @@ def get_top_asns(country_code: str, top_n: int = 4) -> list[dict]:
 def _get_atlas_probe_ip(asn: str) -> str | None:
     """Return the IPv4 of a connected RIPE Atlas probe in the ASN.
 
+    This is a public, keyless lookup against the RIPE Atlas probes API —
+    no API key, credits, or account are involved, and the address is used
+    only as a trace target. It is the sole remnant of the removed
+    Atlas measurement backend; no measurements are scheduled through Atlas.
+
     Tries anchor probes (is_anchor=true) first; falls back to any connected probe.
     Returns None if both queries find nothing or either request fails.
     """
@@ -144,10 +152,13 @@ def get_test_target_for_asn(asn: str) -> tuple[str | None, str | None]:
     interface list, or None when no target was found.
 
     A connected Atlas probe address is preferred because it is known to be
-    alive. When none exists, a PeeringDB IXP interface IPv4 is used as a
-    second, non-RIPE source — these are real router interfaces that generally
-    answer traceroute. Addresses guessed from announced prefixes are still not
-    used, since they rarely answer and burn the full prober budget.
+    alive; it comes from a public, keyless query of the RIPE Atlas probes
+    API and is used purely as a trace target (no Atlas measurements are
+    scheduled). When none exists, a PeeringDB IXP interface IPv4 is used as
+    a second, non-RIPE source — these are real router interfaces that
+    generally answer traceroute. Addresses guessed from announced prefixes
+    are still not used, since they rarely answer and burn the full prober
+    budget.
     """
     ip = _get_atlas_probe_ip(asn)
     if ip:
