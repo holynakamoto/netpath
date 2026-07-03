@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 # Netpath review fixes: mtr fallback, host lists, Globalping verdicts
 
 ## Story Brief
@@ -321,4 +320,36 @@ No security issues found in changed files.
 ## Required Changes
 
 None.
+
+## Release
+
+## Release Notes
+
+### What was built
+- Probing now works on machines without mtr installed: `_check_deps()` exits only when no path prober exists at all; `_trace()` routes directly to the fallback prober when mtr is absent; fallback binary resolved via PATH lookup rather than a hardcoded `/usr/sbin/traceroute`
+- Country ranking memory blowup removed: first-host derivation in `get_top_asns()` uses arithmetic (`net.network_address + 1`) instead of materialising `list(net.hosts())` for each prefix
+- Remote-only Globalping rows now receive a `diagnose()` verdict that renders in the summary table and contributes to the CLI exit code
+- Invalid Globalping token surfaces as a distinct authentication error instead of a misleading "No Globalping probes found" message
+- Dead Atlas measurement backend fully removed: `atlas.py` and `tests/test_atlas.py` deleted; surviving keyless Atlas probe lookup in `country.py` documented in docstrings; README reconciled
+- 3,278 generated and virtual-environment paths removed from git tracking so existing `.gitignore` rules take effect
+
+### Key decisions
+- Delete `src/netpath/atlas.py` outright rather than keeping it as a renamed/narrower module — confirmed production-dead (imported only by `tests/test_atlas.py`); surviving keyless trace-target discovery in `country.py` calls the public Atlas probes API directly without importing `atlas.py`
+- Surface Globalping auth failure via a distinct `GlobalpingAuthError` exception from `fetch_probes()` rather than a sentinel return value, mirroring the CLI's existing scheduling-time 401 handling and preserving the `return []` contract for non-auth errors
+- `traceroute_path()` cached with `functools.lru_cache(maxsize=1)` for per-process caching without re-running `shutil.which` on each hop-trace in a country sweep
+- Remote-only verdicts achieved by dropping the verdict-key gate on the post-merge recompute — existing defensive `.get()` reads in `diagnose()` handle rows with no hubs, no `path_complete`, and no `probe_errors`
+- Isolate the bulk `git rm --cached` into its own Phase 3 commit so the 3,278-file diff does not obscure the Phase 1/2 code changes during review
+
+### Changes by phase
+- **Phase 1: Behaviour fixes for probing, ranking, and remote verdicts** — Fixed five runtime defects: prober gate, traceroute PATH resolution, country ranking memory, remote-only Globalping verdicts, and Globalping auth error surfacing. 9 new tests added (5 country, 2 diagnosis, 2 globalping). pytest: 162 passed, ruff clean.
+- **Phase 2: Retire the dead Atlas measurement code and reconcile the docs** — Deleted `atlas.py` and `tests/test_atlas.py`; documented surviving keyless Atlas lookup in `country.py` docstrings; updated README to name RIPE Atlas as the removed backend and clarify the one surviving touchpoint. pytest: 155 passed (7 Atlas tests intentionally removed), ruff clean.
+- **Phase 3: Stop tracking generated and virtual-environment files** — Removed 3,278 tracked paths (3,265 `.venv/`, 13 `src/netpath/__pycache__/`) from the git index via `git rm -r --cached`; working copies kept on disk; `.gitignore` rules now effective. No source edits.
+
+## Verification
+
+- Production build: PASS — `uv build` produced `netpath-0.13.1.dev30+g7d1dd42c6.tar.gz` and wheel
+- Review verdict: APPROVE — 12/12 acceptance criteria passed, approved 2026-07-03T15:24:12Z
+- pytest: 155 passed, 0 failed
+- ruff: all checks passed
+- Code pushed: `feature/task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw` → origin (9 commits ahead of main)
 
