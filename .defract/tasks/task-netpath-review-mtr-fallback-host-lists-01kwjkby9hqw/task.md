@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 # Netpath review fixes: mtr fallback, host lists, Globalping verdicts
 
 ## Story Brief
@@ -180,3 +179,42 @@ A code review of netpath surfaced seven defects across the CLI dependency gate, 
 ### Dependencies
 
 Phase 2 should land after Phase 1 only because both edit README.md and country.py — no functional dependency. Phase 3 is independent of both.
+
+## Implementation Notes
+
+## Phase 1: Behaviour fixes for probing, ranking, and remote verdicts
+
+### What was built
+
+**Prober fallback (R1-R5)**
+- `mtr.py`: new `traceroute_path()` resolver (PATH lookup via `shutil.which`, then an existence-and-executability check on `/usr/sbin/traceroute` for macOS shells; cached with `functools.lru_cache`) and `traceroute_available()`. `_run_traceroute_cmd()` now uses the resolved binary and raises a clear "traceroute binary not found" error when nothing resolves — no hardcoded path in command construction.
+- `cli.py` `_check_deps()`: exits only when no prober exists at all (mtr absent AND `paris.detect()` None AND traceroute unresolvable); the error names both install options.
+- `cli.py` `_trace()`: routes directly to `_fallback_trace()` when `mtr.available()` is false, alongside the existing `MtrPermissionError` path. The ECMP branch in `_measure()` is gated with `and mtr.available()` so multi-pass runs without mtr fall into the single-pass fallback branch (ECMP comparison skipped, same as the existing permission-error behaviour). The existing "(mtr unavailable — using traceroute/Paris + Cymru ASN lookup)" notice covers R3 unchanged.
+
+**Country ranking memory (R6)**
+- `country.py` `get_top_asns()`: sample IP derived arithmetically — `net.network_address + 1` for /30 and wider, the network address itself for /31 and /32. `list(net.hosts())` is gone; `ip_to_size` still uses `net.num_addresses`. Output is byte-identical to the old `hosts[0]` for all prefix lengths.
+
+**Remote-only verdicts (R7, R8)**
+- `cli.py`: the post-merge verdict recompute no longer requires an existing verdict key — any row whose Globalping loss or jitter merged gets `diagnose()` run, so remote-only rows gain verdicts, render `verdict X (near-target)` in the summary subrow (display support already existed), and flow into the exit-code collection unchanged.
+- `diagnosis.py` needed no changes: all reads are defensive `.get()` calls, and a missing `path_complete` key yields None (not False), so no spurious incomplete-path signal. Verified by tests.
+
+**Globalping auth (R9, R10)**
+- `globalping.py`: new `GlobalpingAuthError(RuntimeError)`; `fetch_probes()` raises it on HTTP 401/403 and keeps the `return []` contract for every other failure.
+- `cli.py` country: the inventory fetch is wrapped in try/except; auth failure prints the token-rejected message (worded per token presence — anonymous 401s do not blame a nonexistent token), suppresses the misleading "No Globalping probes found" line, and records "invalid Globalping token" / "Globalping authentication failed" on all rows instead of "no Globalping coverage". The `coverage` command also catches the error and exits 1 instead of tracebacking.
+
+### Deviations from plan
+None. README needed no Phase 1 touch-up — the line 23 claim ("falls back to traceroute if unavailable") is now accurate as written.
+
+### Files changed
+- src/netpath/mtr.py
+- src/netpath/cli.py
+- src/netpath/country.py
+- src/netpath/globalping.py
+- tests/test_country.py (+5 tests)
+- tests/test_diagnosis.py (+2 tests)
+- tests/test_globalping.py (+3 tests)
+
+### Verification
+- pytest: 162 passed (153 baseline + 9 new), ruff clean
+- Live smoke: with `mtr.available` patched False, `_check_deps` passed and `_trace` completed a real 9-hop traceroute fallback via `/usr/sbin/traceroute`
+- Greps: no `list(net.hosts())` in country.py; `/usr/sbin/traceroute` appears only as the existence-checked `_TRACEROUTE_SBIN` constant

@@ -5,7 +5,7 @@
   "phase": 0,
   "totalPhases": 3,
   "createdAt": "2026-07-02T23:42:02Z",
-  "updatedAt": "2026-07-03T00:19:33Z",
+  "updatedAt": "2026-07-03T00:23:42Z",
   "events": [
     {
       "base_branch": "main",
@@ -185,6 +185,114 @@
       "phase": 1,
       "timestamp": "2026-07-03T00:19:33Z",
       "type": "progress_report"
+    },
+    {
+      "description": "Running verification checks",
+      "percentage": 60,
+      "phase": 1,
+      "timestamp": "2026-07-03T00:21:13Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Running full check suite",
+      "percentage": 80,
+      "phase": 1,
+      "timestamp": "2026-07-03T00:22:11Z",
+      "type": "progress_report"
+    },
+    {
+      "details": "pytest: 162 passed (153 baseline + 9 new: first-host arithmetic incl. /8+/31+/32+malformed, prober gate pass/exit, _trace mtr-absent fallback, remote-only diagnose healthy/loss, fetch_probes 401/403/404). ruff check src tests: clean. Live smoke: with mtr.available patched False, _check_deps passed and _trace completed a real 9-hop traceroute fallback.",
+      "failed": 0,
+      "passed": 162,
+      "phase": 0,
+      "skipped": 0,
+      "timestamp": "2026-07-03T00:22:14Z",
+      "type": "test_results"
+    },
+    {
+      "alternatives_considered": [
+        "Module-level global with manual memoization (more code, same effect)",
+        "Caching mtr.available() too (rejected: breaks the established monkeypatch pattern in tests for negligible gain)"
+      ],
+      "decision": "Implementation: traceroute resolution lives in mtr.traceroute_path() with functools.lru_cache(maxsize=1), exposed via mtr.traceroute_available() for the CLI gate",
+      "phase": 1,
+      "rationale": "R4 + technical note ask for one-time resolution rather than re-running shutil.which per hop-trace in a country sweep. lru_cache gives per-process caching with a test-friendly cache_clear(); the /usr/sbin/traceroute path survives only as an existence-and-executability-checked constant inside the resolver, never in command construction. mtr.available() and paris.detect() stay uncached: they are single which() calls and existing tests monkeypatch them directly.",
+      "timestamp": "2026-07-03T00:22:19Z",
+      "type": "decision"
+    },
+    {
+      "alternatives_considered": [
+        "Guard clauses inside diagnose() for remote-only rows (rejected: existing defensive reads already handle the shape)",
+        "Raising MtrPermissionError from the ECMP branch to reuse its fallback handler (rejected: misuses the exception semantics)"
+      ],
+      "decision": "Implementation: remote-only verdicts achieved by dropping the verdict-key gate on the post-merge recompute; diagnosis.py needed no changes. ECMP branch gated with 'and mtr.available()' so mtr-absent runs fall into the single-pass fallback branch. Auth-failure wording branches on token presence.",
+      "phase": 1,
+      "rationale": "diagnose() already reads every key defensively via .get(): a row with no hubs/path_complete/probe_count produces no spurious signals (path_complete absent yields None, not False, so no incomplete_path alarm) — verified by the two new remote-only tests. For ECMP, when mtr is absent the elif falls through to the existing _trace branch which routes to the fallback prober; ECMP comparison is simply skipped, matching the existing MtrPermissionError behaviour. For auth failures with no token supplied (anonymous 401, should not happen), the message says 'rejected the probe inventory request as unauthorized' instead of blaming a nonexistent token; per-row probe_errors use 'invalid Globalping token' only when a token was supplied.",
+      "timestamp": "2026-07-03T00:22:27Z",
+      "type": "decision"
+    },
+    {
+      "change_summary": "Phase 1 complete: Behaviour fixes for probing, ranking, and remote verdicts",
+      "revision": 1,
+      "stage": "implementation",
+      "timestamp": "2026-07-03T00:22:52Z",
+      "type": "stage_content_updated"
+    },
+    {
+      "artifacts_created": [
+        "src/netpath/mtr.py",
+        "src/netpath/cli.py",
+        "src/netpath/country.py",
+        "src/netpath/globalping.py",
+        "tests/test_country.py",
+        "tests/test_diagnosis.py",
+        "tests/test_globalping.py"
+      ],
+      "phase": 0,
+      "summary": "Fixed the five runtime defects: dependency gate now exits only when no path prober exists at all (with an error naming mtr and traceroute install options); _trace() and the ECMP branch route to the fallback prober when mtr is absent; traceroute binary resolved via shutil.which with /usr/sbin/traceroute as an existence-checked last resort; country ranking derives sample IPs arithmetically instead of materializing list(net.hosts()); remote-only Globalping rows now receive diagnose() verdicts that render in the summary and drive the exit code; fetch_probes() raises GlobalpingAuthError on 401/403 so an invalid token is reported as an auth failure instead of missing coverage. 162 tests pass (9 new), ruff clean, live fallback smoke-tested.",
+      "timestamp": "2026-07-03T00:23:05Z",
+      "type": "phase_completed"
+    },
+    {
+      "items": [
+        {
+          "description": "Simulate a machine without mtr: run `env PATH=\"/usr/bin:/bin:/usr/sbin\" .venv/bin/netpath asn AS13335 --no-throughput -n 1` (this PATH hides Homebrew's mtr but keeps `/usr/sbin/traceroute`). Expect the run to complete with the notice `(mtr unavailable — using traceroute + Cymru ASN lookup)` instead of exiting 1."
+        },
+        {
+          "description": "Normal path unchanged: run `netpath country US --top 3 --no-throughput` with mtr installed and confirm it completes with the usual mtr-based traces, the ranking step finishes promptly (US allocations include very wide prefixes), and the summary renders."
+        },
+        {
+          "description": "Invalid token reported as auth failure: run `netpath country US --top 3 --no-throughput --gp-token invalid-token-123` and confirm it prints `Globalping rejected the token from --gp-token / NETPATH_GLOBALPING_TOKEN — skipping remote measurements` and does NOT print `No Globalping probes found in any target ASN`."
+        },
+        {
+          "description": "Note: netpath reads the token from `NETPATH_GLOBALPING_TOKEN`, not `GLOBALPING_TOKEN`. If you exported `GLOBALPING_TOKEN` in your shell, re-export it as `export NETPATH_GLOBALPING_TOKEN=\"$GLOBALPING_TOKEN\"` before token-based runs, or pass `--gp-token` explicitly."
+        },
+        {
+          "description": "Remote-only verdict reaches the exit code: with the token set, run `netpath country US --top 10 --no-throughput` on a country where some ISP has no iperf3/trace target but Globalping coverage; confirm the remote-only summary row shows `verdict ... (near-target)` in its Globalping subrow, then check `echo $?` reflects the worst verdict (0 ok / 1 warning / 2 critical)."
+        },
+        {
+          "description": "No-prober error message: run `env PATH=\"/usr/bin:/bin\" .venv/bin/python -c \"from netpath import cli; cli._check_deps(True)\"` — with mtr, Paris probers, and traceroute all hidden it should print the error naming both `mtr` and `traceroute` install options and raise exit 1 (on macOS `/usr/sbin/traceroute` still resolves via the existence check, so this may pass the gate instead — that is expected)."
+        }
+      ],
+      "phase": 0,
+      "phase_title": "Behaviour fixes for probing, ranking, and remote verdicts",
+      "timestamp": "2026-07-03T00:23:31Z",
+      "type": "manual_tests"
+    },
+    {
+      "agent_phase": 1,
+      "phase_title": "Behaviour fixes for probing, ranking, and remote verdicts",
+      "server_phase": 0,
+      "timestamp": "2026-07-03T00:23:42Z",
+      "type": "phase_drift_detected"
+    },
+    {
+      "phase": 0,
+      "phase_title": "Behaviour fixes for probing, ranking, and remote verdicts",
+      "timestamp": "2026-07-03T00:23:42Z",
+      "type": "phase_awaiting_approval",
+      "worktree_head": "d8bc620aa5d57bfa2e5f61ffd3fce4724424ecf6",
+      "worktree_status_digest": "d5205a563a7374cf98fef146947f8b9a39fb2c3bccb0dcf693272b778bc26276"
     }
   ],
   "needsArchitecture": false,
@@ -204,12 +312,12 @@
   "stageApprovals": {
     "scope": "2026-07-03T00:14:17Z"
   },
+  "stageContent": {
+    "implementation": "## Phase 1: Behaviour fixes for probing, ranking, and remote verdicts\n\n### What was built\n\n**Prober fallback (R1-R5)**\n- `mtr.py`: new `traceroute_path()` resolver (PATH lookup via `shutil.which`, then an existence-and-executability check on `/usr/sbin/traceroute` for macOS shells; cached with `functools.lru_cache`) and `traceroute_available()`. `_run_traceroute_cmd()` now uses the resolved binary and raises a clear \"traceroute binary not found\" error when nothing resolves — no hardcoded path in command construction.\n- `cli.py` `_check_deps()`: exits only when no prober exists at all (mtr absent AND `paris.detect()` None AND traceroute unresolvable); the error names both install options.\n- `cli.py` `_trace()`: routes directly to `_fallback_trace()` when `mtr.available()` is false, alongside the existing `MtrPermissionError` path. The ECMP branch in `_measure()` is gated with `and mtr.available()` so multi-pass runs without mtr fall into the single-pass fallback branch (ECMP comparison skipped, same as the existing permission-error behaviour). The existing \"(mtr unavailable — using traceroute/Paris + Cymru ASN lookup)\" notice covers R3 unchanged.\n\n**Country ranking memory (R6)**\n- `country.py` `get_top_asns()`: sample IP derived arithmetically — `net.network_address + 1` for /30 and wider, the network address itself for /31 and /32. `list(net.hosts())` is gone; `ip_to_size` still uses `net.num_addresses`. Output is byte-identical to the old `hosts[0]` for all prefix lengths.\n\n**Remote-only verdicts (R7, R8)**\n- `cli.py`: the post-merge verdict recompute no longer requires an existing verdict key — any row whose Globalping loss or jitter merged gets `diagnose()` run, so remote-only rows gain verdicts, render `verdict X (near-target)` in the summary subrow (display support already existed), and flow into the exit-code collection unchanged.\n- `diagnosis.py` needed no changes: all reads are defensive `.get()` calls, and a missing `path_complete` key yields None (not False), so no spurious incomplete-path signal. Verified by tests.\n\n**Globalping auth (R9, R10)**\n- `globalping.py`: new `GlobalpingAuthError(RuntimeError)`; `fetch_probes()` raises it on HTTP 401/403 and keeps the `return []` contract for every other failure.\n- `cli.py` country: the inventory fetch is wrapped in try/except; auth failure prints the token-rejected message (worded per token presence — anonymous 401s do not blame a nonexistent token), suppresses the misleading \"No Globalping probes found\" line, and records \"invalid Globalping token\" / \"Globalping authentication failed\" on all rows instead of \"no Globalping coverage\". The `coverage` command also catches the error and exits 1 instead of tracebacking.\n\n### Deviations from plan\nNone. README needed no Phase 1 touch-up — the line 23 claim (\"falls back to traceroute if unavailable\") is now accurate as written.\n\n### Files changed\n- src/netpath/mtr.py\n- src/netpath/cli.py\n- src/netpath/country.py\n- src/netpath/globalping.py\n- tests/test_country.py (+5 tests)\n- tests/test_diagnosis.py (+2 tests)\n- tests/test_globalping.py (+3 tests)\n\n### Verification\n- pytest: 162 passed (153 baseline + 9 new), ruff clean\n- Live smoke: with `mtr.available` patched False, `_check_deps` passed and `_trace` completed a real 9-hop traceroute fallback via `/usr/sbin/traceroute`\n- Greps: no `list(net.hosts())` in country.py; `/usr/sbin/traceroute` appears only as the existence-checked `_TRACEROUTE_SBIN` constant"
+  },
   "stages": {
-    "architecture": {
+    "design": {
       "status": "skipped"
-    },
-    "review": {
-      "status": "not_started"
     },
     "release": {
       "status": "not_started"
@@ -219,12 +327,15 @@
       "approvedAt": "2026-07-03T00:14:17Z",
       "startedAt": "2026-07-02T23:48:32Z"
     },
-    "design": {
-      "status": "skipped"
-    },
     "implementation": {
       "status": "in_progress",
       "startedAt": "2026-07-03T00:14:18Z"
+    },
+    "review": {
+      "status": "not_started"
+    },
+    "architecture": {
+      "status": "skipped"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw",
