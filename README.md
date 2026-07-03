@@ -102,7 +102,7 @@ netpath aspath AS14593 AS12400 --globe
 ### Compare measured paths between two cities
 
 ```bash
-netpath citypath Denver "Tel Aviv"
+netpath citypath "Los Angeles" "Tokyo"
 ```
 
 This geocodes the source and destination cities, measures from Globalping probes in the source city, chooses the nearest connected RIPE Atlas IPv4 target near the destination city, and ranks the AS paths it observes.

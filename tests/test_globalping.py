@@ -182,7 +182,7 @@ def test_schedule_location_path_measurements_posts_city_country():
     with patch("netpath.globalping.requests.post",
                side_effect=responses) as mock_post:
         result = schedule_location_path_measurements(
-            {"city": "Denver", "country": "US"},
+            {"city": "Los Angeles", "country": "US"},
             "62.90.179.61",
             token="tok",
         )
@@ -190,8 +190,8 @@ def test_schedule_location_path_measurements_posts_city_country():
     assert result == {"ping": "p", "mtr": "m"}
     ping_body = mock_post.call_args_list[0][1]["json"]
     mtr_body = mock_post.call_args_list[1][1]["json"]
-    assert ping_body["locations"] == [{"city": "Denver", "country": "US"}]
-    assert mtr_body["locations"] == [{"city": "Denver", "country": "US"}]
+    assert ping_body["locations"] == [{"city": "Los Angeles", "country": "US"}]
+    assert mtr_body["locations"] == [{"city": "Los Angeles", "country": "US"}]
     assert ping_body["measurementOptions"] == {"packets": 16}
 
 

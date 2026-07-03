@@ -1145,7 +1145,7 @@ def aspath(
 
 @app.command("citypath")
 def citypath(
-    source_city: str = typer.Argument(..., help='Source city, e.g. "Denver"'),
+    source_city: str = typer.Argument(..., help='Source city, e.g. "Los Angeles"'),
     dest_city:   str = typer.Argument(..., help='Destination city, e.g. "Tel Aviv"'),
     gp_token:    Optional[str] = _GP_TOK,
     globe:       bool = typer.Option(False, "--globe", "-g", help="Open interactive globe visualization for the measured city path"),
