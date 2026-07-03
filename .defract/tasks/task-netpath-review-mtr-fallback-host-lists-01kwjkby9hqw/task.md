@@ -14,7 +14,6 @@ defract:
   assignee: holynakamoto
 ---
 
-
 # Netpath review fixes: mtr fallback, host lists, Globalping verdicts
 
 ## Story Brief
@@ -270,3 +269,55 @@ None.
 - Working tree intact: `.venv/` and `src/netpath/__pycache__/` still on disk; `netpath --help` runs from the editable install
 - pytest: 155 passed (unchanged), ruff clean
 - `git add -A` after the removal stages no re-additions — the ignore rules are effective
+
+## Review
+
+## Verdict
+
+**Verdict:** APPROVE
+**Files reviewed:** 10 files changed across 3 phases
+
+All 12 acceptance criteria pass across all three phases. The seven bugs are correctly fixed: prober fallback, traceroute binary resolution, country ranking memory, remote-only verdicts, Globalping auth errors, git hygiene, and Atlas reconciliation. Pytest (155 passed) and ruff are clean.
+
+### Automated Checks
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Test suite (pytest) | PASS | 155 passed, 0 failed — 9 new tests added in Phase 1 (5 country, 2 diagnosis, 2 globalping fetch_probes); 7 Atlas tests removed in Phase 2 |
+| Lint (ruff) | PASS | All checks passed across src and tests |
+
+### Acceptance Criteria (12/12 passed)
+
+- [x] AC-1: With mtr unavailable but traceroute present, `netpath country US --top 1 --no-throughput` runs to completion instead of exiting 1; verified by a test monkeypatching `mtr.available` to False, or manually on a VM without mtr — PASS: cli.py:174 — `if not mtr.available(): return _fallback_trace(...)` routes directly to fallback. test_country.py:178-189 verifies mtr.run is not called and fallback is invoked.
+- [x] AC-2: With mtr, a Paris prober, and traceroute all unavailable, the CLI exits 1 with an error naming the install options for both mtr and traceroute — PASS: cli.py:153-158 — gates on all three absent; error names both mtr (brew/apt) and traceroute (apt/macOS). test_country.py:161-175 asserts exit_code==1 and both 'mtr' and 'traceroute' in message.
+- [x] AC-3: `src/netpath/mtr.py` contains no hardcoded `"/usr/sbin/traceroute"` literal in the command construction; the binary is resolved via `shutil.which` with `/usr/sbin/traceroute` only as an existence-checked fallback — PASS: mtr.py:63 defines `_TRACEROUTE_SBIN` as a named constant used only inside traceroute_path() (lines 66-76) for an existence+executability check. Command construction at mtr.py:247 uses `binary = traceroute_path()`, not the constant.
+- [x] AC-4: `country.py` no longer calls `list(net.hosts())`; a unit test in `tests/test_country.py` covers first-host derivation for a normal prefix, a /31, and a /32 — PASS: country.py:69-72 uses `net.network_address + 1` for prefixlen < 31 and `net.network_address` for prefixlen >= 31. grep confirms zero occurrences of `list(net.hosts)`. test_country.py:123-148 asserts correct IPs for /8, /24, /31, /32, and malformed entry.
+- [x] AC-5: A summary row shaped like a remote-only Globalping row (asn/name/remote_only plus merged loss/jitter metrics, no hubs) passed through `diagnose()` returns a verdict dict without raising; covered by a test in `tests/test_diagnosis.py` — PASS: test_diagnosis.py:389-424 — test_remote_only_row_healthy() feeds a no-hubs row to diagnose() and asserts verdict=Healthy, severity=ok, signals=[]. test_remote_only_row_loss_sets_warning() verifies 12.5% loss yields severity=warning.
+- [x] AC-6: A country run where a remote-only ASN shows Globalping loss above the critical threshold exits non-zero (verdict reaches the exit-code collection at cli.py:931) — PASS: cli.py:944-950 — runs `diagnose(_row)` on any row with Globalping ping_loss_pct or ping_jitter_ms not None, regardless of whether a verdict key already exists. cli.py:956 collects verdicts via `row.get('verdict')` with no remote_only gating.
+- [x] AC-7: `fetch_probes()` raises a distinct auth error on HTTP 401/403 and still returns `[]` on other failures; covered by a test mocking the HTTP layer — PASS: globalping.py:40-66 — GlobalpingAuthError defined at line 40; raised when status_code in (401, 403) at lines 60-63; returns [] for all other exceptions. test_globalping.py:47-72 covers 401 raising, 403 raising, and non-auth HTTP error returning [].
+- [x] AC-8: Supplying an invalid Globalping token to `netpath country` prints an authentication-failure message, not "No Globalping probes found in any target ASN" — PASS: cli.py:707-719 — GlobalpingAuthError caught; token present prints 'Globalping rejected the token from --gp-token / NETPATH_GLOBALPING_TOKEN'; sets _gp_auth_failed=True. cli.py:735 gates 'No Globalping probes found' on `not _gp_auth_failed`, suppressing it on auth failure.
+- [x] AC-9: `git ls-files` reports zero paths under `.venv/`, zero `__pycache__/` or `*.pyc` paths, and does not include `src/netpath/_version.py`; the working copies remain on disk — PASS: `git ls-files | grep -E '\.venv/|__pycache__|\.pyc$|_version\.py'` returns 0 lines. Phase 3 removed 3,278 index entries (3,265 .venv/, 13 src/netpath/__pycache__/). src/netpath/_version.py was not tracked, so no removal needed.
+- [x] AC-10: `src/netpath/atlas.py` and `tests/test_atlas.py` no longer exist; `grep -r "netpath.atlas|from .atlas" src tests` returns nothing — PASS: `ls src/netpath/atlas.py tests/test_atlas.py` reports 'No such file or directory' for both. `grep -r 'netpath.atlas|from .atlas' src tests` returns 0 lines.
+- [x] AC-11: README accurately describes both the traceroute fallback and the surviving keyless Atlas target-discovery lookup — PASS: README.md:23 — 'falls back to traceroute if unavailable' is accurate after Phase 1. README.md:165 — names RIPE Atlas as the removed backend and adds: 'One narrow Atlas touchpoint survives: country mode performs a public, keyless lookup of the RIPE Atlas probes API solely to discover a live trace-target address inside an ASN — no key, credits, or measurements are involved.'
+- [x] AC-12: `pytest` and `ruff check src tests` pass after each phase — PASS: pytest: 155 passed, 0 failed. ruff: All checks passed. Phase-by-phase counts match implementation notes (162 after Phase 1, 155 after Phase 2 and 3).
+
+### Code Quality (Refactor Review)
+
+No code quality issues found in changed files.
+
+### Security Assessment (Security Review)
+
+No security issues found in changed files.
+
+### Decisions Made During Implementation
+
+- Delete src/netpath/atlas.py outright rather than keeping it as a renamed/narrower module — confirmed production-dead (imported only by tests/test_atlas.py); the surviving keyless trace-target discovery in country.py calls the public Atlas probes API directly without importing atlas.py.
+- Surface Globalping auth failure from fetch_probes() via a distinct exception (GlobalpingAuthError) rather than a sentinel return value, mirroring the CLI's existing scheduling-time 401 handling and preserving the 'return [] on failure' contract for non-auth errors.
+- Isolate the bulk git rm --cached into its own Phase 3 commit so the 3,278-file diff does not obscure the Phase 1/2 code changes during review.
+- traceroute_path() cached with functools.lru_cache(maxsize=1) for per-process caching without re-running shutil.which on each hop-trace in a country sweep.
+- Remote-only verdicts achieved by dropping the verdict-key gate on the post-merge recompute — the existing defensive .get() reads in diagnose() already handle rows with no hubs, no path_complete, and no probe_errors.
+
+## Required Changes
+
+None.
+
