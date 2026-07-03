@@ -1,11 +1,11 @@
 {
   "id": "task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw",
   "status": "active",
-  "stage": "scope",
+  "stage": "implementation",
   "phase": 0,
   "totalPhases": 3,
   "createdAt": "2026-07-02T23:42:02Z",
-  "updatedAt": "2026-07-02T23:53:27Z",
+  "updatedAt": "2026-07-03T00:19:33Z",
   "events": [
     {
       "base_branch": "main",
@@ -108,6 +108,83 @@
       "type": "stage_work_complete",
       "worktree_head": "4e2f72e94c21e217ed9468dd015025e3bf75b32e",
       "worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base_branch": "main",
+      "merged_commits": 2,
+      "timestamp": "2026-07-03T00:14:18Z",
+      "type": "worktree_synced"
+    },
+    {
+      "actor": null,
+      "stage": "scope",
+      "timestamp": "2026-07-03T00:14:17Z",
+      "type": "stage_approved"
+    },
+    {
+      "current_worktree_head": "d8bc620aa5d57bfa2e5f61ffd3fce4724424ecf6",
+      "current_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stage": "scope",
+      "stale_worktree_head": "4e2f72e94c21e217ed9468dd015025e3bf75b32e",
+      "stale_worktree_status_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timestamp": "2026-07-03T00:14:18Z",
+      "type": "worktree_drift_detected",
+      "what_changed": "HEAD"
+    },
+    {
+      "action": "sweep",
+      "rationale": "Routine sync drift: HEAD fast-forwarded (stale HEAD is a strict ancestor of current) with a byte-identical dirty-status digest; swept forward automatically without waking an agent.",
+      "resolved_by": "auto",
+      "stage": "scope",
+      "timestamp": "2026-07-03T00:14:18Z",
+      "type": "worktree_drift_resolved"
+    },
+    {
+      "from": "scope",
+      "timestamp": "2026-07-03T00:14:18Z",
+      "to": "implementation",
+      "type": "stage_advanced"
+    },
+    {
+      "base_branch": "main",
+      "reason": "already_up_to_date",
+      "timestamp": "2026-07-03T00:14:18Z",
+      "type": "worktree_sync_skipped"
+    },
+    {
+      "mode": "start",
+      "session_id": "01kwjn71v24j5edyspbjk42284",
+      "stage": "implementation",
+      "timestamp": "2026-07-03T00:14:18Z",
+      "type": "stage_agent_started"
+    },
+    {
+      "exit_code": 143,
+      "session_id": "01kwjkqvfjg1q7f3nkp1w6c6n1",
+      "timed_out": false,
+      "timestamp": "2026-07-03T00:14:19Z",
+      "type": "agent_exited"
+    },
+    {
+      "note": "Starting Phase 1: behaviour fixes for probing, ranking, and remote verdicts",
+      "phase": 0,
+      "stage": "implementation",
+      "timestamp": "2026-07-03T00:14:33Z",
+      "type": "work_resumed"
+    },
+    {
+      "description": "Starting phase 1: Behaviour fixes for probing, ranking, and remote verdicts",
+      "percentage": 0,
+      "phase": 1,
+      "timestamp": "2026-07-03T00:14:35Z",
+      "type": "progress_report"
+    },
+    {
+      "description": "Implementing core changes: prober gate, traceroute resolution, host arithmetic, remote verdicts, auth error",
+      "percentage": 20,
+      "phase": 1,
+      "timestamp": "2026-07-03T00:19:33Z",
+      "type": "progress_report"
     }
   ],
   "needsArchitecture": false,
@@ -124,28 +201,33 @@
     "classifiedBy": "scope-agent",
     "rationale": "Seven review-surfaced bug fixes in a CLI tool: no UI exists, so design is skipped. Each fix is well-contained to 1-2 files following existing patterns (dependency gate, binary resolution, arithmetic replacement, verdict recomputation, exception surfacing, file deletion, git index cleanup) — no new system boundaries, so architecture is skipped; detailed per-phase Files/Verification are in the scope instead. Review is included because the diagnose()-on-remote-only-rows change and the prober-gate rework carry behavioural risk."
   },
+  "stageApprovals": {
+    "scope": "2026-07-03T00:14:17Z"
+  },
   "stages": {
-    "review": {
-      "status": "not_started"
-    },
-    "design": {
+    "architecture": {
       "status": "skipped"
     },
-    "scope": {
-      "status": "awaiting_approval",
-      "startedAt": "2026-07-02T23:48:32Z"
+    "review": {
+      "status": "not_started"
     },
     "release": {
       "status": "not_started"
     },
-    "architecture": {
+    "scope": {
+      "status": "approved",
+      "approvedAt": "2026-07-03T00:14:17Z",
+      "startedAt": "2026-07-02T23:48:32Z"
+    },
+    "design": {
       "status": "skipped"
     },
     "implementation": {
-      "status": "not_started"
+      "status": "in_progress",
+      "startedAt": "2026-07-03T00:14:18Z"
     }
   },
   "worktreePath": "/Users/nickmoore/netpath/.defract-worktrees/task-netpath-review-mtr-fallback-host-lists-01kwjkby9hqw",
   "worktreeBaseBranch": "main",
-  "worktreeLastSyncedAt": "2026-07-02T23:48:32Z"
+  "worktreeLastSyncedAt": "2026-07-03T00:14:18Z"
 }
