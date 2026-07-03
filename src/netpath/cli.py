@@ -17,7 +17,7 @@ from rich.table import Table
 from netpath import __version__
 from netpath import country as country_mod
 from netpath import display, globalping as globalping_mod, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
-from netpath import mtr, paris, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest
+from netpath import mtr, paris, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest, targets as targets_mod
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
 from netpath.types import MeasurementResult
@@ -975,6 +975,7 @@ def aspath(
     source:      str = typer.Argument(..., help="Source ASN, e.g. AS7922 or 7922"),
     dest:        str = typer.Argument(..., help="Destination ASN, e.g. AS7018 or 7018"),
     gp_token:    Optional[str] = _GP_TOK,
+    target_ip:   Optional[str] = typer.Option(None, "--target", help="Use this destination IP instead of automatic target discovery"),
     output_json: bool = typer.Option(False, "--json", help="Output results as JSON to stdout"),
 ):
     """Rank measured AS paths from probes inside one ASN toward another ASN."""
@@ -1005,30 +1006,28 @@ def aspath(
             display.error(msg)
         raise typer.Exit(1)
 
-    target_ip = None
-    target_origin = None
-    found = servers.find_servers_in_asn(dest_asn, max_count=1)
-    if found:
-        target_ip = found[0]["HOST"]
-        target_origin = "iperf3"
-    else:
-        target_ip, target_origin = country_mod.get_test_target_for_asn(dest_asn)
-
-    if not target_ip:
+    target_info = targets_mod.discover_target(dest_asn, user_target=target_ip)
+    if not target_info:
         msg = f"No live target found in {dest_asn}"
         if output_json:
             print(json.dumps({"error": msg}, indent=2))
         else:
             display.error(msg)
         raise typer.Exit(1)
+    target_ip = target_info["ip"]
+    target_origin = target_info.get("origin")
 
     if not output_json:
         origin = {
             "iperf3": "iperf3 server",
             "atlas": "Atlas probe address",
             "peeringdb": "PeeringDB IXP address",
+            "ripe-prefix": "RIPEstat prefix sample",
+            "user": "user-provided target",
         }.get(target_origin or "", "trace target")
         display.console.print(f"[dim]Using {target_ip} ({origin}) as the destination target.[/dim]")
+        if target_info.get("reason"):
+            display.console.print(f"[dim]{target_info['reason']}[/dim]")
         display.console.print("[dim]Scheduling Globalping ping + MTR…[/dim]\n")
 
     try:
@@ -1055,6 +1054,7 @@ def aspath(
         "dest_asn": dest_asn,
         "target_ip": target_ip,
         "target_origin": target_origin,
+        "target": target_info,
         "measurement_ids": mids,
         "statuses": statuses,
         "candidates": [],
@@ -1075,18 +1075,62 @@ def aspath(
 
     if statuses.get(mids["mtr"]) == "finished":
         mtr_results = globalping_mod.fetch_results(mids["mtr"], gp_token)
-        result["candidates"] = globalping_mod.parse_mtr_path_candidates(mtr_results)
+        result["candidates"] = globalping_mod.parse_mtr_path_candidates(mtr_results, dest_asn)
 
-    if result["candidates"]:
-        result["optimal_path"] = result["candidates"][0]
+    complete_candidates = [c for c in result["candidates"] if c.get("reaches_target")]
+    if complete_candidates:
+        result["optimal_path"] = complete_candidates[0]
+    elif result["candidates"]:
+        result["partial_paths"] = result["candidates"]
+        result["path_status"] = "incomplete"
+        result["path_note"] = (
+            "Globalping MTR did not expose a complete AS path to the destination ASN; "
+            "the selected target may be non-responsive or filtered."
+        )
 
     if output_json:
         print(json.dumps(result, indent=2))
     else:
         display.aspath_report(source_asn, dest_asn, target_ip, result)
 
-    if not result["candidates"]:
+    if not result.get("optimal_path"):
         raise typer.Exit(1)
+
+
+@app.command("target")
+def target(
+    asn:         str = typer.Argument(..., help="ASN to find a usable target for, e.g. AS7018 or 7018"),
+    target_ip:   Optional[str] = typer.Option(None, "--target", help="Validate this user-provided IP against the ASN"),
+    output_json: bool = typer.Option(False, "--json", help="Output target metadata as JSON"),
+):
+    """Find a usable IPv4 measurement target inside an ASN."""
+    asn_norm = normalize_asn(asn)
+    if not output_json:
+        display.header(__version__)
+        display.console.print(f"[dim]Finding a usable target in [bold]{asn_norm}[/bold]…[/dim]\n")
+
+    try:
+        info = targets_mod.discover_target(asn_norm, user_target=target_ip)
+    except Exception as exc:
+        if output_json:
+            print(json.dumps({"asn": asn_norm, "error": str(exc)}, indent=2))
+        else:
+            display.error(f"Target discovery failed: {exc}")
+        raise typer.Exit(1)
+
+    if not info:
+        msg = f"No usable target found in {asn_norm}"
+        if output_json:
+            print(json.dumps({"asn": asn_norm, "error": msg}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    output = {"asn": asn_norm, **info}
+    if output_json:
+        print(json.dumps(output, indent=2))
+    else:
+        display.target_report(asn_norm, info)
 
 
 _COUNTRY_NAMES: dict[str, str] = {

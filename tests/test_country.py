@@ -75,6 +75,19 @@ def test_get_test_ip_returns_none_for_null_address_v4():
     assert result is None
 
 
+def test_get_test_ip_skips_null_atlas_address_and_uses_next_probe():
+    """Atlas sometimes returns connected probes whose address_v4 is hidden;
+    keep scanning the page for a usable public address in the requested ASN."""
+    atlas_resp = _atlas_response([
+        {"id": 1, "asn_v4": 7018, "address_v4": None},
+        {"id": 2, "asn_v4": 7018, "address_v4": "162.200.253.113"},
+    ])
+    with patch("netpath.country.requests.get", return_value=atlas_resp):
+        ip, origin = get_test_target_for_asn("AS7018")
+
+    assert (ip, origin) == ("162.200.253.113", "atlas")
+
+
 def test_get_test_ip_falls_back_to_peeringdb_netixlan():
     """When no Atlas probe exists, a PeeringDB netixlan IPv4 is used as the target."""
     ixp_mod._NETIXLAN_CACHE.clear()

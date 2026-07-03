@@ -344,9 +344,11 @@ def parse_mtr_as_path(results: list[dict]) -> list[str]:
 
 def _hop_avg_ms(hop: dict) -> float | None:
     stats = hop.get("stats") or {}
+    if isinstance(stats.get("rcv"), (int, float)) and stats.get("rcv") <= 0:
+        return None
     for key in ("avg", "mean"):
         val = stats.get(key)
-        if isinstance(val, (int, float)):
+        if isinstance(val, (int, float)) and val > 0:
             return float(val)
     timings = hop.get("timings") or []
     rtts = [
@@ -368,7 +370,7 @@ def _probe_label(item: dict) -> str:
     return ", ".join(parts) if parts else "Globalping probe"
 
 
-def parse_mtr_path_candidates(results: list[dict]) -> list[dict]:
+def parse_mtr_path_candidates(results: list[dict], target_asn: str | None = None) -> list[dict]:
     """
     Return ranked AS-path candidates from Globalping mtr results.
 
@@ -376,6 +378,7 @@ def parse_mtr_path_candidates(results: list[dict]) -> list[dict]:
     are collapsed. Multiple probes can reveal different policy paths from the
     same source ASN; callers can rank these alongside ping loss/jitter.
     """
+    target_num = str(target_asn or "").upper().removeprefix("AS")
     candidates: list[dict] = []
     seen: set[tuple[str, ...]] = set()
     for item in results:
@@ -383,6 +386,7 @@ def parse_mtr_path_candidates(results: list[dict]) -> list[dict]:
         path_asns: list[int] = []
         path_labels: list[str] = []
         final_rtt = None
+        target_rtt = None
         for hop in hops:
             hop_rtt = _hop_avg_ms(hop)
             if hop_rtt is not None:
@@ -391,6 +395,8 @@ def parse_mtr_path_candidates(results: list[dict]) -> list[dict]:
             if not asns:
                 continue
             asn = asns[0]
+            if target_num and str(asn) == target_num:
+                target_rtt = hop_rtt
             if path_asns and path_asns[-1] == asn:
                 continue
             domain = _hostname_domain(hop.get("resolvedHostname"))
@@ -401,13 +407,17 @@ def parse_mtr_path_candidates(results: list[dict]) -> list[dict]:
         if not path_labels or key in seen:
             continue
         seen.add(key)
+        reaches_target = bool(target_num and any(str(asn) == target_num for asn in path_asns))
         candidates.append({
             "path": path_labels,
             "as_hops": len(path_labels),
             "probe": _probe_label(item),
-            "rtt_ms": round(final_rtt, 2) if final_rtt is not None else None,
+            "rtt_ms": round(target_rtt, 2) if target_rtt is not None else None,
+            "last_responsive_rtt_ms": round(final_rtt, 2) if final_rtt is not None else None,
+            "reaches_target": reaches_target,
         })
     candidates.sort(key=lambda c: (
+        not c["reaches_target"],
         c["rtt_ms"] is None,
         c["rtt_ms"] if c["rtt_ms"] is not None else 0,
         c["as_hops"],

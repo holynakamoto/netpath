@@ -611,15 +611,21 @@ def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) 
         warn("No AS path could be derived from the Globalping MTR results.")
         return
 
-    best = candidates[0]
-    console.print(
-        "  [bold green]Optimal measured path:[/bold green] "
-        + " [dim]→[/dim] ".join(best["path"])
-    )
-    console.print(
-        "  [dim]Ranking uses MTR RTT when available, then AS-hop count. "
-        "BGP policy control is outside netpath; this is the best measured path.[/dim]\n"
-    )
+    best = result.get("optimal_path")
+    if best:
+        console.print(
+            "  [bold green]Optimal measured path:[/bold green] "
+            + " [dim]→[/dim] ".join(best["path"])
+        )
+        console.print(
+            "  [dim]Ranking uses complete paths first, then MTR RTT when available, "
+            "then AS-hop count. BGP policy control is outside netpath.[/dim]\n"
+        )
+    else:
+        console.print("  [bold yellow]Incomplete measurement[/bold yellow]")
+        if result.get("path_note"):
+            console.print(f"  [dim]{result['path_note']}[/dim]")
+        console.print()
 
     table = Table(
         box=box.SIMPLE_HEAD,
@@ -630,20 +636,63 @@ def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) 
     )
     table.add_column("#", style="dim", justify="right", width=3)
     table.add_column("RTT", justify="right", width=10)
+    table.add_column("Status", justify="center", width=10)
     table.add_column("AS hops", justify="right", width=8)
     table.add_column("Probe", min_width=18)
     table.add_column("Path", min_width=32)
     for idx, candidate in enumerate(candidates, 1):
         rtt = candidate.get("rtt_ms")
-        rtt_text = fmt_latency(rtt) if rtt is not None else Text("—", style="dim")
+        if rtt is not None:
+            rtt_text = fmt_latency(rtt)
+        elif candidate.get("last_responsive_rtt_ms") is not None:
+            rtt_text = Text(f"last {candidate['last_responsive_rtt_ms']:.1f}", style="dim")
+        else:
+            rtt_text = Text("—", style="dim")
         table.add_row(
             str(idx),
             rtt_text,
+            Text("complete", style="green") if candidate.get("reaches_target") else Text("partial", style="yellow"),
             str(candidate.get("as_hops", len(candidate.get("path", [])))),
             candidate.get("probe", "Globalping probe"),
             " → ".join(candidate.get("path", [])),
         )
     console.print(table)
+    console.print()
+
+
+def target_report(asn: str, info: dict) -> None:
+    """Render target discovery metadata."""
+    confidence = info.get("confidence", "unknown")
+    styles = {
+        "high": "bold green",
+        "medium": "yellow",
+        "low": "bold red",
+        "user": "cyan",
+    }
+    style = styles.get(confidence, "dim")
+    lines = [
+        f"  [bold]{info.get('ip', '—')}[/bold]",
+        f"  [dim]Source:[/dim] {info.get('origin', 'unknown')}",
+        f"  [dim]Confidence:[/dim] [{style}]{confidence}[/{style}]",
+    ]
+    if info.get("prefix"):
+        lines.append(f"  [dim]Prefix:[/dim] {info['prefix']}")
+    if info.get("port"):
+        port_line = f"  [dim]Validation:[/dim] TCP/{info['port']}"
+        if info.get("tcp_status"):
+            port_line += f" {info['tcp_status']}"
+        lines.append(port_line)
+    if info.get("reason"):
+        lines.extend(["", f"  {info['reason']}"])
+
+    console.print(
+        Panel(
+            "\n".join(lines),
+            title=f"[bold]Target · {asn}[/bold]",
+            border_style="blue",
+            expand=False,
+        )
+    )
     console.print()
 
 

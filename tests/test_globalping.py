@@ -401,7 +401,7 @@ def test_parse_mtr_path_candidates_ranks_distinct_paths():
         ]),
     ]
 
-    candidates = parse_mtr_path_candidates(results)
+    candidates = parse_mtr_path_candidates(results, "AS64501")
 
     assert len(candidates) == 2
     assert candidates[0]["path"] == [
@@ -410,7 +410,41 @@ def test_parse_mtr_path_candidates_ranks_distinct_paths():
         "AS64501 (example.net)",
     ]
     assert candidates[0]["rtt_ms"] == 50.0
+    assert candidates[0]["reaches_target"] is True
     assert candidates[1]["path"][1] == "AS3356 (level3.net)"
+
+
+def test_parse_mtr_path_candidates_marks_partial_paths():
+    from netpath.globalping import parse_mtr_path_candidates
+    results = [
+        _mtr_result([
+            {"asn": [64500], "resolvedHostname": "edge.source.example",
+             "stats": {"avg": 0.0}},
+        ]),
+    ]
+
+    candidates = parse_mtr_path_candidates(results, "AS64501")
+
+    assert candidates[0]["path"] == ["AS64500 (source.example)"]
+    assert candidates[0]["reaches_target"] is False
+
+
+def test_parse_mtr_path_candidates_ignores_zero_rtt_loss_hops():
+    from netpath.globalping import parse_mtr_path_candidates
+    results = [
+        _mtr_result([
+            {"asn": [64500], "resolvedHostname": "edge.source.example",
+             "stats": {"avg": 4.0, "rcv": 3}},
+            {"asn": [64501], "resolvedHostname": "filtered.dest.example",
+             "stats": {"avg": 0, "rcv": 0, "loss": 100}},
+        ]),
+    ]
+
+    candidates = parse_mtr_path_candidates(results, "AS64501")
+
+    assert candidates[0]["reaches_target"] is True
+    assert candidates[0]["rtt_ms"] is None
+    assert candidates[0]["last_responsive_rtt_ms"] == 4.0
 
 
 # --- get_public_ip ---

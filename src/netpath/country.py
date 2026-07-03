@@ -124,7 +124,7 @@ def _get_atlas_probe_ip(asn: str) -> str | None:
     Returns None if both queries find nothing or either request fails.
     """
     asn_num = asn.lstrip("ASas")
-    base_params = {"asn": asn_num, "status": 1, "sort": "id", "page_size": 1}
+    base_params = {"asn": asn_num, "status": 1, "sort": "id", "page_size": 25}
 
     for extra in ({"is_anchor": "true"}, {}):
         try:
@@ -136,7 +136,7 @@ def _get_atlas_probe_ip(asn: str) -> str | None:
             r.raise_for_status()
             for probe in r.json().get("results", []):
                 ip = probe.get("address_v4")
-                if ip:
+                if ip and probe.get("asn_v4") == int(asn_num):
                     return ip
         except requests.RequestException:
             pass

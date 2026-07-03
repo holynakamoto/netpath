@@ -88,7 +88,21 @@ Options:
 
 ```
 --gp-token TEXT           Globalping token for a higher rate limit (optional; or set NETPATH_GLOBALPING_TOKEN)
+--target IP               Use this destination IP instead of automatic target discovery
 --json                    Output results as JSON
+```
+
+### Find a usable target in an ASN
+
+```bash
+netpath target AS7018
+```
+
+Target discovery tries public iperf3 servers, connected RIPE Atlas probe addresses, PeeringDB IXP interface addresses, then a small sample from RIPEstat announced prefixes. Prefix-sampled targets are verified with Cymru; when TCP/443 or TCP/80 responds they are marked medium-confidence, otherwise a routed but unresponsive sample can be returned as low-confidence.
+
+```bash
+netpath target AS7018 --json
+netpath target AS7018 --target 12.122.1.1
 ```
 
 ### Probe coverage
