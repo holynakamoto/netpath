@@ -321,8 +321,11 @@ def test_parse_ping_stats_returns_none_on_no_usable_data():
 
 # --- parse_mtr_as_path ---
 
-def _mtr_result(hops: list[dict]) -> dict:
-    return {"result": {"hops": hops}}
+def _mtr_result(hops: list[dict], probe: dict | None = None) -> dict:
+    item = {"result": {"hops": hops}}
+    if probe:
+        item["probe"] = probe
+    return item
 
 
 def test_parse_mtr_as_path_dedupes_consecutive_asns():
@@ -445,6 +448,49 @@ def test_parse_mtr_path_candidates_ignores_zero_rtt_loss_hops():
     assert candidates[0]["reaches_target"] is True
     assert candidates[0]["rtt_ms"] is None
     assert candidates[0]["last_responsive_rtt_ms"] == 4.0
+
+
+def test_parse_mtr_path_candidates_uses_network_names_and_geo_points():
+    from netpath.globalping import parse_mtr_path_candidates
+    results = [
+        _mtr_result(
+            [
+                {"asn": [14593], "resolvedAddress": "203.0.113.10",
+                 "resolvedHostname": "hostname.localhost",
+                 "stats": {"avg": 12.0, "rcv": 3}},
+                {"asn": [12400], "resolvedAddress": "198.51.100.20",
+                 "resolvedHostname": "edge.net.il",
+                 "stats": {"avg": 76.7, "rcv": 3}},
+            ],
+            probe={
+                "asn": 14593,
+                "network": "SpaceX Starlink",
+                "city": "Chicago",
+                "country": "US",
+                "latitude": 41.85,
+                "longitude": -87.65,
+            },
+        )
+    ]
+    geo = {
+        "203.0.113.10": {
+            "lat": 41.88, "lon": -87.63, "city": "Chicago",
+            "country_code": "US", "as": "AS14593 SpaceX Starlink",
+        },
+        "198.51.100.20": {
+            "lat": 32.08, "lon": 34.78, "city": "Tel Aviv",
+            "country_code": "IL", "as": "AS12400 Partner Communications",
+        },
+    }
+
+    candidates = parse_mtr_path_candidates(results, "AS12400", geo=geo)
+
+    assert candidates[0]["path"] == [
+        "AS14593 Starlink",
+        "AS12400 Partner Communications",
+    ]
+    assert candidates[0]["geo_points"][0]["city"] == "Chicago"
+    assert candidates[0]["geo_points"][-1]["city"] == "Tel Aviv"
 
 
 # --- get_public_ip ---

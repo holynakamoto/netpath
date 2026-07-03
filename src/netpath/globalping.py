@@ -314,6 +314,42 @@ def _hostname_domain(hostname: str | None) -> str:
     return ".".join(parts[-2:])
 
 
+def _clean_network_name(name: str | None) -> str:
+    if not name:
+        return ""
+    cleaned = " ".join(str(name).replace("_", " ").split())
+    if cleaned.upper().startswith("AS"):
+        parts = cleaned.split(maxsplit=1)
+        cleaned = parts[1] if len(parts) > 1 else cleaned
+    cleaned = cleaned.rstrip(" ,")
+    if "SPACE EXPLORATION TECHNOLOGIES" in cleaned.upper() or "SPACEX STARLINK" in cleaned.upper():
+        return "Starlink"
+    for suffix in (" LLC", " Inc.", " Inc", " Ltd.", " Ltd", " Corp.", " Corp"):
+        if cleaned.endswith(suffix):
+            cleaned = cleaned[: -len(suffix)]
+    return cleaned.rstrip(" ,").strip()
+
+
+def _asn_name_from_geo(geo: dict | None) -> str:
+    if not geo:
+        return ""
+    as_field = geo.get("as") or ""
+    if as_field.startswith("AS"):
+        parts = as_field.split(maxsplit=1)
+        if len(parts) == 2:
+            return _clean_network_name(parts[1])
+    return _clean_network_name(geo.get("org"))
+
+
+def _asn_label(asn: int, hostname: str | None, asn_names: dict[int, str] | None = None) -> str:
+    if asn_names and asn_names.get(asn):
+        return f"AS{asn} {asn_names[asn]}"
+    domain = _hostname_domain(hostname)
+    if domain and domain not in ("localhost", "localdomain"):
+        return f"AS{asn} ({domain})"
+    return f"AS{asn}"
+
+
 def parse_mtr_as_path(results: list[dict]) -> list[str]:
     """
     Derive a deduplicated AS-hop sequence from Globalping mtr results.
@@ -362,15 +398,19 @@ def _hop_avg_ms(hop: dict) -> float | None:
 
 def _probe_label(item: dict) -> str:
     probe = item.get("probe") or {}
-    location = probe.get("location") or item.get("location") or {}
+    location = probe.get("location") or item.get("location") or probe
     city = location.get("city")
     country = location.get("country")
-    network = location.get("network")
+    network = _clean_network_name(location.get("network"))
     parts = [p for p in (city, country, network) if p]
     return ", ".join(parts) if parts else "Globalping probe"
 
 
-def parse_mtr_path_candidates(results: list[dict], target_asn: str | None = None) -> list[dict]:
+def parse_mtr_path_candidates(
+    results: list[dict],
+    target_asn: str | None = None,
+    geo: dict[str, dict] | None = None,
+) -> list[dict]:
     """
     Return ranked AS-path candidates from Globalping mtr results.
 
@@ -382,9 +422,37 @@ def parse_mtr_path_candidates(results: list[dict], target_asn: str | None = None
     candidates: list[dict] = []
     seen: set[tuple[str, ...]] = set()
     for item in results:
+        probe = item.get("probe") or {}
+        asn_names: dict[int, str] = {}
+        if isinstance(probe.get("asn"), int) and probe.get("network"):
+            asn_names[probe["asn"]] = _clean_network_name(probe.get("network"))
+        for hop in item.get("result", {}).get("hops", []):
+            asns = hop.get("asn") or []
+            ip = hop.get("resolvedAddress")
+            if asns and ip and geo:
+                name = _asn_name_from_geo(geo.get(ip))
+                if name:
+                    asn_names.setdefault(asns[0], name)
+
         hops = item.get("result", {}).get("hops", [])
         path_asns: list[int] = []
         path_labels: list[str] = []
+        geo_points: list[dict] = []
+        if probe.get("latitude") is not None and probe.get("longitude") is not None:
+            probe_city = probe.get("city") or ""
+            probe_country = probe.get("country") or ""
+            probe_asn = probe.get("asn")
+            probe_name = _clean_network_name(probe.get("network"))
+            probe_label = f"AS{probe_asn} {probe_name}".strip() if probe_asn else "Globalping probe"
+            geo_points.append({
+                "lat": probe.get("latitude"),
+                "lon": probe.get("longitude"),
+                "city": probe_city,
+                "country_code": probe_country,
+                "label": probe_label,
+                "ip": "source probe",
+                "color": "#00ff80",
+            })
         final_rtt = None
         target_rtt = None
         for hop in hops:
@@ -398,11 +466,32 @@ def parse_mtr_path_candidates(results: list[dict], target_asn: str | None = None
             if target_num and str(asn) == target_num:
                 target_rtt = hop_rtt
             if path_asns and path_asns[-1] == asn:
+                ip = hop.get("resolvedAddress")
+                if ip and geo and geo.get(ip):
+                    g = geo[ip]
+                    geo_points.append({
+                        "lat": g.get("lat"),
+                        "lon": g.get("lon"),
+                        "city": g.get("city"),
+                        "country_code": g.get("country_code"),
+                        "label": _asn_label(asn, hop.get("resolvedHostname"), asn_names),
+                        "ip": ip,
+                    })
                 continue
-            domain = _hostname_domain(hop.get("resolvedHostname"))
-            label = f"AS{asn} ({domain})" if domain else f"AS{asn}"
+            label = _asn_label(asn, hop.get("resolvedHostname"), asn_names)
             path_asns.append(asn)
             path_labels.append(label)
+            ip = hop.get("resolvedAddress")
+            if ip and geo and geo.get(ip):
+                g = geo[ip]
+                geo_points.append({
+                    "lat": g.get("lat"),
+                    "lon": g.get("lon"),
+                    "city": g.get("city"),
+                    "country_code": g.get("country_code"),
+                    "label": label,
+                    "ip": ip,
+                })
         key = tuple(path_labels)
         if not path_labels or key in seen:
             continue
@@ -415,6 +504,7 @@ def parse_mtr_path_candidates(results: list[dict], target_asn: str | None = None
             "rtt_ms": round(target_rtt, 2) if target_rtt is not None else None,
             "last_responsive_rtt_ms": round(final_rtt, 2) if final_rtt is not None else None,
             "reaches_target": reaches_target,
+            "geo_points": geo_points,
         })
     candidates.sort(key=lambda c: (
         not c["reaches_target"],

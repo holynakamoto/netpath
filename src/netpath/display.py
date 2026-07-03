@@ -595,7 +595,12 @@ def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) 
 
     console.print()
     console.rule(f" AS path {source_asn} → {dest_asn} ", style="bold cyan")
-    console.print(f"  [dim]Target:[/dim] {target_ip}")
+    target_geo = (result.get("target") or {}).get("geo") or {}
+    target_city = ", ".join(
+        p for p in (target_geo.get("city"), target_geo.get("country_code")) if p
+    )
+    target_suffix = f"  [dim]({target_city})[/dim]" if target_city else ""
+    console.print(f"  [dim]Target:[/dim] {target_ip}{target_suffix}")
     metrics = []
     if ping:
         metrics.append(f"RTT {ping['avg']:.1f} ms avg ({ping['min']:.1f}-{ping['max']:.1f})")
@@ -640,6 +645,7 @@ def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) 
     table.add_column("AS hops", justify="right", width=8)
     table.add_column("Probe", min_width=18)
     table.add_column("Path", min_width=32)
+    table.add_column("Approx. cities", min_width=20)
     for idx, candidate in enumerate(candidates, 1):
         rtt = candidate.get("rtt_ms")
         if rtt is not None:
@@ -648,6 +654,13 @@ def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) 
             rtt_text = Text(f"last {candidate['last_responsive_rtt_ms']:.1f}", style="dim")
         else:
             rtt_text = Text("—", style="dim")
+        cities = []
+        for point in candidate.get("geo_points", []):
+            city = point.get("city")
+            cc = point.get("country_code")
+            label = ", ".join(p for p in (city, cc) if p)
+            if label and (not cities or cities[-1] != label):
+                cities.append(label)
         table.add_row(
             str(idx),
             rtt_text,
@@ -655,6 +668,7 @@ def aspath_report(source_asn: str, dest_asn: str, target_ip: str, result: dict) 
             str(candidate.get("as_hops", len(candidate.get("path", [])))),
             candidate.get("probe", "Globalping probe"),
             " → ".join(candidate.get("path", [])),
+            " → ".join(cities[:5]) if cities else "—",
         )
     console.print(table)
     console.print()
@@ -677,6 +691,12 @@ def target_report(asn: str, info: dict) -> None:
     ]
     if info.get("prefix"):
         lines.append(f"  [dim]Prefix:[/dim] {info['prefix']}")
+    geo = info.get("geo") or {}
+    city = ", ".join(p for p in (geo.get("city"), geo.get("region"), geo.get("country")) if p)
+    if city:
+        lines.append(f"  [dim]Location:[/dim] {city}")
+    if geo.get("as") or geo.get("org"):
+        lines.append(f"  [dim]Geo ASN:[/dim] {geo.get('as') or geo.get('org')}")
     if info.get("port"):
         port_line = f"  [dim]Validation:[/dim] TCP/{info['port']}"
         if info.get("tcp_status"):

@@ -70,12 +70,15 @@ def _is_private(host: str) -> bool:
         return False  # Hostname — let ip-api.com resolve it
 
 
-def _geolocate(hosts: list[str]) -> dict[str, dict]:
-    """Batch geolocate hosts/IPs. Returns {host: {lat, lon}} for successful lookups."""
+def geolocate_hosts(hosts: list[str]) -> dict[str, dict]:
+    """Batch geolocate hosts/IPs. Returns {host: geo metadata} for successful lookups."""
     results: dict[str, dict] = {}
     for i in range(0, len(hosts), _BATCH_SIZE):
         batch = hosts[i : i + _BATCH_SIZE]
-        payload = [{"query": h, "fields": "query,lat,lon,status"} for h in batch]
+        payload = [{
+            "query": h,
+            "fields": "query,lat,lon,status,city,regionName,country,countryCode,as,org",
+        } for h in batch]
         try:
             resp = requests.post(_BATCH_URL, json=payload, timeout=10)
         except requests.RequestException as e:
@@ -86,8 +89,22 @@ def _geolocate(hosts: list[str]) -> dict[str, dict]:
             raise RuntimeError(f"ip-api.com returned HTTP {resp.status_code}")
         for item in resp.json():
             if item.get("status") == "success":
-                results[item["query"]] = {"lat": item["lat"], "lon": item["lon"]}
+                results[item["query"]] = {
+                    "lat": item["lat"],
+                    "lon": item["lon"],
+                    "city": item.get("city") or "",
+                    "region": item.get("regionName") or "",
+                    "country": item.get("country") or "",
+                    "country_code": item.get("countryCode") or "",
+                    "as": item.get("as") or "",
+                    "org": item.get("org") or "",
+                }
     return results
+
+
+def _geolocate(hosts: list[str]) -> dict[str, dict]:
+    """Backward-compatible wrapper for traceroute globe rendering."""
+    return geolocate_hosts(hosts)
 
 
 def _arc_color(delta_ms: float) -> str:
@@ -253,6 +270,116 @@ def render(hubs_by_asn: dict[str, list[dict]]) -> None:
             console.print(f"  [dim]Globe saved — open manually: {out}[/dim]")
     except Exception as e:
         console.print(f"  [yellow]Globe write failed: {e}[/yellow]")
+
+
+def _build_aspath_html(points: list[dict], arcs: list[dict], title: str) -> str:
+    pts = json.dumps(points)
+    acs = json.dumps(arcs)
+    title_js = json.dumps(title)
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>netpath — AS path globe</title>
+  <style>
+    body{{margin:0;background:#0a0a1a;overflow:hidden}}
+    #g{{width:100vw;height:100vh}}
+    #legend{{position:fixed;top:16px;right:16px;background:rgba(0,0,0,.75);
+            color:#ddd;font:13px monospace;padding:12px 16px;
+            border-radius:8px;border:1px solid #333;max-width:360px}}
+    .muted{{color:#aaa}}
+  </style>
+</head>
+<body>
+  <div id="g"></div>
+  <div id="legend">
+    <b id="t"></b><br>
+    <span class="muted">Approximate city-level geolocation from public IP metadata.</span>
+  </div>
+  <script src="https://unpkg.com/globe.gl"></script>
+  <script>
+document.getElementById('t').textContent = {title_js};
+const G=Globe()
+  .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-dark.jpg')
+  .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+  .pointsData({pts})
+  .pointLat(d=>d.lat).pointLng(d=>d.lon)
+  .pointLabel(d=>d.label)
+  .pointColor(d=>d.color || '#00cfff').pointRadius(.45).pointAltitude(.015)
+  .arcsData({acs})
+  .arcStartLat(d=>d.sLat).arcStartLng(d=>d.sLon)
+  .arcEndLat(d=>d.eLat).arcEndLng(d=>d.eLon)
+  .arcLabel(d=>d.label)
+  .arcColor(d=>d.color || 'rgba(0,255,128,0.8)').arcAltitudeAutoScale(.35)
+  .arcStroke(1.7).arcDashLength(.45).arcDashGap(.18).arcDashAnimateTime(1800)
+  (document.getElementById('g'));
+G.controls().autoRotate=true;
+G.controls().autoRotateSpeed=.45;
+  </script>
+</body>
+</html>"""
+
+
+def render_aspath(result: dict) -> None:
+    """Render an aspath result's best measured path on a Globe.gl map."""
+    candidate = result.get("optimal_path") or (result.get("candidates") or [None])[0]
+    if not candidate:
+        console.print(Panel(
+            "  No AS path candidate to visualize.",
+            title="[bold yellow]Globe[/bold yellow]",
+            border_style="yellow",
+            expand=False,
+        ))
+        return
+
+    raw_points = candidate.get("geo_points") or []
+    points: list[dict] = []
+    seen: set[tuple[float, float, str]] = set()
+    for idx, point in enumerate(raw_points, 1):
+        lat, lon = point.get("lat"), point.get("lon")
+        if lat is None or lon is None:
+            continue
+        key = (round(float(lat), 4), round(float(lon), 4), point.get("label", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        city = ", ".join(p for p in (point.get("city"), point.get("country_code")) if p)
+        points.append({
+            "lat": lat,
+            "lon": lon,
+            "label": f"{idx}. {point.get('label', 'hop')}<br>{city}<br>{point.get('ip', '')}",
+            "color": point.get("color") or "#00cfff",
+        })
+
+    if len(points) < 2:
+        console.print(Panel(
+            "  Fewer than two path points could be geolocated — globe skipped.",
+            title="[bold yellow]Globe[/bold yellow]",
+            border_style="yellow",
+            expand=False,
+        ))
+        return
+
+    arcs: list[dict] = []
+    for prev, curr in zip(points, points[1:]):
+        arcs.append({
+            "sLat": prev["lat"],
+            "sLon": prev["lon"],
+            "eLat": curr["lat"],
+            "eLon": curr["lon"],
+            "label": f"{prev['label']} → {curr['label']}",
+            "color": "rgba(0,255,128,0.82)",
+        })
+
+    title = f"{result.get('source_asn')} → {result.get('dest_asn')}"
+    html = _build_aspath_html(points, arcs, title)
+    try:
+        out = Path(tempfile.mkdtemp()) / "netpath-aspath-globe.html"
+        out.write_text(html, encoding="utf-8")
+        if not webbrowser.open(out.as_uri()):
+            console.print(f"  [dim]AS path globe saved — open manually: {out}[/dim]")
+    except Exception as e:
+        console.print(f"  [yellow]AS path globe write failed: {e}[/yellow]")
 
 
 def _build_coverage_html(a3_codes: list[str], raw_values: list[int], log_values: list[float]) -> str:

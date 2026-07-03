@@ -89,7 +89,14 @@ Options:
 ```
 --gp-token TEXT           Globalping token for a higher rate limit (optional; or set NETPATH_GLOBALPING_TOKEN)
 --target IP               Use this destination IP instead of automatic target discovery
+--globe                   Open an interactive globe of the measured AS path
 --json                    Output results as JSON
+```
+
+`aspath` enriches AS hops with network names when available and includes approximate city-level geolocation for public hop IPs:
+
+```bash
+netpath aspath AS14593 AS12400 --globe
 ```
 
 ### Find a usable target in an ASN

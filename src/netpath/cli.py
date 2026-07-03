@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import ipaddress
 import json
 import re
 import socket
@@ -976,6 +977,7 @@ def aspath(
     dest:        str = typer.Argument(..., help="Destination ASN, e.g. AS7018 or 7018"),
     gp_token:    Optional[str] = _GP_TOK,
     target_ip:   Optional[str] = typer.Option(None, "--target", help="Use this destination IP instead of automatic target discovery"),
+    globe:       bool = typer.Option(False, "--globe", "-g", help="Open interactive globe visualization for the measured AS path"),
     output_json: bool = typer.Option(False, "--json", help="Output results as JSON to stdout"),
 ):
     """Rank measured AS paths from probes inside one ASN toward another ASN."""
@@ -1075,7 +1077,30 @@ def aspath(
 
     if statuses.get(mids["mtr"]) == "finished":
         mtr_results = globalping_mod.fetch_results(mids["mtr"], gp_token)
-        result["candidates"] = globalping_mod.parse_mtr_path_candidates(mtr_results, dest_asn)
+        geo_hosts: list[str] = []
+        for item in mtr_results:
+            for hop in item.get("result", {}).get("hops", []):
+                ip = hop.get("resolvedAddress")
+                if not ip:
+                    continue
+                try:
+                    if ipaddress.ip_address(ip).is_private:
+                        continue
+                except ValueError:
+                    pass
+                geo_hosts.append(ip)
+        if target_ip:
+            geo_hosts.append(target_ip)
+        geo = {}
+        if geo_hosts:
+            try:
+                geo = globe_mod.geolocate_hosts(list(dict.fromkeys(geo_hosts)))
+            except Exception:
+                geo = {}
+        if target_ip and geo.get(target_ip):
+            target_info["geo"] = geo[target_ip]
+        result["target"] = target_info
+        result["candidates"] = globalping_mod.parse_mtr_path_candidates(mtr_results, dest_asn, geo=geo)
 
     complete_candidates = [c for c in result["candidates"] if c.get("reaches_target")]
     if complete_candidates:
@@ -1092,6 +1117,8 @@ def aspath(
         print(json.dumps(result, indent=2))
     else:
         display.aspath_report(source_asn, dest_asn, target_ip, result)
+        if globe:
+            globe_mod.render_aspath(result)
 
     if not result.get("optimal_path"):
         raise typer.Exit(1)
@@ -1125,6 +1152,13 @@ def target(
         else:
             display.error(msg)
         raise typer.Exit(1)
+
+    try:
+        geo = globe_mod.geolocate_hosts([info["ip"]])
+        if geo.get(info["ip"]):
+            info["geo"] = geo[info["ip"]]
+    except Exception:
+        pass
 
     output = {"asn": asn_norm, **info}
     if output_json:
