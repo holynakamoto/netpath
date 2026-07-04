@@ -7,6 +7,7 @@ import re
 import socket
 import subprocess
 import sys
+import time
 from typing import Optional
 
 import requests
@@ -18,6 +19,7 @@ from rich.table import Table
 from netpath import __version__
 from netpath import country as country_mod
 from netpath import display, globalping as globalping_mod, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
+from netpath import monitor as monitor_mod
 from netpath import mtr, paris, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest, targets as targets_mod
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
@@ -575,6 +577,100 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
     return result
 
 
+def _asn_json_payload(asn_norm: str, server: dict, result: dict) -> dict:
+    upload_mbps = result.get("upload_mbps")
+    download_mbps = result.get("download_mbps")
+    return {
+        "asn": asn_norm,
+        "target_host": server["HOST"],
+        "path": [
+            {
+                "hop":      hub.get("count"),
+                "host":     hub.get("host"),
+                "asn":      hub.get("ASN"),
+                "loss_pct": hub.get("Loss%"),
+                "avg_ms":   hub.get("Avg"),
+                "best_ms":  hub.get("Best"),
+                "worst_ms": hub.get("Wrst"),
+                "p50_ms":   hub.get("p50"),
+                "p95_ms":   hub.get("p95"),
+                "p99_ms":   hub.get("p99"),
+            }
+            for hub in result.get("hubs", [])
+        ],
+        "throughput": (
+            {"upload_mbps": upload_mbps, "download_mbps": download_mbps}
+            if upload_mbps is not None or download_mbps is not None
+            else None
+        ),
+        "jitter_ms":        result.get("jitter_ms"),
+        "tcp_connect_ms":   result.get("tcp_connect_ms"),
+        "tls_handshake_ms": result.get("tls_handshake_ms"),
+        "pmtu":             result.get("pmtu"),
+        "ecmp_paths":       result.get("ecmp_paths"),
+        "path_changes":     result.get("path_changes"),
+        "bufferbloat_ms":   result.get("bufferbloat_ms"),
+        "rum":              result.get("rum"),
+        "verdict":          result.get("verdict", {}),
+    }
+
+
+def _collect_asn_json(
+    asn_norm: str,
+    *,
+    count: int,
+    duration: int,
+    cycles: int,
+    skip_throughput: bool,
+    cf_token: Optional[str],
+    ecmp_passes: int = 1,
+    compare_v6: bool = False,
+    candidates: list[dict] | None = None,
+) -> dict:
+    found = candidates if candidates is not None else servers.find_servers_in_asn(asn_norm, max_count=count)
+    if not found:
+        raise RuntimeError(f"No public iperf3 servers found in {asn_norm}")
+    server = found[0]
+    result = _run_test(
+        host=server["HOST"], port=server["port"],
+        server_meta=server, target_asn=asn_norm,
+        cycles=cycles, duration=duration,
+        skip_throughput=skip_throughput, cf_token=cf_token,
+        json_mode=True, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
+    )
+    return _asn_json_payload(asn_norm, server, result)
+
+
+def _parse_interval_seconds(value: str) -> int:
+    m = re.fullmatch(r"\s*(\d+)\s*([smhd]?)\s*", value.lower())
+    if not m:
+        raise typer.BadParameter("use an interval like 30s, 10m, 2h, or 1d")
+    amount = int(m.group(1))
+    unit = m.group(2) or "s"
+    multiplier = {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
+    seconds = amount * multiplier
+    if seconds <= 0:
+        raise typer.BadParameter("interval must be greater than zero")
+    return seconds
+
+
+def _display_monitor_result(snapshot: dict, changes: list[str], history_file: str) -> None:
+    table = Table(title=f"Monitor snapshot · {snapshot['asn']}", box=box.SIMPLE)
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Target", snapshot.get("target_host") or "—")
+    table.add_row("AS path", " → ".join(snapshot.get("as_path") or []) or "unknown")
+    table.add_row("RTT", f"{snapshot['last_rtt_ms']:.1f} ms" if snapshot.get("last_rtt_ms") is not None else "—")
+    table.add_row("Loss", f"{snapshot['loss_pct']:.1f}%" if snapshot.get("loss_pct") is not None else "—")
+    table.add_row("Download", f"{snapshot['download_mbps']:.0f} Mbps" if snapshot.get("download_mbps") is not None else "—")
+    table.add_row("Verdict", f"{snapshot.get('severity') or 'unknown'} · {snapshot.get('verdict') or 'unknown'}")
+    display.console.print(table)
+    for change in changes:
+        style = "yellow" if change != "No regression detected." and not change.startswith("No previous") else "green"
+        display.console.print(f"[{style}]• {change}[/{style}]")
+    display.console.print(f"[dim]History: {history_file}[/dim]")
+
+
 # ── asn subcommand ────────────────────────────────────────────────────────────
 
 @app.command()
@@ -623,51 +719,19 @@ def asn(
         display.console.print(f"[green]✓[/green] Found [bold]{len(found)}[/bold] server(s) in {asn_norm}\n")
 
     if output_json:
-        server = found[0]
-        result = _run_test(
-            host=server["HOST"], port=server["port"],
-            server_meta=server, target_asn=asn_norm,
-            cycles=cycles, duration=duration,
-            skip_throughput=skip_throughput, cf_token=cf_token,
-            json_mode=True, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
+        output = _collect_asn_json(
+            asn_norm,
+            count=count,
+            duration=duration,
+            cycles=cycles,
+            skip_throughput=skip_throughput,
+            cf_token=cf_token,
+            ecmp_passes=ecmp_passes,
+            compare_v6=compare_v6,
+            candidates=found,
         )
-        upload_mbps   = result.get("upload_mbps")
-        download_mbps = result.get("download_mbps")
-        output = {
-            "asn": asn_norm,
-            "target_host": server["HOST"],
-            "path": [
-                {
-                    "hop":      hub.get("count"),
-                    "host":     hub.get("host"),
-                    "asn":      hub.get("ASN"),
-                    "loss_pct": hub.get("Loss%"),
-                    "avg_ms":   hub.get("Avg"),
-                    "best_ms":  hub.get("Best"),
-                    "worst_ms": hub.get("Wrst"),
-                    "p50_ms":   hub.get("p50"),
-                    "p95_ms":   hub.get("p95"),
-                    "p99_ms":   hub.get("p99"),
-                }
-                for hub in result.get("hubs", [])
-            ],
-            "throughput": (
-                {"upload_mbps": upload_mbps, "download_mbps": download_mbps}
-                if upload_mbps is not None or download_mbps is not None
-                else None
-            ),
-            "jitter_ms":        result.get("jitter_ms"),
-            "tcp_connect_ms":   result.get("tcp_connect_ms"),
-            "tls_handshake_ms": result.get("tls_handshake_ms"),
-            "pmtu":             result.get("pmtu"),
-            "ecmp_paths":       result.get("ecmp_paths"),
-            "path_changes":     result.get("path_changes"),
-            "bufferbloat_ms":   result.get("bufferbloat_ms"),
-            "rum":              result.get("rum"),
-            "verdict":          result.get("verdict", {}),
-        }
         print(json.dumps(output, indent=2))
-        code = _worst_exit_code([result.get("verdict", {})])
+        code = _worst_exit_code([output.get("verdict", {})])
         if code:
             raise typer.Exit(code)
     else:
@@ -689,6 +753,89 @@ def asn(
         code = _worst_exit_code(verdicts)
         if code:
             raise typer.Exit(code)
+
+
+# ── monitor subcommand ──────────────────────────────────────────────────────────
+
+@app.command()
+def monitor(
+    target:        str  = typer.Argument(..., help="Target ASN, e.g. AS15169 or 15169"),
+    count:         int  = _COUNT,
+    duration:      int  = _DUR,
+    cycles:        int  = _CYCLES,
+    no_throughput: bool = _NO_TPUT,
+    cf_token:      Optional[str] = _CF_TOK,
+    every:         Optional[str] = typer.Option(None, "--every", help="Repeat interval, e.g. 30s, 10m, 2h"),
+    runs:          int = typer.Option(1, "--runs", help="Number of snapshots to collect; ignored with --forever"),
+    forever:       bool = typer.Option(False, "--forever", help="Run until interrupted; requires --every"),
+    store:         Optional[str] = typer.Option(None, "--store", help="History directory (default: ~/.netpath/monitor)"),
+    webhook:       Optional[str] = typer.Option(None, "--webhook", help="POST regressions to this webhook URL"),
+    fail_on_regression: bool = typer.Option(False, "--fail-on-regression", help="Exit 2 when a regression is detected"),
+    rtt_threshold: float = typer.Option(25.0, "--rtt-threshold-ms", help="Minimum RTT increase to report"),
+    loss_threshold: float = typer.Option(1.0, "--loss-threshold-pct", help="Minimum loss increase to report"),
+    throughput_drop: float = typer.Option(30.0, "--throughput-drop-pct", help="Minimum download drop to report"),
+):
+    """Persist ASN probe snapshots and report path or performance regressions."""
+    asn_norm = normalize_asn(target)
+    if forever and every is None:
+        raise typer.BadParameter("--forever requires --every")
+    if runs < 1:
+        raise typer.BadParameter("--runs must be at least 1")
+
+    interval_seconds = _parse_interval_seconds(every) if every else None
+    skip_throughput = _check_deps(no_throughput)
+    display.header(__version__)
+    iterations = None if forever else runs
+    run_index = 0
+    regression_seen = False
+
+    while iterations is None or run_index < iterations:
+        run_index += 1
+        display.console.print(f"[dim]Collecting monitor snapshot for [bold]{asn_norm}[/bold]…[/dim]\n")
+        try:
+            result = _collect_asn_json(
+                asn_norm,
+                count=count,
+                duration=duration,
+                cycles=cycles,
+                skip_throughput=skip_throughput,
+                cf_token=cf_token,
+            )
+        except RuntimeError as e:
+            display.error(str(e))
+            raise typer.Exit(1)
+
+        snapshot = monitor_mod.snapshot_from_result(result, asn=asn_norm, target_host=result["target_host"])
+        previous = monitor_mod.load_latest(asn_norm, store)
+        changes = monitor_mod.compare_snapshots(
+            previous,
+            snapshot,
+            rtt_threshold_ms=rtt_threshold,
+            loss_threshold_pct=loss_threshold,
+            throughput_drop_pct=throughput_drop,
+        )
+        history_file = monitor_mod.append_snapshot(snapshot, store)
+        _display_monitor_result(snapshot, changes, str(history_file))
+
+        regressions = [c for c in changes if c != "No regression detected." and not c.startswith("No previous")]
+        if regressions:
+            regression_seen = True
+            if webhook:
+                try:
+                    requests.post(
+                        webhook,
+                        json={"asn": asn_norm, "snapshot": snapshot, "changes": regressions},
+                        timeout=10,
+                    ).raise_for_status()
+                except Exception as e:
+                    display.warn(f"webhook failed: {e}")
+
+        if interval_seconds is not None and (iterations is None or run_index < iterations):
+            display.console.print(f"[dim]Sleeping {interval_seconds}s before next snapshot…[/dim]\n")
+            time.sleep(interval_seconds)
+
+    if fail_on_regression and regression_seen:
+        raise typer.Exit(2)
 
 
 # ── country subcommand ────────────────────────────────────────────────────────

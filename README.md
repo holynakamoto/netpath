@@ -76,6 +76,35 @@ Options:
 --globe                   Open interactive 3D globe after probes complete
 ```
 
+### Monitor an ASN for regressions
+
+```bash
+netpath monitor AS15169
+netpath monitor AS15169 --every 10m --runs 6
+netpath monitor AS15169 --every 5m --forever --webhook https://example.com/netpath-alert
+```
+
+`monitor` stores one JSONL history file per ASN under `~/.netpath/monitor` by default, compares each new snapshot with the previous one, and reports AS-path changes, RTT regressions, packet-loss increases, throughput drops, and verdict worsening. Use `--store` to choose a different history directory and `--fail-on-regression` for cron or CI jobs.
+
+Options:
+
+```
+-n, --count INTEGER              Max servers to test (default: 3)
+-d, --duration INTEGER           iperf3 seconds per direction (default: 5)
+-c, --cycles INTEGER             mtr probe cycles (default: 10)
+--no-throughput                  Skip throughput test
+--every TEXT                     Repeat interval, e.g. 30s, 10m, 2h
+--runs INTEGER                   Number of snapshots to collect (default: 1)
+--forever                        Run until interrupted; requires --every
+--store TEXT                     History directory (default: ~/.netpath/monitor)
+--webhook TEXT                   POST regressions to this webhook URL
+--fail-on-regression             Exit 2 when a regression is detected
+--rtt-threshold-ms FLOAT         Minimum RTT increase to report (default: 25)
+--loss-threshold-pct FLOAT       Minimum loss increase to report (default: 1)
+--throughput-drop-pct FLOAT      Minimum download drop to report (default: 30)
+--cf-token TEXT                  Cloudflare API token (or set NETPATH_CF_TOKEN)
+```
+
 ### Compare AS paths between two ASNs
 
 ```bash
