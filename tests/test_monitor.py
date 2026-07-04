@@ -50,6 +50,15 @@ def test_compare_snapshots_reports_core_regressions():
     assert any("Verdict worsened" in change for change in changes)
 
 
+def test_compare_snapshots_preserves_zero_p95_rtt():
+    previous = {"p95_rtt_ms": 0.0, "last_rtt_ms": 200.0}
+    current = {"p95_rtt_ms": 10.0, "last_rtt_ms": 250.0}
+
+    changes = monitor.compare_snapshots(previous, current, rtt_threshold_ms=20.0)
+
+    assert changes == ["No regression detected."]
+
+
 def test_history_round_trip(tmp_path):
     snapshot = {"asn": "AS64500", "timestamp": "now", "as_path": ["AS64500"]}
 
@@ -58,3 +67,16 @@ def test_history_round_trip(tmp_path):
     assert path == tmp_path / "AS64500.jsonl"
     assert json.loads(path.read_text()) == snapshot
     assert monitor.load_latest("AS64500", str(tmp_path)) == snapshot
+
+
+def test_load_latest_skips_malformed_jsonl_lines(tmp_path):
+    first = {"asn": "AS64500", "timestamp": "first"}
+    second = {"asn": "AS64500", "timestamp": "second"}
+    path = tmp_path / "AS64500.jsonl"
+    path.write_text(
+        json.dumps(first) + "\n"
+        "{truncated\n"
+        + json.dumps(second) + "\n"
+    )
+
+    assert monitor.load_latest("AS64500", str(tmp_path)) == second

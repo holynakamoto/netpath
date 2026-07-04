@@ -829,6 +829,8 @@ def monitor(
                     ).raise_for_status()
                 except Exception as e:
                     display.warn(f"webhook failed: {e}")
+            if fail_on_regression:
+                raise typer.Exit(2)
 
         if interval_seconds is not None and (iterations is None or run_index < iterations):
             display.console.print(f"[dim]Sleeping {interval_seconds}s before next snapshot…[/dim]\n")

@@ -65,7 +65,10 @@ def load_latest(asn: str, path: str | None = None) -> dict[str, Any] | None:
             for line in f:
                 line = line.strip()
                 if line:
-                    latest = json.loads(line)
+                    try:
+                        latest = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
             return latest
     except FileNotFoundError:
         return None
@@ -104,8 +107,12 @@ def compare_snapshots(
     if prev_path != cur_path:
         changes.append(f"AS path changed: {_fmt_path(prev_path)} → {_fmt_path(cur_path)}")
 
-    prev_rtt = _num(previous.get("p95_rtt_ms") or previous.get("last_rtt_ms"))
-    cur_rtt = _num(current.get("p95_rtt_ms") or current.get("last_rtt_ms"))
+    prev_rtt = _num(previous.get("p95_rtt_ms"))
+    if prev_rtt is None:
+        prev_rtt = _num(previous.get("last_rtt_ms"))
+    cur_rtt = _num(current.get("p95_rtt_ms"))
+    if cur_rtt is None:
+        cur_rtt = _num(current.get("last_rtt_ms"))
     if prev_rtt is not None and cur_rtt is not None and cur_rtt - prev_rtt >= rtt_threshold_ms:
         changes.append(f"RTT regression: {prev_rtt:.1f} ms → {cur_rtt:.1f} ms")
 
