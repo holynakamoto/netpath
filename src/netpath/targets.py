@@ -222,6 +222,46 @@ def _origin_reason(origin: str | None, asn: str) -> tuple[str, str]:
     return "low", "target source unknown"
 
 
+def resolve_endpoint(target: str) -> dict | None:
+    """Resolve a user-provided hostname/IP and enrich it with origin ASN metadata."""
+    try:
+        ipaddress.ip_address(target)
+        ip = target
+        hostname = None
+    except ValueError:
+        hostname = target
+        try:
+            infos = socket.getaddrinfo(target, None, socket.AF_INET, socket.SOCK_STREAM)
+        except (socket.gaierror, OSError):
+            return None
+        ips = []
+        for info in infos:
+            resolved = info[4][0]
+            if resolved not in ips:
+                ips.append(resolved)
+        if not ips:
+            return None
+        ip = ips[0]
+
+    rich = cymru_bulk_lookup_rich([ip])
+    record = rich.get(ip) or {}
+    return {
+        "input": target,
+        "hostname": hostname,
+        "ip": ip,
+        "asn": record.get("asn"),
+        "prefix": record.get("prefix"),
+        "name": record.get("name"),
+        "origin": "user",
+        "confidence": "user",
+        "reason": (
+            f"{target} resolved to {ip}"
+            if hostname
+            else "user-provided IP target"
+        ),
+    }
+
+
 def discover_target(asn: str, user_target: str | None = None) -> dict | None:
     """Find a usable IPv4 target for an ASN, with source and confidence metadata."""
     asn_norm = normalize_asn(asn)

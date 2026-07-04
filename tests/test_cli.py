@@ -11,7 +11,7 @@ def test_help_lists_product_commands():
     result = CliRunner().invoke(cli.app, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("asn", "monitor", "country", "aspath", "citypath", "target", "coverage"):
+    for command in ("asn", "host", "monitor", "country", "aspath", "citypath", "target", "coverage"):
         assert command in result.output
 
 
@@ -88,6 +88,48 @@ def test_asn_json_contract_contains_stable_top_level_keys():
     assert payload["verdict"]["severity"] == "ok"
 
 
+def test_host_json_uses_exact_endpoint_without_asn_target_selection():
+    endpoint = {
+        "input": "zoom.example",
+        "hostname": "zoom.example",
+        "ip": "203.0.113.10",
+        "asn": "AS64500",
+        "prefix": "203.0.113.0/24",
+        "name": "Example Video",
+    }
+    measurement = {
+        "hubs": [
+            {
+                "count": 1,
+                "host": "203.0.113.1",
+                "ASN": "AS64500",
+                "Loss%": 0.0,
+                "Avg": 5.0,
+                "Best": 4.0,
+                "Wrst": 6.0,
+                "p50": 5.0,
+                "p95": 6.0,
+                "p99": 6.0,
+            }
+        ],
+        "verdict": {"severity": "ok", "verdict": "Healthy"},
+    }
+    with patch("netpath.cli.targets_mod.resolve_endpoint", return_value=endpoint), \
+         patch("netpath.cli._check_deps", return_value=True), \
+         patch("netpath.cli._run_test", return_value=measurement) as run_test:
+        result = CliRunner().invoke(cli.app, ["host", "zoom.example", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["target_input"] == "zoom.example"
+    assert payload["resolved_ip"] == "203.0.113.10"
+    assert payload["target_asn"] == "AS64500"
+    run_test.assert_called_once()
+    assert run_test.call_args.kwargs["host"] == "203.0.113.10"
+    assert run_test.call_args.kwargs["target_asn"] == "AS64500"
+    assert run_test.call_args.kwargs["skip_throughput"] is True
+
+
 def test_monitor_persists_first_snapshot(tmp_path):
     measurement = {
         "asn": "AS64500",
@@ -128,6 +170,56 @@ def test_monitor_persists_first_snapshot(tmp_path):
     payload = json.loads(history.read_text().strip())
     assert payload["asn"] == "AS64500"
     assert payload["as_path"] == ["AS64501", "AS64500"]
+
+
+def test_monitor_target_override_persists_endpoint_specific_history(tmp_path):
+    endpoint = {
+        "input": "zoom.example",
+        "hostname": "zoom.example",
+        "ip": "203.0.113.10",
+        "asn": "AS64501",
+        "prefix": "203.0.113.0/24",
+        "name": "Example Video",
+    }
+    measurement = {
+        "target_input": "zoom.example",
+        "target_host": "203.0.113.10",
+        "resolved_ip": "203.0.113.10",
+        "target_asn": "AS64501",
+        "target_name": "Example Video",
+        "path": [
+            {
+                "hop": 1,
+                "host": "203.0.113.1",
+                "asn": "AS64501",
+                "loss_pct": 0.0,
+                "avg_ms": 10.0,
+                "p95_ms": 12.0,
+            },
+        ],
+        "throughput": None,
+        "verdict": {"severity": "ok", "verdict": "Healthy"},
+    }
+    with patch("netpath.cli._check_deps", return_value=True), \
+         patch("netpath.cli.targets_mod.resolve_endpoint", return_value=endpoint), \
+         patch("netpath.cli._collect_endpoint_json", return_value=measurement):
+        result = CliRunner().invoke(
+            cli.app,
+            [
+                "monitor", "AS64500",
+                "--target", "zoom.example",
+                "--store", str(tmp_path),
+                "--no-throughput",
+            ],
+        )
+
+    assert result.exit_code == 0
+    history = tmp_path / "AS64500_zoom.example-_203.0.113.10.jsonl"
+    payload = json.loads(history.read_text().strip())
+    assert payload["asn"] == "AS64500"
+    assert payload["monitor_key"] == "AS64500:zoom.example->203.0.113.10"
+    assert payload["target_input"] == "zoom.example"
+    assert payload["target_asn"] == "AS64501"
 
 
 def test_monitor_reports_regression_and_can_fail(tmp_path):

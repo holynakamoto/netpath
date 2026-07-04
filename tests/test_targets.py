@@ -34,6 +34,38 @@ def test_discover_target_uses_user_target_and_reports_cymru_mismatch():
     assert "AS64501" in result["reason"]
 
 
+def test_resolve_endpoint_resolves_hostname_and_enriches_asn():
+    with patch("netpath.targets.socket.getaddrinfo", return_value=[
+        (None, None, None, "", ("203.0.113.10", 0)),
+    ]), patch("netpath.targets.cymru_bulk_lookup_rich", return_value={
+        "203.0.113.10": {
+            "asn": "AS64500",
+            "prefix": "203.0.113.0/24",
+            "name": "Example Video",
+        },
+    }):
+        result = targets.resolve_endpoint("zoom.example")
+
+    assert result["input"] == "zoom.example"
+    assert result["hostname"] == "zoom.example"
+    assert result["ip"] == "203.0.113.10"
+    assert result["asn"] == "AS64500"
+    assert result["prefix"] == "203.0.113.0/24"
+
+
+def test_resolve_endpoint_accepts_ip_without_dns_lookup():
+    with patch("netpath.targets.socket.getaddrinfo") as getaddrinfo, \
+         patch("netpath.targets.cymru_bulk_lookup_rich", return_value={
+             "203.0.113.10": {"asn": "AS64500"},
+         }):
+        result = targets.resolve_endpoint("203.0.113.10")
+
+    assert result["hostname"] is None
+    assert result["ip"] == "203.0.113.10"
+    assert result["asn"] == "AS64500"
+    getaddrinfo.assert_not_called()
+
+
 def test_discover_target_falls_back_to_validated_announced_prefix_sample():
     ripe = _response({
         "data": {

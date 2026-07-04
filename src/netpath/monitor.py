@@ -35,7 +35,13 @@ def _as_path_from_hops(path: list[dict[str, Any]]) -> list[str]:
     return as_path
 
 
-def snapshot_from_result(result: dict[str, Any], *, asn: str, target_host: str) -> dict[str, Any]:
+def snapshot_from_result(
+    result: dict[str, Any],
+    *,
+    asn: str,
+    target_host: str,
+    monitor_key: str | None = None,
+) -> dict[str, Any]:
     path = result.get("path") or []
     last_hop = _last_responsive_hop(path)
     throughput = result.get("throughput") or {}
@@ -43,7 +49,12 @@ def snapshot_from_result(result: dict[str, Any], *, asn: str, target_host: str) 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "asn": asn,
+        "monitor_key": monitor_key or asn,
         "target_host": target_host,
+        "target_input": result.get("target_input"),
+        "resolved_ip": result.get("resolved_ip"),
+        "target_asn": result.get("target_asn"),
+        "target_name": result.get("target_name"),
         "as_path": _as_path_from_hops(path),
         "last_rtt_ms": last_hop.get("avg_ms") if last_hop else None,
         "p95_rtt_ms": last_hop.get("p95_ms") if last_hop else None,
@@ -75,7 +86,7 @@ def load_latest(asn: str, path: str | None = None) -> dict[str, Any] | None:
 
 
 def append_snapshot(snapshot: dict[str, Any], path: str | None = None) -> Path:
-    file_path = history_path(snapshot["asn"], path)
+    file_path = history_path(snapshot.get("monitor_key") or snapshot["asn"], path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with file_path.open("a") as f:
         f.write(json.dumps(snapshot, sort_keys=True) + "\n")
