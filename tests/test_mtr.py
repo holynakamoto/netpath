@@ -160,7 +160,8 @@ def _run_traceroute_capturing_cmd(probes):
         captured["cmd"] = cmd
         return _FakeProc()
 
-    with patch("netpath.mtr.subprocess.Popen", side_effect=mock_popen), \
+    with patch("netpath.mtr.traceroute_path", return_value="/usr/bin/traceroute"), \
+         patch("netpath.mtr.subprocess.Popen", side_effect=mock_popen), \
          patch("netpath.mtr._enrich_names"):
         run_traceroute("8.8.8.8", probes=probes)
     return captured
@@ -211,7 +212,8 @@ class _TimeoutProc:
 
 def _traceroute_timing_out_with(partial_stdout):
     proc = _TimeoutProc(partial_stdout)
-    with patch("netpath.mtr.subprocess.Popen", return_value=proc):
+    with patch("netpath.mtr.traceroute_path", return_value="/usr/bin/traceroute"), \
+         patch("netpath.mtr.subprocess.Popen", return_value=proc):
         try:
             _run_traceroute_cmd("203.0.113.1")
         finally:
