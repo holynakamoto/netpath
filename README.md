@@ -107,7 +107,7 @@ netpath monitor AS15169 --every 5m --forever --webhook https://example.com/netpa
 netpath monitor AS15169 --target zoom.us --every 10m
 ```
 
-`monitor` stores one JSONL history file per ASN under `~/.netpath/monitor` by default, compares each new snapshot with the previous one, and reports AS-path changes, RTT regressions, packet-loss increases, throughput drops, and verdict worsening. Use `--store` to choose a different history directory and `--fail-on-regression` for cron or CI jobs.
+`monitor` stores JSONL history under `~/.netpath/monitor` by default: one file per ASN in standard mode, or endpoint-specific files when `--target` is used (keyed by ASN plus resolved endpoint). It compares each new snapshot with the previous one and reports AS-path changes, RTT regressions, packet-loss increases, throughput drops, and verdict worsening. Use `--store` to choose a different history directory and `--fail-on-regression` for cron or CI jobs.
 
 Options:
 
