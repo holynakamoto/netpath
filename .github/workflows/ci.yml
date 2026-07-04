@@ -22,7 +22,35 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]" build
 
       - name: Run tests
         run: pytest
+
+      - name: Build package artifacts
+        run: python -m build --sdist --wheel
+
+      - name: Check package artifacts for generated environment files
+        run: |
+          python - <<'PY'
+          import tarfile
+          import zipfile
+          from pathlib import Path
+
+          offenders = []
+          for artifact in Path("dist").iterdir():
+              if artifact.suffix == ".whl":
+                  with zipfile.ZipFile(artifact) as zf:
+                      names = zf.namelist()
+              elif artifact.suffixes[-2:] == [".tar", ".gz"]:
+                  with tarfile.open(artifact) as tf:
+                      names = tf.getnames()
+              else:
+                  continue
+              offenders.extend(
+                  name for name in names
+                  if "/.venv/" in f"/{name}" or "__pycache__/" in name or name.endswith(".pyc")
+              )
+          if offenders:
+              raise SystemExit("generated files in artifacts:\n" + "\n".join(offenders))
+          PY

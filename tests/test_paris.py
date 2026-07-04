@@ -235,7 +235,8 @@ def test_trace_falls_through_when_paris_fails():
 
 
 def test_trace_prefers_mtr_when_it_works():
-    with patch("netpath.mtr.run", return_value=_PARIS_HUBS), \
+    with patch("netpath.mtr.available", return_value=True), \
+         patch("netpath.mtr.run", return_value=_PARIS_HUBS), \
          patch("netpath.paris.detect") as detect_mock:
         hubs, method = cli._trace("203.0.113.9", 10)
     assert method == "mtr"
