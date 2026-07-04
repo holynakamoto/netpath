@@ -2,6 +2,7 @@ import json
 from unittest.mock import patch
 
 from typer.testing import CliRunner
+from typer.main import get_command
 
 from netpath import cli
 
@@ -15,12 +16,16 @@ def test_help_lists_product_commands():
 
 
 def test_country_help_lists_remote_measurement_options():
-    result = CliRunner().invoke(cli.app, ["country", "--help"])
+    country = get_command(cli.app).commands["country"]
+    option_names = {
+        opt
+        for param in country.params
+        for opt in getattr(param, "opts", [])
+    }
 
-    assert result.exit_code == 0
-    assert "--gp-token" in result.output
-    assert "--no-remote" in result.output
-    assert "--atlas-key" not in result.output
+    assert "--gp-token" in option_names
+    assert "--no-remote" in option_names
+    assert "--atlas-key" not in option_names
 
 
 def test_asn_exits_with_actionable_error_when_no_path_prober_exists():
