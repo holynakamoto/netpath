@@ -185,7 +185,7 @@ def diagnose(result: dict) -> dict:
                                 last_known_asn = candidate
                                 break
                         target_asn = _norm_asn(result.get("target_asn"))
-                        if target_asn and last_asn == target_asn:
+                        if target_asn and target_asn != "AS???" and last_asn == target_asn:
                             detail = (
                                 "Downstream routers inside the target ASN filter ICMP "
                                 "TTL-exceeded responses. The route is likely healthy."
