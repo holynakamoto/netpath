@@ -1,4 +1,151 @@
+import json
+
 from netpath.diagnosis import diagnose
+
+
+def _signal(result, condition):
+    return next(s for s in result["signals"] if s["condition"] == condition)
+
+
+def _assert_signal_metadata(signal, source, confidence, evidence_items, sample_size=None):
+    assert signal["source"] == source
+    assert signal["confidence"] == confidence
+    assert signal["evidence"]
+    json.dumps(signal["evidence"])
+    for key, value in evidence_items.items():
+        assert signal["evidence"][key] == value
+    if sample_size is not None:
+        assert signal["sample_size"] == sample_size
+
+
+def test_signal_metadata_for_major_conditions():
+    hubs_loss = [
+        {"count": 1, "host": "192.168.1.1", "Loss%": 0.0},
+        {"count": 2, "host": "10.0.0.1", "Loss%": 0.8},
+        {"count": 3, "host": "8.8.8.8", "Loss%": 0.8},
+    ]
+    hubs_rate_limited = [
+        {"count": 1, "host": "192.168.1.1", "Loss%": 0.0},
+        {"count": 2, "host": "10.0.0.1", "Loss%": 50.0},
+        {"count": 3, "host": "8.8.8.8", "Loss%": 0.0},
+    ]
+    cases = [
+        (
+            {"path_complete": False, "stall_hop": 12, "hubs": []},
+            "incomplete_path",
+            "path",
+            "medium",
+            {"path_complete": False, "stall_hop": 12, "hop_count": 0},
+            0,
+        ),
+        (
+            {"bufferbloat_ms": 50},
+            "severe_bufferbloat",
+            "throughput",
+            "high",
+            {"bufferbloat_ms": 50, "threshold_ms": 30},
+            None,
+        ),
+        (
+            {"hubs": hubs_loss, "probe_count": 100},
+            "mid_path_packet_loss",
+            "local_trace",
+            "medium",
+            {"loss_threshold_pct": 0.5, "downstream_clean": False},
+            100,
+        ),
+        (
+            {"hubs": hubs_rate_limited, "probe_count": 10},
+            "rate_limited_hop",
+            "local_trace",
+            "high",
+            {"loss_threshold_pct": 5.0, "downstream_clean": True},
+            10,
+        ),
+        (
+            {"hubs": [{"count": 1, "host": "192.168.1.1", "Loss%": 5.0}], "bufferbloat_ms": 10, "probe_count": 10},
+            "last_mile_congestion",
+            "local_trace",
+            "medium",
+            {"bufferbloat_ms": 10, "bufferbloat_threshold_ms": 5},
+            10,
+        ),
+        (
+            {"rum": {"dl_mbps": 100}, "download_mbps": 50},
+            "throughput_cap",
+            "rum_compare",
+            "medium",
+            {"download_mbps": 50, "rum_dl_mbps": 100, "ratio": 0.5},
+            None,
+        ),
+        (
+            {"jitter_ms": 20.0, "probe_count": 5, "hubs": []},
+            "high_jitter",
+            "local_trace",
+            "medium",
+            {"jitter_ms": 20.0, "jitter_threshold_ms": 10.0},
+            5,
+        ),
+        (
+            {"jitter_ms": 20.0, "probe_count": 2, "hubs": []},
+            "jitter_low_sample",
+            "local_trace",
+            "low",
+            {"jitter_ms": 20.0, "min_samples": 5},
+            2,
+        ),
+        (
+            {"globalping": {"ping_jitter_ms": 25.0, "ping_packets": 16}},
+            "high_jitter",
+            "remote_globalping",
+            "high",
+            {"remote_jitter_ms": 25.0, "remote_packets": 16},
+            16,
+        ),
+        (
+            {"globalping": {"ping_loss_pct": 8.0, "ping_jitter_ms": 1.0, "ping_packets": 16}},
+            "remote_packet_loss",
+            "remote_globalping",
+            "high",
+            {"remote_loss_pct": 8.0, "loss_threshold_pct": 5.0, "remote_packets": 16},
+            16,
+        ),
+        (
+            {"pmtu": {"blackhole": True, "mtu_floor_bytes": 64}},
+            "pmtu_blackhole",
+            "pmtu",
+            "high",
+            {"blackhole": True, "large_payload_bytes": 1472, "mtu_floor_bytes": 64},
+            None,
+        ),
+        (
+            {"path_changes": 1, "ecmp_paths": 2, "ecmp_passes": 3},
+            "route_flapping",
+            "ecmp",
+            "medium",
+            {"path_changes": 1, "ecmp_paths": 2, "ecmp_passes": 3},
+            3,
+        ),
+        (
+            {"tcp_connect_ms": 250},
+            "tcp_latency",
+            "tcp",
+            "high",
+            {"tcp_connect_ms": 250, "threshold_ms": 200.0},
+            None,
+        ),
+        (
+            {"tls_handshake_ms": 600},
+            "tls_latency",
+            "tls",
+            "high",
+            {"tls_handshake_ms": 600, "threshold_ms": 500.0},
+            None,
+        ),
+    ]
+    for payload, condition, source, confidence, evidence, sample_size in cases:
+        signal = _signal(diagnose(payload), condition)
+        _assert_signal_metadata(signal, source, confidence, evidence, sample_size)
 
 
 def test_healthy_default():
