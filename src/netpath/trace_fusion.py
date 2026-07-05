@@ -10,7 +10,7 @@ MAX_FUSION_PROBES = 5
 
 
 def _is_responsive(hub: dict) -> bool:
-    return hub.get("host") not in ("???", None, "")
+    return hub.get("host") not in ("???", "*", None, "")
 
 
 def _run_method(name: str, fn: Callable[[], list[dict]]) -> dict:

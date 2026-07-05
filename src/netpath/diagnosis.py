@@ -35,6 +35,7 @@ _CONDITION_VERDICT = {
     "routing_loop": "Routing Loop",
     "dns_latency": "DNS Latency",
     "http_ttfb_latency": "HTTP Edge Latency",
+    "large_icmp_payload_filtered": "Healthy",
 }
 
 
@@ -68,6 +69,17 @@ def _hop_evidence(hop: dict, index: int) -> dict:
         "asn": hop.get("ASN"),
         "loss_pct": float(hop.get("Loss%", 0.0) or 0.0),
     }
+
+
+def _responsive_host(host: object) -> bool:
+    return host not in ("???", "*", None, "")
+
+
+def _application_reachable(result: dict) -> bool:
+    edge = result.get("http_edge") if isinstance(result.get("http_edge"), dict) else {}
+    if edge and edge.get("status_code") is not None:
+        return True
+    return result.get("tcp_connect_ms") is not None or result.get("tls_handshake_ms") is not None
 
 
 def _norm_asn(value: object) -> str | None:
@@ -148,7 +160,7 @@ def diagnose(result: dict) -> dict:
                 ))
             else:
                 all_stars = all(
-                    h.get("host") in ("???", None, "") for h in hubs_local
+                    not _responsive_host(h.get("host")) for h in hubs_local
                 )
                 if all_stars:
                     signals.append(_signal(
@@ -172,7 +184,7 @@ def diagnose(result: dict) -> dict:
                 else:
                     max_count = max(h.get("count", 0) for h in hubs_local)
                     responsive_hops = [
-                        h for h in hubs_local if h.get("host") not in ("???", None, "")
+                        h for h in hubs_local if _responsive_host(h.get("host"))
                     ]
                     if stall is not None and max_count > stall:
                         # Trailing ??? hops — downstream routers filter ICMP
@@ -263,12 +275,12 @@ def diagnose(result: dict) -> dict:
         if len(hubs) > 1:
             last_resp_idx = -1
             for i, h in enumerate(hubs):
-                if h.get("host") not in ("???", None, ""):
+                if _responsive_host(h.get("host")):
                     last_resp_idx = i
             for i, h in enumerate(hubs):
                 if i == 0 or i >= last_resp_idx:
                     continue
-                if h.get("host") in ("???", None, ""):
+                if not _responsive_host(h.get("host")):
                     continue
                 loss = float(h.get("Loss%", 0.0) or 0.0)
                 if loss > loss_threshold:
@@ -276,7 +288,7 @@ def diagnose(result: dict) -> dict:
                     # hop is rate-limiting ICMP probes, not congested.
                     downstream = [
                         dh for j, dh in enumerate(hubs)
-                        if j > i and dh.get("host") not in ("???", None, "")
+                        if j > i and _responsive_host(dh.get("host"))
                     ]
                     downstream_clean = all(
                         float(dh.get("Loss%", 0.0) or 0.0) <= loss_threshold
@@ -297,6 +309,28 @@ def diagnose(result: dict) -> dict:
                                 "loss_threshold_pct": loss_threshold,
                                 "downstream_responsive_hops": len(downstream),
                                 "downstream_clean": True,
+                            },
+                            sample_size=probe_count,
+                        ))
+                    elif _application_reachable(result):
+                        signals.append(_signal(
+                            "rate_limited_hop",
+                            "ok",
+                            (
+                                "Intermediate hops show probe loss, but TCP/HTTPS reached "
+                                "the endpoint. Treat the hop loss as router ICMP "
+                                "rate-limiting unless end-to-end loss is also observed."
+                            ),
+                            "local_trace",
+                            CONFIDENCE_MEDIUM,
+                            {
+                                "loss_hop": _hop_evidence(h, i),
+                                "loss_threshold_pct": loss_threshold,
+                                "downstream_loss_pct": [
+                                    float(dh.get("Loss%", 0.0) or 0.0) for dh in downstream
+                                ],
+                                "downstream_clean": False,
+                                "application_reachable": True,
                             },
                             sample_size=probe_count,
                         ))
@@ -475,21 +509,40 @@ def diagnose(result: dict) -> dict:
         # (6) PMTU black-hole
         pmtu = result.get("pmtu") or {}
         if pmtu.get("blackhole"):
-            signals.append(_signal(
-                "pmtu_blackhole",
-                "critical",
-                (
-                    "Large packets (1472-byte ICMP payload) are silently dropped while "
-                    "small packets succeed, indicating a misconfigured MTU on the path."
-                ),
-                "pmtu",
-                CONFIDENCE_HIGH,
-                {
-                    "blackhole": True,
-                    "large_payload_bytes": 1472,
-                    "mtu_floor_bytes": pmtu.get("mtu_floor_bytes"),
-                },
-            ))
+            if _application_reachable(result):
+                signals.append(_signal(
+                    "large_icmp_payload_filtered",
+                    "ok",
+                    (
+                        "Large ICMP payload probes did not reply, but TCP/HTTPS reached "
+                        "the endpoint, so this is likely ICMP filtering rather than a "
+                        "confirmed PMTU black-hole."
+                    ),
+                    "pmtu",
+                    CONFIDENCE_MEDIUM,
+                    {
+                        "blackhole": False,
+                        "large_payload_bytes": 1472,
+                        "effective_mtu_bytes": pmtu.get("effective_mtu_bytes"),
+                        "application_reachable": True,
+                    },
+                ))
+            else:
+                signals.append(_signal(
+                    "pmtu_blackhole",
+                    "critical",
+                    (
+                        "Large packets (1472-byte ICMP payload) are silently dropped while "
+                        "small packets succeed, indicating a misconfigured MTU on the path."
+                    ),
+                    "pmtu",
+                    CONFIDENCE_HIGH,
+                    {
+                        "blackhole": True,
+                        "large_payload_bytes": 1472,
+                        "mtu_floor_bytes": pmtu.get("mtu_floor_bytes"),
+                    },
+                ))
 
         # (7) Route flapping
         path_changes = result.get("path_changes")

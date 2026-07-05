@@ -367,6 +367,43 @@ def test_pmtu_blackhole_triggers_critical():
     assert len(result["signals"]) > 0
 
 
+def test_pmtu_blackhole_suppressed_when_http_edge_is_reachable():
+    result = diagnose({
+        "pmtu": {"blackhole": True, "mtu_floor_bytes": 64, "effective_mtu_bytes": 92},
+        "http_edge": {"status_code": 403, "ttfb_ms": 279.0},
+    })
+
+    assert result["verdict"] == "Healthy"
+    assert result["severity"] == "ok"
+    assert any(s["condition"] == "large_icmp_payload_filtered" for s in result["signals"])
+    assert not any(s["condition"] == "pmtu_blackhole" for s in result["signals"])
+
+
+def test_star_hops_are_not_treated_as_lossy_routers():
+    hubs = [
+        {"count": 1, "host": "192.168.1.1", "Loss%": 0.0},
+        {"count": 2, "host": "*", "Loss%": 75.0},
+        {"count": 3, "host": "23.96.224.33", "ASN": "AS8075", "Loss%": 0.0},
+    ]
+    result = diagnose({"hubs": hubs, "probe_count": 4})
+
+    assert result["verdict"] == "Healthy"
+    assert not any(s["condition"] == "mid_path_packet_loss" for s in result["signals"])
+
+
+def test_intermediate_probe_loss_suppressed_when_http_edge_is_reachable():
+    hubs = [
+        {"count": 1, "host": "192.168.1.1", "Loss%": 0.0},
+        {"count": 2, "host": "10.0.0.1", "Loss%": 50.0},
+        {"count": 3, "host": "23.96.224.33", "ASN": "AS8075", "Loss%": 75.0},
+    ]
+    result = diagnose({"hubs": hubs, "probe_count": 4, "http_edge": {"status_code": 403}})
+
+    assert result["verdict"] == "Healthy"
+    assert any(s["condition"] == "rate_limited_hop" for s in result["signals"])
+    assert not any(s["condition"] == "mid_path_packet_loss" for s in result["signals"])
+
+
 def test_pmtu_no_blackhole_is_healthy():
     result = diagnose({"pmtu": {"blackhole": False, "mtu_floor_bytes": None}})
     assert result["verdict"] == "Healthy"
