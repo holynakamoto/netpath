@@ -795,6 +795,41 @@ def verdict_panel(verdict: dict) -> None:
     console.print()
 
 
+def explain_report(report: dict) -> None:
+    severity = report.get("severity", "ok")
+    severity_styles = {"ok": "bold green", "warning": "bold yellow", "critical": "bold red"}
+    border_colors = {"ok": "green", "warning": "yellow", "critical": "red"}
+    style = severity_styles.get(severity, "bold green")
+    border = border_colors.get(severity, "green")
+    target = report.get("target") or {}
+    culprit = report.get("culprit_asn") or report.get("culprit_scope") or "none"
+    lines = [
+        f"  [{style}]{report.get('verdict', 'Healthy')}[/{style}]",
+        f"  [dim]Target:[/dim] {target.get('input') or report.get('destination')} → {target.get('resolved_ip') or target.get('host') or 'unknown'}",
+        f"  [dim]Likely culprit:[/dim] {culprit} ({report.get('culprit_scope')}, confidence {report.get('confidence')})",
+        f"  [dim]Action:[/dim] {report.get('recommended_action')}",
+    ]
+    evidence = report.get("evidence") or []
+    if evidence:
+        lines.append("")
+        lines.append("  [bold]Evidence[/bold]")
+        for item in evidence[:6]:
+            lines.append(f"  • {item}")
+
+    console.print(
+        Panel(
+            "\n".join(lines),
+            title="[bold]Explanation[/bold]",
+            border_style=border,
+            expand=False,
+        )
+    )
+    console.print()
+    console.print("[bold]Escalation summary[/bold]")
+    console.print(report.get("ticket_summary", ""))
+    console.print()
+
+
 def error(msg: str):
     console.print(f"  [red]✗[/red] {msg}\n")
 

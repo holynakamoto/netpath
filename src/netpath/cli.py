@@ -19,6 +19,7 @@ from rich.table import Table
 from netpath import __version__
 from netpath import country as country_mod
 from netpath import display, globalping as globalping_mod, globe as globe_mod, iperf as iperf_mod, latency as latency_mod
+from netpath import explain as explain_mod
 from netpath import monitor as monitor_mod
 from netpath import mtr, paris, pmtu as pmtu_mod, rum as rum_mod, servers, speedtest, targets as targets_mod
 from netpath.asn import normalize_asn
@@ -871,6 +872,84 @@ def host(
                 for hop in result["path"]
             ]
             globe_mod.render({target_asn: hubs})
+
+    code = _worst_exit_code([result.get("verdict", {})])
+    if code:
+        raise typer.Exit(code)
+
+
+# ── explain subcommand ─────────────────────────────────────────────────────────
+
+@app.command("explain")
+def explain(
+    destination:   str  = typer.Argument(..., help="Destination hostname or IP, e.g. zoom.us or 170.114.52.2"),
+    duration:      int  = _DUR,
+    cycles:        int  = _CYCLES,
+    throughput:    bool = typer.Option(False, "--throughput", help="Try iperf3 throughput to the destination on port 5201"),
+    cf_token:      Optional[str] = _CF_TOK,
+    baseline:      Optional[str] = typer.Option(None, "--baseline", help="JSON/JSONL monitor history to compare against"),
+    output_json:   bool = typer.Option(False, "--json", help="Output explanation as JSON to stdout; suppresses terminal display"),
+):
+    """Trace an endpoint and turn the measurements into an escalation-ready incident report."""
+    endpoint = targets_mod.resolve_endpoint(destination)
+    if endpoint is None:
+        msg = f"Could not resolve destination {destination!r}"
+        if output_json:
+            print(json.dumps({"error": msg}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    baseline_snapshot = None
+    if baseline:
+        try:
+            baseline_snapshot = explain_mod.load_baseline(baseline)
+        except FileNotFoundError:
+            msg = f"Baseline file not found: {baseline}"
+            if output_json:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                display.error(msg)
+            raise typer.Exit(1)
+        except json.JSONDecodeError:
+            msg = f"Baseline file is not valid JSON/JSONL: {baseline}"
+            if output_json:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                display.error(msg)
+            raise typer.Exit(1)
+
+    skip_throughput = _check_deps(not throughput)
+    if not output_json:
+        display.header(__version__)
+        display.console.print(
+            f"[dim]Explaining path to [bold]{endpoint['input']}[/bold] "
+            f"→ [bold]{endpoint['ip']}[/bold]…[/dim]"
+        )
+        if endpoint.get("asn"):
+            name = f" · {endpoint['name']}" if endpoint.get("name") else ""
+            display.console.print(f"[dim]Cymru: {endpoint['asn']}{name}[/dim]\n")
+        else:
+            display.console.print("[dim]Cymru: no public ASN attribution found[/dim]\n")
+
+    result = _collect_endpoint_json(
+        endpoint,
+        duration=duration,
+        cycles=cycles,
+        skip_throughput=skip_throughput,
+        cf_token=cf_token,
+        json_mode=output_json,
+    )
+    report = explain_mod.build_report(
+        destination=destination,
+        result=result,
+        baseline=baseline_snapshot,
+    )
+
+    if output_json:
+        print(json.dumps(report, indent=2))
+    else:
+        display.explain_report(report)
 
     code = _worst_exit_code([result.get("verdict", {})])
     if code:
