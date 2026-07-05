@@ -85,6 +85,11 @@ def test_edge_measure_parses_status_ttfb_and_certificate():
 
     assert result["status_code"] == 200
     assert result["ttfb_ms"] is not None
+    assert result["header_ms"] is not None
+    assert result["total_ms"] is not None
+    assert result["chain_total_ms"] is not None
+    assert result["requests"][0]["status_code"] == 200
+    assert result["requests"][0]["total_ms"] is not None
     assert result["server"] == "test"
     assert result["certificate"]["days_until_expiry"] > 0
     assert result["certificate"]["san_dns"] == ["app.example"]
