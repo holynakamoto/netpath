@@ -31,6 +31,8 @@ _CONDITION_VERDICT = {
     "tcp_latency": "TCP Latency",
     "tls_latency": "TLS Latency",
     "routing_loop": "Routing Loop",
+    "dns_latency": "DNS Latency",
+    "http_ttfb_latency": "HTTP Edge Latency",
 }
 
 
@@ -538,6 +540,39 @@ def diagnose(result: dict) -> dict:
                     "path_length": len(known),
                 },
                 sample_size=len(known),
+            ))
+
+        dns = result.get("dns") or {}
+        dns_ms = dns.get("lookup_ms")
+        if dns_ms is not None and dns_ms > 250:
+            signals.append(_signal(
+                "dns_latency",
+                "warning",
+                f"DNS lookup took {dns_ms:.0f} ms, which can delay application setup before the network path is used.",
+                "dns",
+                CONFIDENCE_MEDIUM,
+                {
+                    "lookup_ms": dns_ms,
+                    "threshold_ms": 250.0,
+                    "resolver_ips": dns.get("resolver_ips") or [],
+                },
+            ))
+
+        edge = result.get("http_edge") or {}
+        ttfb_ms = edge.get("ttfb_ms")
+        if ttfb_ms is not None and ttfb_ms > 1000:
+            signals.append(_signal(
+                "http_ttfb_latency",
+                "warning",
+                f"HTTPS time-to-first-byte was {ttfb_ms:.0f} ms, pointing to application edge or origin delay.",
+                "http_edge",
+                CONFIDENCE_MEDIUM,
+                {
+                    "ttfb_ms": ttfb_ms,
+                    "threshold_ms": 1000.0,
+                    "status_code": edge.get("status_code"),
+                    "redirect_count": edge.get("redirect_count"),
+                },
             ))
 
         if not signals:

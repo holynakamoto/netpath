@@ -1,6 +1,6 @@
 # netpath
 
-Network path diagnostics for AS paths, exact service endpoints, and regional probe coverage. `netpath` combines traceroute/MTR, optional iperf3 throughput, latency/loss/jitter checks, Globalping remote probes, and Cloudflare Radar RUM overlays.
+Network path diagnostics for AS paths, exact service endpoints, and regional probe coverage. `netpath` combines traceroute/MTR, optional iperf3 throughput, latency/loss/jitter checks, DNS and HTTPS edge timing, PMTU/geo sanity checks, Globalping remote probes, and Cloudflare Radar RUM overlays.
 
 ## Install
 
@@ -100,6 +100,8 @@ netpath monitor AS15169 --forever --every 5m --webhook https://example.com/netpa
 ```
 
 Standard mode keeps one history file per ASN. `--target` mode keys history by ASN plus resolved endpoint, so application-specific baselines do not mix with representative ASN baselines. Add `--fail-on-regression` for cron or CI jobs.
+
+Monitor snapshots include recent route-stability summaries: AS-path churn rate, median/p95 RTT baseline, and severity frequency.
 
 ## Globalping and RUM
 

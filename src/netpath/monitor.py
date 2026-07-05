@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import statistics
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -46,7 +47,7 @@ def snapshot_from_result(
     last_hop = _last_responsive_hop(path)
     throughput = result.get("throughput") or {}
     verdict = result.get("verdict") or {}
-    return {
+    snapshot = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "asn": asn,
         "monitor_key": monitor_key or asn,
@@ -63,9 +64,18 @@ def snapshot_from_result(
         "download_mbps": throughput.get("download_mbps"),
         "upload_mbps": throughput.get("upload_mbps"),
         "path_changes": result.get("path_changes"),
+        "dns_lookup_ms": (result.get("dns") or {}).get("lookup_ms"),
+        "http_ttfb_ms": (result.get("http_edge") or {}).get("ttfb_ms"),
+        "effective_mtu_bytes": (result.get("pmtu") or {}).get("effective_mtu_bytes"),
+        "geo_country_hops": (result.get("geo_path") or {}).get("country_hops"),
+        "geo_total_km": (result.get("geo_path") or {}).get("total_geodesic_km"),
         "verdict": verdict.get("verdict"),
         "severity": verdict.get("severity"),
     }
+    stability = result.get("route_stability")
+    if stability:
+        snapshot["route_stability"] = stability
+    return snapshot
 
 
 def load_latest(asn: str, path: str | None = None) -> dict[str, Any] | None:
@@ -85,12 +95,62 @@ def load_latest(asn: str, path: str | None = None) -> dict[str, Any] | None:
         return None
 
 
+def load_history(asn: str, path: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+    file_path = history_path(asn, path)
+    rows: list[dict[str, Any]] = []
+    try:
+        with file_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rows.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except FileNotFoundError:
+        return []
+    return rows[-limit:]
+
+
 def append_snapshot(snapshot: dict[str, Any], path: str | None = None) -> Path:
     file_path = history_path(snapshot.get("monitor_key") or snapshot["asn"], path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with file_path.open("a") as f:
         f.write(json.dumps(snapshot, sort_keys=True) + "\n")
     return file_path
+
+
+def summarize_history(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
+    if not snapshots:
+        return {"sample_count": 0}
+    path_changes = 0
+    previous_path = None
+    rtts: list[float] = []
+    severities: dict[str, int] = {}
+    for snap in snapshots:
+        path = snap.get("as_path") or []
+        if previous_path is not None and path != previous_path:
+            path_changes += 1
+        previous_path = path
+        rtt = _num(snap.get("p95_rtt_ms"))
+        if rtt is None:
+            rtt = _num(snap.get("last_rtt_ms"))
+        if rtt is not None:
+            rtts.append(rtt)
+        sev = snap.get("severity") or "unknown"
+        severities[sev] = severities.get(sev, 0) + 1
+
+    summary: dict[str, Any] = {
+        "sample_count": len(snapshots),
+        "path_change_count": path_changes,
+        "path_churn_rate": round(path_changes / max(1, len(snapshots) - 1), 3),
+        "severity_counts": severities,
+    }
+    if rtts:
+        summary["median_rtt_ms"] = round(statistics.median(rtts), 2)
+        summary["p95_rtt_ms"] = round(sorted(rtts)[min(len(rtts) - 1, int((len(rtts) - 1) * 0.95))], 2)
+    return summary
 
 
 def _fmt_path(path: list[str]) -> str:
@@ -141,6 +201,12 @@ def compare_snapshots(
         changes.append(
             f"Verdict worsened: {previous.get('severity') or 'unknown'} → "
             f"{current.get('severity')} ({current.get('verdict') or 'unknown'})"
+        )
+
+    stability = current.get("route_stability") or {}
+    if stability.get("sample_count", 0) >= 3 and stability.get("path_churn_rate", 0) >= 0.5:
+        changes.append(
+            f"Route stability degraded: AS path changed on {stability['path_churn_rate'] * 100:.0f}% of recent samples"
         )
 
     return changes or ["No regression detected."]

@@ -302,6 +302,57 @@ def as_path_summary(hubs: list[dict]):
     console.print()
 
 
+def edge_metrics(result: dict):
+    """Show compact optional DNS, HTTPS edge, PMTU, and geo sanity metrics."""
+    lines: list[str] = []
+    dns = result.get("dns") or {}
+    if dns and not dns.get("error") and dns.get("lookup_ms") is not None:
+        answers = dns.get("answers") or []
+        families = "/".join(dict.fromkeys(a.get("type", "?") for a in answers))
+        ttl_values = [a.get("ttl") for a in answers if a.get("ttl") is not None]
+        ttl = f", ttl {min(ttl_values)}s" if ttl_values else ""
+        resolver = ", ".join((dns.get("resolver_ips") or [])[:2])
+        resolver = f", resolver {resolver}" if resolver else ""
+        lines.append(f"DNS {dns.get('lookup_ms'):.1f} ms ({families or 'no answers'}{ttl}{resolver})")
+
+    edge = result.get("http_edge") or {}
+    if edge and not edge.get("error"):
+        parts = []
+        if edge.get("status_code") is not None:
+            parts.append(f"HTTP {edge['status_code']}")
+        if edge.get("ttfb_ms") is not None:
+            parts.append(f"TTFB {edge['ttfb_ms']:.0f} ms")
+        if edge.get("redirect_count"):
+            parts.append(f"{edge['redirect_count']} redirect{'s' if edge['redirect_count'] != 1 else ''}")
+        cert = edge.get("certificate") or {}
+        if cert.get("days_until_expiry") is not None:
+            parts.append(f"cert {cert['days_until_expiry']}d")
+        if parts:
+            lines.append("Edge " + ", ".join(parts))
+
+    pmtu = result.get("pmtu") or {}
+    if pmtu.get("effective_mtu_bytes") is not None:
+        label = "PMTU black-hole" if pmtu.get("blackhole") else "PMTU"
+        lines.append(f"{label} effective MTU {pmtu['effective_mtu_bytes']} bytes")
+
+    geo = result.get("geo_path") or {}
+    countries = geo.get("country_hops") or []
+    if countries:
+        geo_line = "Geo " + " → ".join(countries[:6])
+        if geo.get("total_geodesic_km") is not None:
+            geo_line += f" ({geo['total_geodesic_km']:.0f} km)"
+        if geo.get("warnings"):
+            geo_line += " [yellow]⚠[/yellow]"
+        lines.append(geo_line)
+
+    if not lines:
+        return
+    console.print(Panel("\n".join(f"  [dim]{line}[/dim]" for line in lines),
+                        title="[bold]Additional path metrics[/bold]",
+                        border_style="cyan", expand=False))
+    console.print()
+
+
 def _fmt_opt(val: float | None, unit: str) -> str:
     return f"{val:.0f} {unit}" if val is not None else "—"
 
