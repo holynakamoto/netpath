@@ -758,6 +758,45 @@ def bufferbloat_line(idle_ms: float | None, loaded_ms: float | None) -> None:
     console.print()
 
 
+def operator_answer(answer: dict) -> bool:
+    severity = answer.get("severity", "ok")
+    if severity not in {"warning", "critical"}:
+        return False
+
+    severity_styles = {"warning": "bold yellow", "critical": "bold red"}
+    border_colors = {"warning": "yellow", "critical": "red"}
+    style = severity_styles.get(severity, "bold yellow")
+    border = border_colors.get(severity, "yellow")
+    culprit = answer.get("likely_culprit") or answer.get("culprit_asn") or answer.get("culprit_scope") or "unknown"
+    scope = answer.get("culprit_scope")
+    culprit_note = f" ({scope})" if scope and scope not in {culprit, "none"} else ""
+
+    lines = [
+        f"  [{style}]{answer.get('verdict', 'Warning')}[/{style}]",
+        f"  [dim]Likely culprit:[/dim] {culprit}{culprit_note}",
+        f"  [dim]Confidence:[/dim] {answer.get('confidence', 'unknown')}",
+    ]
+    evidence = [item for item in answer.get("evidence", []) if item]
+    if evidence:
+        lines.append("  [dim]Key evidence:[/dim]")
+        for item in evidence[:3]:
+            lines.append(f"    • {item}")
+    recommendation = answer.get("recommendation")
+    if recommendation:
+        lines.append(f"  [dim]Next action:[/dim] {recommendation}")
+
+    console.print(
+        Panel(
+            "\n".join(lines),
+            title="[bold]Operator answer[/bold]",
+            border_style=border,
+            expand=False,
+        )
+    )
+    console.print()
+    return True
+
+
 def verdict_panel(verdict: dict) -> None:
     severity = verdict.get("severity", "ok")
     label = verdict.get("verdict", "Healthy")

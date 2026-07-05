@@ -524,6 +524,11 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
             " + Cymru ASN lookup)[/dim]\n"
         )
 
+    answer_shown = False
+    if not json_mode:
+        answer = explain_mod.build_operator_answer(destination=host, result=result)
+        answer_shown = display.operator_answer(answer)
+
     if not json_mode:
         truncated = result.get("trace_truncated", False)
         if compare_v6 and result.get("hubs_v6") is not None:
@@ -540,7 +545,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
     if skip_throughput:
         if rum_data and not json_mode:
             display.rum_only_panel(rum_data, target_asn)
-        if not json_mode:
+        if not json_mode and not answer_shown:
             display.verdict_panel(result["verdict"])
         return result
 
@@ -552,13 +557,15 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
                     rum=rum_data, server=f"{host} (iperf3)"
                 )
                 display.bufferbloat_line(result.get("_iperf_idle_rtt"), result.get("_iperf_loaded_rtt"))
-                display.verdict_panel(result["verdict"])
+                if not answer_shown:
+                    display.verdict_panel(result["verdict"])
         else:
             if not json_mode:
                 display.warn(f"iperf3 to {host}:{port} failed: {result.get('probe_errors', {}).get('iperf3', 'unknown error')}")
                 if rum_data:
                     display.rum_only_panel(rum_data, target_asn)
-                display.verdict_panel(result["verdict"])
+                if not answer_shown:
+                    display.verdict_panel(result["verdict"])
         return result
 
     # iperf3 not installed path
@@ -573,7 +580,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         if rum_data:
             display.rum_only_panel(rum_data, target_asn)
 
-    if not json_mode:
+    if not json_mode and not answer_shown:
         display.verdict_panel(result["verdict"])
     return result
 
@@ -1545,6 +1552,9 @@ def country(
         ):
             _row["verdict"] = diagnose(_row)
 
+    country_answer = explain_mod.build_country_operator_answer(code, summary_rows)
+    if country_answer:
+        display.operator_answer(country_answer)
     display.country_summary(code, summary_rows)
     if globe and hubs_for_globe:
         globe_mod.render(hubs_for_globe)
