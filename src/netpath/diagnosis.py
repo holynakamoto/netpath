@@ -51,7 +51,7 @@ def _signal(
         "confidence": confidence,
         "evidence": evidence,
     }
-    if sample_size is not _NO_SAMPLE:
+    if sample_size is not _NO_SAMPLE and sample_size is not None:
         signal["sample_size"] = sample_size
     return signal
 
