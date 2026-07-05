@@ -33,6 +33,9 @@ sudo dnf install mtr iperf3
 # Diagnose a specific service endpoint
 netpath host zoom.us
 
+# Generate an escalation-ready root-cause report
+netpath explain zoom.us --baseline ~/.netpath/monitor/path-history.jsonl
+
 # Probe one ASN
 netpath asn AS15169
 
@@ -54,6 +57,7 @@ Use `--json` on commands that support scripting output.
 | Command | Use when you need to… | Example |
 | --- | --- | --- |
 | `host` | Trace the exact hostname/IP an app uses; best for SaaS/CDN/Anycast troubleshooting. | `netpath host zoom.us --json` |
+| `explain` | Turn an endpoint trace into a likely-cause report with evidence and an escalation summary. | `netpath explain zoom.us --baseline ~/.netpath/monitor/path-history.jsonl` |
 | `asn` | Probe representative public iperf3 servers inside a target ASN. | `netpath asn AS15169 --no-throughput` |
 | `country` | Compare top ASNs in a country, with optional Globalping inside-out measurements. | `netpath country GB --top 5` |
 | `monitor` | Persist snapshots and report AS-path, RTT, loss, throughput, or verdict regressions. | `netpath monitor AS15169 --target zoom.us --every 10m` |
@@ -73,6 +77,7 @@ Use `--json` on commands that support scripting output.
 | `--ecmp-passes` | `host`, `asn`, `country` | Run multiple passes to expose route changes. |
 | `--gp-token` | Globalping commands | Optional token for higher Globalping rate limits (`NETPATH_GLOBALPING_TOKEN`). |
 | `--cf-token` | RUM-capable commands | Cloudflare Radar token (`NETPATH_CF_TOKEN`). |
+| `--baseline` | `explain` | Compare against a monitor JSON/JSONL history file. |
 | `--globe` | Visual commands | Open an interactive 3D globe after probing. |
 
 Run `netpath <command> --help` for the full option list.

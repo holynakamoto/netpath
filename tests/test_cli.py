@@ -11,7 +11,7 @@ def test_help_lists_product_commands():
     result = CliRunner().invoke(cli.app, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("asn", "host", "monitor", "country", "aspath", "citypath", "target", "coverage"):
+    for command in ("asn", "host", "explain", "monitor", "country", "aspath", "citypath", "target", "coverage"):
         assert command in result.output
 
 
@@ -128,6 +128,70 @@ def test_host_json_uses_exact_endpoint_without_asn_target_selection():
     assert run_test.call_args.kwargs["host"] == "203.0.113.10"
     assert run_test.call_args.kwargs["target_asn"] == "AS64500"
     assert run_test.call_args.kwargs["skip_throughput"] is True
+
+
+def test_explain_json_returns_culprit_and_ticket_summary(tmp_path):
+    endpoint = {
+        "input": "zoom.example",
+        "hostname": "zoom.example",
+        "ip": "203.0.113.10",
+        "asn": "AS64500",
+        "prefix": "203.0.113.0/24",
+        "name": "Example Video",
+    }
+    baseline = {
+        "timestamp": "2026-01-01T00:00:00+00:00",
+        "asn": "AS64500",
+        "target_host": "203.0.113.10",
+        "as_path": ["AS64501", "AS64500"],
+        "last_rtt_ms": 20.0,
+        "p95_rtt_ms": 22.0,
+        "loss_pct": 0.0,
+        "severity": "ok",
+        "verdict": "Healthy",
+    }
+    baseline_file = tmp_path / "baseline.jsonl"
+    baseline_file.write_text(json.dumps(baseline) + "\n")
+    measurement = {
+        "target_input": "zoom.example",
+        "target_host": "203.0.113.10",
+        "resolved_ip": "203.0.113.10",
+        "target_asn": "AS64500",
+        "target_name": "Example Video",
+        "path": [
+            {"hop": 1, "host": "198.51.100.1", "asn": "AS64502", "loss_pct": 0.0, "avg_ms": 10.0, "p95_ms": 12.0},
+            {"hop": 2, "host": "203.0.113.10", "asn": "AS64500", "loss_pct": 2.0, "avg_ms": 70.0, "p95_ms": 80.0},
+        ],
+        "throughput": None,
+        "jitter_ms": 12.0,
+        "verdict": {
+            "severity": "warning",
+            "verdict": "Near-target Packet Loss",
+            "detail": "Near-target measurement from probes inside the target network shows 2.0% packet loss.",
+            "signals": [
+                {
+                    "condition": "remote_packet_loss",
+                    "severity": "warning",
+                    "detail": "Near-target measurement from probes inside the target network shows 2.0% packet loss.",
+                }
+            ],
+        },
+    }
+    with patch("netpath.cli.targets_mod.resolve_endpoint", return_value=endpoint), \
+         patch("netpath.cli._check_deps", return_value=True), \
+         patch("netpath.cli._collect_endpoint_json", return_value=measurement):
+        result = CliRunner().invoke(
+            cli.app,
+            ["explain", "zoom.example", "--baseline", str(baseline_file), "--json"],
+        )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["destination"] == "zoom.example"
+    assert payload["culprit_asn"] == "AS64502"
+    assert payload["culprit_scope"] == "route-change"
+    assert "AS path changed" in payload["baseline_changes"][0]
+    assert "Requested action" in payload["ticket_summary"]
 
 
 def test_monitor_persists_first_snapshot(tmp_path):
