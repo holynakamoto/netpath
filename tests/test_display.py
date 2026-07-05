@@ -1,3 +1,8 @@
+from io import StringIO
+
+from rich.console import Console
+
+from netpath import cli, display
 from netpath.display import clean_asn_name
 
 
@@ -14,3 +19,84 @@ def test_clean_asn_name_multi_word_exact_duplicate():
 def test_clean_asn_name_short_code_preserved():
     """Existing short-code stripping behavior is unaffected."""
     assert clean_asn_name("PARTNER-AS - Partner Comms") == "Partner Comms"
+
+
+def test_operator_answer_renders_concise_warning(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(display, "console", Console(file=output, width=120, force_terminal=False))
+
+    rendered = display.operator_answer({
+        "severity": "warning",
+        "verdict": "Mid-path Packet Loss",
+        "likely_culprit": "AS64510",
+        "culprit_scope": "transit-hop",
+        "confidence": "medium",
+        "evidence": [
+            "Packet loss of 7.0% detected at 198.51.100.2.",
+            "AS path: AS64500 → AS64510 → AS64520",
+            "extra evidence",
+            "hidden evidence",
+        ],
+        "recommendation": "Escalate to the transit provider owning the lossy hop.",
+    })
+
+    text = output.getvalue()
+    assert rendered is True
+    assert "Operator answer" in text
+    assert "Likely culprit:" in text
+    assert "AS64510 (transit-hop)" in text
+    assert "Confidence:" in text
+    assert "medium" in text
+    assert "Key evidence:" in text
+    assert "Next action:" in text
+    assert "hidden evidence" not in text
+
+
+def test_run_test_places_operator_answer_before_path_table(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(display, "console", Console(file=output, width=120, force_terminal=False))
+    monkeypatch.setattr(cli.iperf_mod, "available", lambda: False)
+    monkeypatch.setattr(cli, "_measure", lambda *args, **kwargs: {
+        "hubs": [
+            {"count": 1, "host": "192.0.2.1", "ASN": "AS64500", "Loss%": 0.0, "Avg": 3.0, "Best": 2.0, "Wrst": 4.0},
+            {"count": 2, "host": "198.51.100.2", "ASN": "AS64510", "Loss%": 7.0, "Avg": 30.0, "Best": 25.0, "Wrst": 35.0},
+            {"count": 3, "host": "203.0.113.20", "ASN": "AS64520", "Loss%": 7.0, "Avg": 55.0, "Best": 50.0, "Wrst": 60.0},
+        ],
+        "verdict": {
+            "severity": "warning",
+            "verdict": "Mid-path Packet Loss",
+            "detail": "Packet loss of 7.0% detected at 198.51.100.2.",
+            "signals": [
+                {
+                    "condition": "mid_path_packet_loss",
+                    "severity": "warning",
+                    "detail": "Packet loss of 7.0% detected at 198.51.100.2.",
+                    "source": "local_trace",
+                    "confidence": "medium",
+                    "evidence": {
+                        "loss_hop": {"hop_index": 2, "host": "198.51.100.2", "asn": "AS64510", "loss_pct": 7.0},
+                        "downstream_clean": False,
+                    },
+                    "sample_size": 5,
+                }
+            ],
+        },
+        "probe_errors": {},
+    })
+
+    cli._run_test(
+        host="203.0.113.20",
+        port=5201,
+        server_meta={"HOST": "203.0.113.20"},
+        target_asn="AS64520",
+        cycles=5,
+        duration=1,
+        skip_throughput=True,
+        json_mode=False,
+    )
+
+    text = output.getvalue()
+    assert text.index("Operator answer") < text.index("Host")
+    assert "Likely culprit:" in text
+    assert "AS64510 (transit-hop)" in text
+    assert "Diagnosis" not in text

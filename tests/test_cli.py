@@ -56,10 +56,11 @@ def test_asn_json_contract_contains_stable_top_level_keys():
                 "p99": 1.4,
             }
         ],
-        "verdict": {"severity": "ok", "verdict": "Healthy"},
+        "verdict": {"severity": "ok", "verdict": "Healthy", "signals": []},
         "pmtu": {"blackhole": False},
         "ecmp_paths": 1,
         "path_changes": 0,
+        "probe_count": 3,
     }
     with patch("netpath.cli._check_deps", return_value=True), \
          patch("netpath.cli.servers.find_servers_in_asn", return_value=[
@@ -72,6 +73,13 @@ def test_asn_json_contract_contains_stable_top_level_keys():
     payload = json.loads(result.output)
     assert payload["asn"] == "AS64500"
     assert payload["target_host"] == "203.0.113.10"
+    assert payload["target"] == {
+        "type": "asn",
+        "asn": "AS64500",
+        "host": "203.0.113.10",
+        "port": 5201,
+    }
+    assert payload["probes"]["local"]["sample_size"] == 3
     assert payload["path"][0] == {
         "hop": 1,
         "host": "192.0.2.1",
@@ -86,6 +94,9 @@ def test_asn_json_contract_contains_stable_top_level_keys():
     }
     assert payload["throughput"] is None
     assert payload["verdict"]["severity"] == "ok"
+    assert payload["confidence"] == "high"
+    assert payload["evidence"] == []
+    assert "No escalation needed" in payload["recommendation"]
 
 
 def test_host_json_uses_exact_endpoint_without_asn_target_selection():
@@ -112,18 +123,45 @@ def test_host_json_uses_exact_endpoint_without_asn_target_selection():
                 "p99": 6.0,
             }
         ],
-        "verdict": {"severity": "ok", "verdict": "Healthy"},
+        "verdict": {
+            "severity": "warning",
+            "verdict": "TCP Latency",
+            "detail": "TCP connect latency of 250 ms exceeds the 200 ms threshold.",
+            "signals": [
+                {
+                    "condition": "tcp_latency",
+                    "severity": "warning",
+                    "detail": "TCP connect latency of 250 ms exceeds the 200 ms threshold.",
+                    "source": "tcp",
+                    "confidence": "high",
+                    "evidence": {"tcp_connect_ms": 250.0, "threshold_ms": 200.0},
+                }
+            ],
+        },
     }
     with patch("netpath.cli.targets_mod.resolve_endpoint", return_value=endpoint), \
          patch("netpath.cli._check_deps", return_value=True), \
          patch("netpath.cli._run_test", return_value=measurement) as run_test:
         result = CliRunner().invoke(cli.app, ["host", "zoom.example", "--json"])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 1
     payload = json.loads(result.output)
     assert payload["target_input"] == "zoom.example"
     assert payload["resolved_ip"] == "203.0.113.10"
     assert payload["target_asn"] == "AS64500"
+    assert payload["target"] == {
+        "type": "host",
+        "input": "zoom.example",
+        "host": "zoom.example",
+        "resolved_ip": "203.0.113.10",
+        "asn": "AS64500",
+        "name": "Example Video",
+        "prefix": "203.0.113.0/24",
+    }
+    assert payload["confidence"] == "high"
+    assert payload["evidence"][0]["condition"] == "tcp_latency"
+    assert payload["evidence"][0]["evidence"]["tcp_connect_ms"] == 250.0
+    assert "destination application edge" in payload["recommendation"]
     run_test.assert_called_once()
     assert run_test.call_args.kwargs["host"] == "203.0.113.10"
     assert run_test.call_args.kwargs["target_asn"] == "AS64500"
@@ -172,10 +210,19 @@ def test_explain_json_returns_culprit_and_ticket_summary(tmp_path):
                 {
                     "condition": "remote_packet_loss",
                     "severity": "warning",
+                    "source": "remote_globalping",
+                    "confidence": "high",
                     "detail": "Near-target measurement from probes inside the target network shows 2.0% packet loss.",
+                    "evidence": {
+                        "remote_loss_pct": 2.0,
+                        "loss_threshold_pct": 1.0,
+                        "remote_packets": 30,
+                    },
+                    "sample_size": 30,
                 }
             ],
         },
+        "probes": {"globalping": {"ping_packets": 30}},
     }
     with patch("netpath.cli.targets_mod.resolve_endpoint", return_value=endpoint), \
          patch("netpath.cli._check_deps", return_value=True), \
@@ -190,8 +237,60 @@ def test_explain_json_returns_culprit_and_ticket_summary(tmp_path):
     assert payload["destination"] == "zoom.example"
     assert payload["culprit_asn"] == "AS64502"
     assert payload["culprit_scope"] == "route-change"
+    assert payload["target"]["asn"] == "AS64500"
+    assert payload["path"][1]["asn"] == "AS64500"
+    assert payload["probes"]["globalping"]["ping_packets"] == 30
     assert "AS path changed" in payload["baseline_changes"][0]
+    assert payload["recommendation"] == payload["recommended_action"]
+    assert payload["evidence_details"][0]["condition"] == "remote_packet_loss"
+    assert payload["evidence_details"][0]["sample_size"] == 30
+    assert "remote_loss_pct" in payload["evidence"][0]
     assert "Requested action" in payload["ticket_summary"]
+
+
+def test_explain_report_construction_reuses_signal_evidence_for_culprit():
+    measurement = {
+        "target_input": "app.example",
+        "target_host": "203.0.113.20",
+        "resolved_ip": "203.0.113.20",
+        "target_asn": "AS64520",
+        "path": [
+            {"hop": 1, "host": "192.0.2.1", "asn": "AS64500", "loss_pct": 0.0},
+            {"hop": 2, "host": "198.51.100.2", "asn": "AS64510", "loss_pct": 7.0},
+            {"hop": 3, "host": "203.0.113.20", "asn": "AS64520", "loss_pct": 7.0},
+        ],
+        "verdict": {
+            "severity": "warning",
+            "verdict": "Mid-path Packet Loss",
+            "detail": "Packet loss of 7.0% detected at 198.51.100.2.",
+            "signals": [
+                {
+                    "condition": "mid_path_packet_loss",
+                    "severity": "warning",
+                    "detail": "Packet loss of 7.0% detected at 198.51.100.2.",
+                    "source": "local_trace",
+                    "confidence": "medium",
+                    "evidence": {
+                        "loss_hop": {
+                            "hop_index": 2,
+                            "host": "198.51.100.2",
+                            "asn": "AS64510",
+                            "loss_pct": 7.0,
+                        },
+                        "downstream_clean": False,
+                    },
+                    "sample_size": 5,
+                }
+            ],
+        },
+    }
+
+    report = cli.explain_mod.build_report(destination="app.example", result=measurement)
+
+    assert report["culprit_asn"] == "AS64510"
+    assert report["confidence"] == "medium"
+    assert report["evidence_details"][0]["evidence"]["loss_hop"]["asn"] == "AS64510"
+    assert "downstream_clean" in report["evidence"][0]
 
 
 def test_explain_json_reports_malformed_baseline(tmp_path):
