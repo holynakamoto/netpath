@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from netpath import cli_measurement
 from netpath import trace_fusion
 
 
@@ -60,3 +61,19 @@ def test_trace_fusion_raises_when_all_methods_fail():
             assert "mtr failed" in str(exc)
         else:
             raise AssertionError("expected RuntimeError")
+
+
+def test_measure_records_trace_fusion_failure_on_trace_error_contract():
+    with patch("netpath.cli_measurement.trace_fusion_mod.run", side_effect=RuntimeError("all failed")):
+        result = cli_measurement._measure(
+            "example.com",
+            443,
+            "AS64500",
+            cycles=1,
+            duration=1,
+            skip_throughput=True,
+            trace_fusion=True,
+        )
+
+    assert result["hubs"] == []
+    assert result["probe_errors"]["v4_trace"] == "trace fusion: all failed"

@@ -259,7 +259,7 @@ def _measure(host: str, port: int, target_asn: str,
                 result["_trace_method"] = "trace-fusion"
                 result["trace_fusion"] = fusion_meta
             except RuntimeError as e:
-                result["probe_errors"]["trace_fusion"] = str(e)
+                result["probe_errors"]["v4_trace"] = f"trace fusion: {e}"
                 return result
 
         elif compare_v6:
