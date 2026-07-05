@@ -76,15 +76,38 @@ Options:
 --globe                   Open interactive 3D globe after probes complete
 ```
 
+### Probe an exact hostname or IP
+
+```bash
+netpath host zoom.us
+netpath host 170.114.52.2 --json
+```
+
+`host` bypasses representative ASN/city target selection and traces the exact resolved endpoint, which is the better fit for application troubleshooting when DNS, Anycast, CDN policy, or service routing may send users to a specific edge.
+
+Options:
+
+```
+-d, --duration INTEGER    iperf3 seconds per direction when --throughput is set (default: 5)
+-c, --cycles INTEGER      mtr probe cycles (default: 10)
+--throughput              Try iperf3 throughput to the destination on port 5201
+--compare-v6              Show IPv4/IPv6 traces side by side
+--ecmp-passes INTEGER     Run multiple mtr passes to detect path changes
+--cf-token TEXT           Cloudflare API token (or set NETPATH_CF_TOKEN)
+--json                    Output results as JSON
+--globe                   Open interactive 3D globe after probe
+```
+
 ### Monitor an ASN for regressions
 
 ```bash
 netpath monitor AS15169
 netpath monitor AS15169 --every 10m --runs 6
 netpath monitor AS15169 --every 5m --forever --webhook https://example.com/netpath-alert
+netpath monitor AS15169 --target zoom.us --every 10m
 ```
 
-`monitor` stores one JSONL history file per ASN under `~/.netpath/monitor` by default, compares each new snapshot with the previous one, and reports AS-path changes, RTT regressions, packet-loss increases, throughput drops, and verdict worsening. Use `--store` to choose a different history directory and `--fail-on-regression` for cron or CI jobs.
+`monitor` stores JSONL history under `~/.netpath/monitor` by default: one file per ASN in standard mode, or endpoint-specific files when `--target` is used (keyed by ASN plus resolved endpoint). It compares each new snapshot with the previous one and reports AS-path changes, RTT regressions, packet-loss increases, throughput drops, and verdict worsening. Use `--store` to choose a different history directory and `--fail-on-regression` for cron or CI jobs.
 
 Options:
 
@@ -97,6 +120,7 @@ Options:
 --runs INTEGER                   Number of snapshots to collect (default: 1)
 --forever                        Run until interrupted; requires --every
 --store TEXT                     History directory (default: ~/.netpath/monitor)
+--target TEXT                    Monitor this exact hostname/IP instead of an auto-selected ASN endpoint
 --webhook TEXT                   POST regressions to this webhook URL
 --fail-on-regression             Exit 2 when a regression is detected
 --rtt-threshold-ms FLOAT         Minimum RTT increase to report (default: 25)

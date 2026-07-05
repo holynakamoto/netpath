@@ -615,6 +615,19 @@ def _asn_json_payload(asn_norm: str, server: dict, result: dict) -> dict:
     }
 
 
+def _endpoint_json_payload(endpoint: dict, result: dict) -> dict:
+    payload = _asn_json_payload(endpoint.get("asn") or "AS???", {"HOST": endpoint["ip"]}, result)
+    payload.update({
+        "target_input": endpoint["input"],
+        "target_host": endpoint["ip"],
+        "resolved_ip": endpoint["ip"],
+        "target_asn": endpoint.get("asn"),
+        "target_name": endpoint.get("name"),
+        "target_prefix": endpoint.get("prefix"),
+    })
+    return payload
+
+
 def _collect_asn_json(
     asn_norm: str,
     *,
@@ -641,6 +654,34 @@ def _collect_asn_json(
     return _asn_json_payload(asn_norm, server, result)
 
 
+def _collect_endpoint_json(
+    endpoint: dict,
+    *,
+    duration: int,
+    cycles: int,
+    skip_throughput: bool,
+    cf_token: Optional[str],
+    ecmp_passes: int = 1,
+    compare_v6: bool = False,
+    json_mode: bool = True,
+) -> dict:
+    target_asn = endpoint.get("asn") or "AS???"
+    meta = {
+        "HOST": endpoint["ip"],
+        "SITE": endpoint.get("input") or "",
+        "asn": target_asn,
+        "port": 5201,
+    }
+    result = _run_test(
+        host=endpoint["ip"], port=5201,
+        server_meta=meta, target_asn=target_asn,
+        cycles=cycles, duration=duration,
+        skip_throughput=skip_throughput, cf_token=cf_token,
+        json_mode=json_mode, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
+    )
+    return _endpoint_json_payload(endpoint, result)
+
+
 def _parse_interval_seconds(value: str) -> int:
     m = re.fullmatch(r"\s*(\d+)\s*([smhd]?)\s*", value.lower())
     if not m:
@@ -655,10 +696,15 @@ def _parse_interval_seconds(value: str) -> int:
 
 
 def _display_monitor_result(snapshot: dict, changes: list[str], history_file: str) -> None:
-    table = Table(title=f"Monitor snapshot · {snapshot['asn']}", box=box.SIMPLE)
+    title = snapshot.get("monitor_key") or snapshot["asn"]
+    table = Table(title=f"Monitor snapshot · {title}", box=box.SIMPLE)
     table.add_column("Metric")
     table.add_column("Value")
     table.add_row("Target", snapshot.get("target_host") or "—")
+    if snapshot.get("target_input") and snapshot.get("target_input") != snapshot.get("target_host"):
+        table.add_row("Input", snapshot["target_input"])
+    if snapshot.get("target_asn"):
+        table.add_row("Target ASN", snapshot["target_asn"])
     table.add_row("AS path", " → ".join(snapshot.get("as_path") or []) or "unknown")
     table.add_row("RTT", f"{snapshot['last_rtt_ms']:.1f} ms" if snapshot.get("last_rtt_ms") is not None else "—")
     table.add_row("Loss", f"{snapshot['loss_pct']:.1f}%" if snapshot.get("loss_pct") is not None else "—")
@@ -755,6 +801,82 @@ def asn(
             raise typer.Exit(code)
 
 
+# ── host subcommand ───────────────────────────────────────────────────────────
+
+@app.command("host")
+def host(
+    destination:   str  = typer.Argument(..., help="Destination hostname or IP, e.g. zoom.us or 170.114.52.2"),
+    duration:      int  = _DUR,
+    cycles:        int  = _CYCLES,
+    throughput:    bool = typer.Option(False, "--throughput", help="Try iperf3 throughput to the destination on port 5201"),
+    cf_token:      Optional[str] = _CF_TOK,
+    output_json:   bool = typer.Option(False, "--json", help="Output results as JSON to stdout; suppresses terminal display"),
+    globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probe"),
+    ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
+    compare_v6:    bool = typer.Option(False, "--compare-v6", help="Run parallel IPv4/IPv6 traces and display side-by-side"),
+):
+    """Trace and diagnose the path to an exact hostname or IP endpoint."""
+    if globe and output_json:
+        print("Warning: --globe is ignored when --json is set", file=sys.stderr)
+        globe = False
+    endpoint = targets_mod.resolve_endpoint(destination)
+    if endpoint is None:
+        msg = f"Could not resolve destination {destination!r}"
+        if output_json:
+            print(json.dumps({"error": msg}, indent=2))
+        else:
+            display.error(msg)
+        raise typer.Exit(1)
+
+    skip_throughput = _check_deps(not throughput)
+    if not output_json:
+        display.header(__version__)
+        display.console.print(
+            f"[dim]Tracing exact endpoint [bold]{endpoint['input']}[/bold] "
+            f"→ [bold]{endpoint['ip']}[/bold]…[/dim]"
+        )
+        if endpoint.get("asn"):
+            name = f" · {endpoint['name']}" if endpoint.get("name") else ""
+            display.console.print(f"[dim]Cymru: {endpoint['asn']}{name}[/dim]\n")
+        else:
+            display.console.print("[dim]Cymru: no public ASN attribution found[/dim]\n")
+
+    result = _collect_endpoint_json(
+        endpoint,
+        duration=duration,
+        cycles=cycles,
+        skip_throughput=skip_throughput,
+        cf_token=cf_token,
+        ecmp_passes=ecmp_passes,
+        compare_v6=compare_v6,
+        json_mode=output_json,
+    )
+    if output_json:
+        print(json.dumps(result, indent=2))
+    else:
+        display.console.print(
+            "[dim]Endpoint mode uses the resolved service address directly; "
+            "ASN/city representative target selection is bypassed.[/dim]"
+        )
+        if globe and result.get("path"):
+            target_asn = endpoint.get("asn") or endpoint["input"]
+            hubs = [
+                {
+                    "count": hop.get("hop"),
+                    "host": hop.get("host"),
+                    "ASN": hop.get("asn"),
+                    "Loss%": hop.get("loss_pct"),
+                    "Avg": hop.get("avg_ms"),
+                }
+                for hop in result["path"]
+            ]
+            globe_mod.render({target_asn: hubs})
+
+    code = _worst_exit_code([result.get("verdict", {})])
+    if code:
+        raise typer.Exit(code)
+
+
 # ── monitor subcommand ──────────────────────────────────────────────────────────
 
 @app.command()
@@ -769,6 +891,7 @@ def monitor(
     runs:          int = typer.Option(1, "--runs", help="Number of snapshots to collect; ignored with --forever"),
     forever:       bool = typer.Option(False, "--forever", help="Run until interrupted; requires --every"),
     store:         Optional[str] = typer.Option(None, "--store", help="History directory (default: ~/.netpath/monitor)"),
+    endpoint_target: Optional[str] = typer.Option(None, "--target", help="Monitor this exact hostname/IP instead of an auto-selected ASN endpoint"),
     webhook:       Optional[str] = typer.Option(None, "--webhook", help="POST regressions to this webhook URL"),
     fail_on_regression: bool = typer.Option(False, "--fail-on-regression", help="Exit 2 when a regression is detected"),
     rtt_threshold: float = typer.Option(25.0, "--rtt-threshold-ms", help="Minimum RTT increase to report"),
@@ -784,6 +907,14 @@ def monitor(
 
     interval_seconds = _parse_interval_seconds(every) if every else None
     skip_throughput = _check_deps(no_throughput)
+    endpoint = None
+    monitor_key = asn_norm
+    if endpoint_target:
+        endpoint = targets_mod.resolve_endpoint(endpoint_target)
+        if endpoint is None:
+            display.error(f"Could not resolve destination {endpoint_target!r}")
+            raise typer.Exit(1)
+        monitor_key = f"{asn_norm}:{endpoint['input']}->{endpoint['ip']}"
     display.header(__version__)
     iterations = None if forever else runs
     run_index = 0
@@ -791,22 +922,42 @@ def monitor(
 
     while iterations is None or run_index < iterations:
         run_index += 1
-        display.console.print(f"[dim]Collecting monitor snapshot for [bold]{asn_norm}[/bold]…[/dim]\n")
-        try:
-            result = _collect_asn_json(
-                asn_norm,
-                count=count,
-                duration=duration,
-                cycles=cycles,
-                skip_throughput=skip_throughput,
-                cf_token=cf_token,
+        if endpoint is None:
+            display.console.print(f"[dim]Collecting monitor snapshot for [bold]{asn_norm}[/bold]…[/dim]\n")
+        else:
+            display.console.print(
+                f"[dim]Collecting monitor snapshot for [bold]{asn_norm}[/bold] "
+                f"via exact endpoint [bold]{endpoint['input']}[/bold] → [bold]{endpoint['ip']}[/bold]…[/dim]\n"
             )
+        try:
+            if endpoint is None:
+                result = _collect_asn_json(
+                    asn_norm,
+                    count=count,
+                    duration=duration,
+                    cycles=cycles,
+                    skip_throughput=skip_throughput,
+                    cf_token=cf_token,
+                )
+            else:
+                result = _collect_endpoint_json(
+                    endpoint,
+                    duration=duration,
+                    cycles=cycles,
+                    skip_throughput=skip_throughput,
+                    cf_token=cf_token,
+                )
         except RuntimeError as e:
             display.error(str(e))
             raise typer.Exit(1)
 
-        snapshot = monitor_mod.snapshot_from_result(result, asn=asn_norm, target_host=result["target_host"])
-        previous = monitor_mod.load_latest(asn_norm, store)
+        snapshot = monitor_mod.snapshot_from_result(
+            result,
+            asn=asn_norm,
+            target_host=result["target_host"],
+            monitor_key=monitor_key,
+        )
+        previous = monitor_mod.load_latest(monitor_key, store)
         changes = monitor_mod.compare_snapshots(
             previous,
             snapshot,
