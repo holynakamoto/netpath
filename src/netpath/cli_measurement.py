@@ -10,7 +10,8 @@ from typing import Optional
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from netpath import display, explain as explain_mod, globalping as globalping_mod, globe as globe_mod
+from netpath import display, dns as dns_mod, edge as edge_mod, explain as explain_mod
+from netpath import geo as geo_mod, globalping as globalping_mod, globe as globe_mod
 from netpath import iperf as iperf_mod, latency as latency_mod, mtr, paris, pmtu as pmtu_mod
 from netpath import rum as rum_mod, speedtest
 from netpath.asn import normalize_asn
@@ -221,7 +222,8 @@ def _merge_globalping_path_results(
 def _measure(host: str, port: int, target_asn: str,
              cycles: int, duration: int, skip_throughput: bool,
              cf_token: Optional[str] = None, prefer_tcp: bool = False,
-             ecmp_passes: int = 1, compare_v6: bool = False) -> MeasurementResult:
+             ecmp_passes: int = 1, compare_v6: bool = False,
+             service_host: Optional[str] = None) -> MeasurementResult:
     """Collect all measurement data. Returns enriched result dict.
     No display calls, no json_mode parameter.
     Internal _-prefixed keys carry state needed by _run_test() for display.
@@ -233,7 +235,8 @@ def _measure(host: str, port: int, target_asn: str,
         "path_complete": False, "verified_rtt_ms": None,
         "entry_transit_asn": None, "stall_hop": None,
         "jitter_ms": None, "probe_count": cycles,
-        "pmtu": None, "tcp_connect_ms": None, "tls_handshake_ms": None,
+        "pmtu": None, "dns": None, "http_edge": None, "geo_path": None,
+        "tcp_connect_ms": None, "tls_handshake_ms": None,
         "ecmp_paths": None, "path_changes": 0,
         "hubs_v4": None, "hubs_v6": None,
         "trace_truncated": False,
@@ -360,15 +363,34 @@ def _measure(host: str, port: int, target_asn: str,
             result["last_rtt_ms"] = classification["rtt_ms"]
 
         # ── Concurrent independent probes ─────────────────────────────────
+        name_for_dns = service_host or host
         fut_pmtu = executor.submit(pmtu_mod.probe, host)
+        fut_dns  = executor.submit(dns_mod.measure, name_for_dns)
+        fut_edge = executor.submit(edge_mod.measure, service_host or host, host if service_host else None)
+        fut_geo  = executor.submit(geo_mod.analyze_path, hubs)
         fut_tcp  = executor.submit(latency_mod.measure_tcp_connect, host)
-        fut_tls  = executor.submit(latency_mod.measure_tls_handshake, host)
+        fut_tls  = executor.submit(latency_mod.measure_tls_handshake, service_host or host)
         fut_rum  = executor.submit(_fetch_rum, target_asn, cf_token)
 
         try:
             result["pmtu"] = fut_pmtu.result(timeout=30)
         except Exception:
             result["probe_errors"]["pmtu"] = "timeout"
+
+        try:
+            result["dns"] = fut_dns.result(timeout=10)
+        except Exception:
+            result["probe_errors"]["dns"] = "timeout"
+
+        try:
+            result["http_edge"] = fut_edge.result(timeout=20)
+        except Exception:
+            result["probe_errors"]["http_edge"] = "timeout"
+
+        try:
+            result["geo_path"] = fut_geo.result(timeout=15)
+        except Exception:
+            result["probe_errors"]["geo_path"] = "timeout"
 
         try:
             result["tcp_connect_ms"] = fut_tcp.result(timeout=15)
@@ -443,7 +465,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               cf_token: Optional[str] = None, show_server_heading: bool = True,
               json_mode: bool = False, prefer_tcp: bool = False,
               ecmp_passes: int = 1, compare_v6: bool = False,
-              _measure_impl=None) -> dict:
+              service_host: Optional[str] = None, _measure_impl=None) -> dict:
     """Run trace + optional throughput test. Returns enriched result dict."""
     measure = _measure_impl or _measure
     if show_server_heading and not json_mode:
@@ -465,10 +487,12 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
                       console=display.console, transient=True) as p:
             p.add_task(f"probing → {host}", total=None)
             result = measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
-                             prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6)
+                             prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
+                             service_host=service_host)
     else:
         result = measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
-                         prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6)
+                         prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
+                         service_host=service_host)
 
     if result.get("probe_errors", {}).get("v4_trace") and not result.get("hubs"):
         if not json_mode:
@@ -498,6 +522,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
                 display.warn(result["_v6_warn"])
             display.path_table(result["hubs"], target_asn, truncated=truncated)
         display.as_path_summary(result["hubs"])
+        display.edge_metrics(result)
 
     rum_data = result.get("rum")
 

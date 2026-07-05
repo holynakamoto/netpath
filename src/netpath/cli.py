@@ -401,6 +401,18 @@ def monitor(
             display.error(str(e))
             raise typer.Exit(1)
 
+        monitor_key_for_history = monitor_key
+        history = monitor_mod.load_history(monitor_key_for_history, store)
+        result["route_stability"] = monitor_mod.summarize_history(
+            history + [
+                monitor_mod.snapshot_from_result(
+                    result,
+                    asn=asn_norm,
+                    target_host=result["target_host"],
+                    monitor_key=monitor_key_for_history,
+                )
+            ]
+        )
         snapshot = monitor_mod.snapshot_from_result(
             result,
             asn=asn_norm,

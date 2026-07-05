@@ -52,6 +52,9 @@ def _asn_json_payload(asn_norm: str, server: dict, result: dict) -> dict:
             else None
         ),
         "jitter_ms":        result.get("jitter_ms"),
+        "dns":              result.get("dns"),
+        "http_edge":        result.get("http_edge"),
+        "geo_path":         result.get("geo_path"),
         "tcp_connect_ms":   result.get("tcp_connect_ms"),
         "tls_handshake_ms": result.get("tls_handshake_ms"),
         "pmtu":             result.get("pmtu"),
@@ -157,6 +160,8 @@ def _json_recommendation(verdict: dict) -> str:
         return "Escalate as an MTU/PMTUD black-hole and include the small-vs-large packet behavior."
     if {"tcp_latency", "tls_latency"} & conditions:
         return "Escalate to the destination application edge owner; TCP/TLS setup is the slow segment."
+    if {"dns_latency", "http_ttfb_latency"} & conditions:
+        return "Escalate to the DNS/application edge owner with lookup, TTFB, and redirect evidence."
     if "route_flapping" in conditions:
         return "Escalate route instability with the observed ECMP/path-change evidence."
     return "Share the report with the suspected network owner and rerun to confirm whether the condition persists."
@@ -256,5 +261,6 @@ def _collect_endpoint_json(
         cycles=cycles, duration=duration,
         skip_throughput=skip_throughput, cf_token=cf_token,
         json_mode=json_mode, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
+        service_host=endpoint.get("hostname") or endpoint.get("input"),
     )
     return _endpoint_json_payload(endpoint, result)

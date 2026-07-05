@@ -35,6 +35,9 @@ class MeasurementResult(TypedDict, total=False):
     probe_count: int
     probe_errors: Optional[dict]
     pmtu: Optional[dict]
+    dns: Optional[dict]
+    http_edge: Optional[dict]
+    geo_path: Optional[dict]
     tcp_connect_ms: Optional[float]
     tls_handshake_ms: Optional[float]
     ecmp_paths: Optional[int]

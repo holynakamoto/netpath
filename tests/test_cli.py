@@ -58,6 +58,9 @@ def test_asn_json_contract_contains_stable_top_level_keys():
         ],
         "verdict": {"severity": "ok", "verdict": "Healthy", "signals": []},
         "pmtu": {"blackhole": False},
+        "dns": {"lookup_ms": 12.0, "answers": [{"type": "A", "address": "203.0.113.10"}]},
+        "http_edge": {"status_code": 200, "ttfb_ms": 80.0},
+        "geo_path": {"country_hops": ["US"], "total_geodesic_km": 0.0},
         "ecmp_paths": 1,
         "path_changes": 0,
         "probe_count": 3,
@@ -93,6 +96,9 @@ def test_asn_json_contract_contains_stable_top_level_keys():
         "p99_ms": 1.4,
     }
     assert payload["throughput"] is None
+    assert payload["dns"]["lookup_ms"] == 12.0
+    assert payload["http_edge"]["status_code"] == 200
+    assert payload["geo_path"]["country_hops"] == ["US"]
     assert payload["verdict"]["severity"] == "ok"
     assert payload["confidence"] == "high"
     assert payload["evidence"] == []
@@ -164,6 +170,7 @@ def test_host_json_uses_exact_endpoint_without_asn_target_selection():
     assert "destination application edge" in payload["recommendation"]
     run_test.assert_called_once()
     assert run_test.call_args.kwargs["host"] == "203.0.113.10"
+    assert run_test.call_args.kwargs["service_host"] == "zoom.example"
     assert run_test.call_args.kwargs["target_asn"] == "AS64500"
     assert run_test.call_args.kwargs["skip_throughput"] is True
 
