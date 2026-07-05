@@ -39,11 +39,12 @@ def build_report(
     baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     verdict = result.get("verdict") or {}
-    path = result.get("path") or []
-    target_asn = result.get("target_asn") or _last_known_asn(path)
+    path = _path_from_result(result)
+    target_asn = result.get("target_asn") or result.get("asn") or _last_known_asn(path)
     as_path = _as_path(path)
+    result_for_inference = {**result, "path": path}
     current = monitor.snapshot_from_result(
-        result,
+        result_for_inference,
         asn=target_asn or "AS???",
         target_host=result.get("target_host") or result.get("resolved_ip") or destination,
         monitor_key=result.get("target_input") or destination,
@@ -53,10 +54,10 @@ def build_report(
         if baseline is not None
         else []
     )
-    culprit = _infer_culprit(result, baseline)
-    evidence = _build_evidence(result, baseline_changes, as_path)
+    culprit = _infer_culprit(result_for_inference, baseline)
+    evidence = _build_evidence(result_for_inference, baseline_changes, as_path)
     recommendation = _recommended_action(culprit, verdict)
-    summary = _ticket_summary(destination, result, verdict, culprit, evidence, baseline_changes, recommendation)
+    summary = _ticket_summary(destination, result_for_inference, verdict, culprit, evidence, baseline_changes, recommendation)
     return {
         "destination": destination,
         "target": {
@@ -80,6 +81,86 @@ def build_report(
         "recommended_action": recommendation,
         "ticket_summary": summary,
     }
+
+
+def build_operator_answer(
+    *,
+    destination: str,
+    result: dict[str, Any],
+    baseline: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    verdict = result.get("verdict") or {}
+    path = _path_from_result(result)
+    as_path = _as_path(path)
+    result_for_inference = {**result, "path": path}
+    baseline_changes: list[str] = []
+    if baseline is not None:
+        target_asn = result.get("target_asn") or result.get("asn") or _last_known_asn(path) or "AS???"
+        current = monitor.snapshot_from_result(
+            result_for_inference,
+            asn=target_asn,
+            target_host=result.get("target_host") or result.get("resolved_ip") or destination,
+            monitor_key=result.get("target_input") or destination,
+        )
+        baseline_changes = monitor.compare_snapshots(baseline, current)
+    culprit = _infer_culprit(result_for_inference, baseline)
+    evidence = _operator_evidence(result_for_inference, baseline_changes, as_path)
+    return {
+        "destination": destination,
+        "verdict": verdict.get("verdict", "Healthy"),
+        "severity": verdict.get("severity", "ok"),
+        "likely_culprit": culprit.get("asn") or culprit.get("scope") or "none",
+        "culprit_asn": culprit.get("asn"),
+        "culprit_scope": culprit.get("scope"),
+        "confidence": result.get("confidence") or culprit.get("confidence") or "unknown",
+        "evidence": evidence,
+        "recommendation": result.get("recommendation") or _recommended_action(culprit, verdict),
+    }
+
+
+def build_country_operator_answer(code: str, rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    ranked = [
+        row for row in rows
+        if (row.get("verdict") or {}).get("severity") in {"warning", "critical"}
+    ]
+    if not ranked:
+        return None
+    ranked.sort(
+        key=lambda row: (
+            {"warning": 1, "critical": 2}.get((row.get("verdict") or {}).get("severity"), 0),
+            row.get("verified_rtt_ms") or 0,
+        ),
+        reverse=True,
+    )
+    top = ranked[0]
+    destination = " ".join(p for p in (top.get("asn"), top.get("name")) if p) or code
+    answer = build_operator_answer(destination=destination, result=top)
+    affected = [
+        f"{row.get('asn', 'AS???')} {((row.get('verdict') or {}).get('verdict') or 'warning')}"
+        for row in ranked[:3]
+    ]
+    if len(ranked) > 3:
+        affected.append(f"+{len(ranked) - 3} more")
+    answer["destination"] = code
+    answer["evidence"] = [f"Affected networks: {', '.join(affected)}"] + answer.get("evidence", [])[:2]
+    return answer
+
+
+def _path_from_result(result: dict[str, Any]) -> list[dict[str, Any]]:
+    path = result.get("path") or []
+    if path:
+        return path
+    return [
+        {
+            "hop": hub.get("count"),
+            "host": hub.get("host"),
+            "asn": hub.get("ASN"),
+            "loss_pct": hub.get("Loss%"),
+            "avg_ms": hub.get("Avg"),
+            "p95_ms": hub.get("p95"),
+        }
+        for hub in result.get("hubs") or []
+    ]
 
 
 def _as_path(path: list[dict[str, Any]]) -> list[str]:
@@ -133,7 +214,7 @@ def _infer_culprit(result: dict[str, Any], baseline: dict[str, Any] | None) -> d
     conditions = {sig.get("condition") for sig in signals}
     path = result.get("path") or []
     current_as_path = _as_path(path)
-    target_asn = result.get("target_asn") or _last_known_asn(path)
+    target_asn = result.get("target_asn") or result.get("asn") or _last_known_asn(path)
 
     if baseline and baseline.get("as_path") != current_as_path:
         changed_asn = _path_divergence_asn(current_as_path, baseline.get("as_path") or [])
@@ -198,6 +279,31 @@ def _build_evidence(
     evidence.extend(change for change in baseline_changes if change != "No regression detected.")
     if as_path:
         evidence.append("AS path: " + " → ".join(as_path))
+    return evidence
+
+
+def _operator_evidence(
+    result: dict[str, Any],
+    baseline_changes: list[str],
+    as_path: list[str],
+) -> list[str]:
+    contract_evidence = _format_contract_evidence(result.get("evidence") or [])
+    if contract_evidence:
+        evidence = contract_evidence
+        evidence.extend(change for change in baseline_changes if change != "No regression detected.")
+        if as_path:
+            evidence.append("AS path: " + " → ".join(as_path))
+        return evidence
+    return _build_evidence(result, baseline_changes, as_path)
+
+
+def _format_contract_evidence(items: list[Any]) -> list[str]:
+    evidence = []
+    for item in items:
+        if isinstance(item, str):
+            evidence.append(item)
+        elif isinstance(item, dict):
+            evidence.append(_format_signal_evidence(item))
     return evidence
 
 
