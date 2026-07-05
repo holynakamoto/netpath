@@ -381,8 +381,12 @@ def edge_metrics(result: dict):
         parts = []
         if edge.get("status_code") is not None:
             parts.append(f"HTTP {edge['status_code']}")
+        if edge.get("chain_total_ms") is not None:
+            parts.append(f"total {edge['chain_total_ms']:.0f} ms")
         if edge.get("ttfb_ms") is not None:
             parts.append(f"TTFB {edge['ttfb_ms']:.0f} ms")
+        if edge.get("header_ms") is not None:
+            parts.append(f"headers {edge['header_ms']:.0f} ms")
         if edge.get("redirect_count"):
             parts.append(f"{edge['redirect_count']} redirect{'s' if edge['redirect_count'] != 1 else ''}")
         cert = edge.get("certificate") or {}

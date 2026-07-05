@@ -13,7 +13,7 @@ def test_snapshot_from_result_extracts_monitor_metrics():
         "jitter_ms": 2.0,
         "path_changes": 0,
         "dns": {"lookup_ms": 11.0},
-        "http_edge": {"ttfb_ms": 90.0},
+        "http_edge": {"ttfb_ms": 90.0, "chain_total_ms": 120.0},
         "pmtu": {"effective_mtu_bytes": 1500},
         "geo_path": {"country_hops": ["US"], "total_geodesic_km": 120.0},
         "route_stability": {"sample_count": 3, "path_churn_rate": 0.5},
@@ -29,6 +29,7 @@ def test_snapshot_from_result_extracts_monitor_metrics():
     assert snapshot["download_mbps"] == 80.0
     assert snapshot["dns_lookup_ms"] == 11.0
     assert snapshot["http_ttfb_ms"] == 90.0
+    assert snapshot["http_total_ms"] == 120.0
     assert snapshot["effective_mtu_bytes"] == 1500
     assert snapshot["geo_country_hops"] == ["US"]
     assert snapshot["route_stability"]["path_churn_rate"] == 0.5

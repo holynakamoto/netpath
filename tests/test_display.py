@@ -159,3 +159,24 @@ def test_edge_metrics_labels_reachable_large_icmp_as_filtered(monkeypatch):
     text = output.getvalue()
     assert "Large ICMP filtered" in text
     assert "PMTU black-hole" not in text
+
+
+def test_edge_metrics_includes_http_total_and_header_timings(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(display, "console", Console(file=output, width=120, force_terminal=False))
+
+    display.edge_metrics({
+        "http_edge": {
+            "status_code": 200,
+            "chain_total_ms": 1234.0,
+            "ttfb_ms": 950.0,
+            "header_ms": 960.0,
+            "redirect_count": 1,
+        },
+    })
+
+    text = output.getvalue()
+    assert "HTTP 200" in text
+    assert "total 1234 ms" in text
+    assert "TTFB 950 ms" in text
+    assert "headers 960 ms" in text

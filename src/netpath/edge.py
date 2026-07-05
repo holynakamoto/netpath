@@ -26,7 +26,7 @@ def _cert_summary(cert: dict) -> dict:
     return summary
 
 
-def _read_headers(sock: ssl.SSLSocket) -> tuple[bytes, float | None]:
+def _read_headers(sock: ssl.SSLSocket) -> tuple[bytes, float | None, float]:
     chunks: list[bytes] = []
     ttfb_ms: float | None = None
     start = time.monotonic()
@@ -39,12 +39,14 @@ def _read_headers(sock: ssl.SSLSocket) -> tuple[bytes, float | None]:
         chunks.append(chunk)
         if sum(len(c) for c in chunks) > 65536:
             break
-    return b"".join(chunks), ttfb_ms
+    header_ms = (time.monotonic() - start) * 1000.0
+    return b"".join(chunks), ttfb_ms, header_ms
 
 
 def _single_request(host: str, connect_host: str, path: str, timeout: float) -> dict:
     ctx = ssl.create_default_context()
-    t0 = time.monotonic()
+    request_start = time.monotonic()
+    t0 = request_start
     raw = socket.create_connection((connect_host, 443), timeout=timeout)
     tcp_ms = (time.monotonic() - t0) * 1000.0
     try:
@@ -60,7 +62,8 @@ def _single_request(host: str, connect_host: str, path: str, timeout: float) -> 
             "Connection: close\r\n\r\n"
         )
         sock.sendall(req.encode("ascii", "replace"))
-        header_blob, ttfb_ms = _read_headers(sock)
+        header_blob, ttfb_ms, header_ms = _read_headers(sock)
+        total_ms = (time.monotonic() - request_start) * 1000.0
         sock.close()
     except Exception:
         raw.close()
@@ -86,6 +89,8 @@ def _single_request(host: str, connect_host: str, path: str, timeout: float) -> 
         "tcp_connect_ms": round(tcp_ms, 2),
         "tls_handshake_ms": round(tls_ms, 2),
         "ttfb_ms": round(ttfb_ms, 2) if ttfb_ms is not None else None,
+        "header_ms": round(header_ms, 2),
+        "total_ms": round(total_ms, 2),
         "http_version": lines[0].split()[0] if lines else None,
         "location": headers.get("location"),
         "server": headers.get("server"),
@@ -104,14 +109,34 @@ def measure(hostname: str, connect_host: str | None = None, timeout: float = 5.0
         "status_code": None,
         "redirect_count": 0,
         "ttfb_ms": None,
+        "header_ms": None,
+        "total_ms": None,
+        "chain_total_ms": None,
+        "requests": [],
         "http_version": None,
         "certificate": {},
         "error": None,
     }
     path = "/"
     try:
+        chain_total_ms = 0.0
         for redirect_count in range(max_redirects + 1):
             one = _single_request(target_host, connect_target, path, timeout)
+            chain_total_ms += one.get("total_ms") or 0.0
+            request_info = {
+                "url": f"https://{target_host}{path}",
+                "host": target_host,
+                "connect_host": connect_target,
+                "status_code": one.get("status_code"),
+                "tcp_connect_ms": one.get("tcp_connect_ms"),
+                "tls_handshake_ms": one.get("tls_handshake_ms"),
+                "ttfb_ms": one.get("ttfb_ms"),
+                "header_ms": one.get("header_ms"),
+                "total_ms": one.get("total_ms"),
+            }
+            if one.get("location"):
+                request_info["location"] = one["location"]
+            result["requests"].append(request_info)
             result.update({k: v for k, v in one.items() if k != "location"})
             result["redirect_count"] = redirect_count
             location = one.get("location")
@@ -127,6 +152,7 @@ def measure(hostname: str, connect_host: str | None = None, timeout: float = 5.0
                 path += "?" + parsed.query
         result["host"] = target_host
         result["connect_host"] = connect_target
+        result["chain_total_ms"] = round(chain_total_ms, 2)
     except Exception as exc:
         result["error"] = str(exc)
     return result

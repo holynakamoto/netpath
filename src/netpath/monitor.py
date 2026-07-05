@@ -66,6 +66,7 @@ def snapshot_from_result(
         "path_changes": result.get("path_changes"),
         "dns_lookup_ms": (result.get("dns") or {}).get("lookup_ms"),
         "http_ttfb_ms": (result.get("http_edge") or {}).get("ttfb_ms"),
+        "http_total_ms": (result.get("http_edge") or {}).get("chain_total_ms"),
         "effective_mtu_bytes": (result.get("pmtu") or {}).get("effective_mtu_bytes"),
         "geo_country_hops": (result.get("geo_path") or {}).get("country_hops"),
         "geo_total_km": (result.get("geo_path") or {}).get("total_geodesic_km"),
