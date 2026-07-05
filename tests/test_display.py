@@ -100,3 +100,45 @@ def test_run_test_places_operator_answer_before_path_table(monkeypatch):
     assert "Likely culprit:" in text
     assert "AS64510 (transit-hop)" in text
     assert "Diagnosis" not in text
+
+
+def test_trace_fusion_summary_makes_single_prober_limit_explicit(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(display, "console", Console(file=output, width=120, force_terminal=False))
+
+    display.trace_fusion_summary({
+        "methods": [
+            {"name": "traceroute-udp", "status": "ok"},
+            {"name": "traceroute-tcp", "status": "error"},
+        ],
+        "filtered_ranges": [{"start": 7, "end": 30}],
+    })
+
+    text = output.getvalue()
+    assert "Only UDP contributed hops" in text
+    assert "normal single-prober trace" in text
+    assert "Silent hop ranges:" in text
+    assert "7–30" in text
+    assert "Unavailable/failed:" in text
+    assert "TCP" in text
+
+
+def test_operator_answer_evidence_omits_raw_json(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(display, "console", Console(file=output, width=120, force_terminal=False))
+
+    display.operator_answer({
+        "severity": "warning",
+        "verdict": "TLS Latency",
+        "likely_culprit": "AS2635",
+        "culprit_scope": "application-edge",
+        "confidence": "high",
+        "evidence": [
+            "TLS handshake latency of 568 ms exceeds the 500 ms threshold. (tls, confidence high) [TLS 568 ms]",
+        ],
+        "recommendation": "Escalate to the destination application edge owner.",
+    })
+
+    text = output.getvalue()
+    assert "[TLS 568 ms]" in text
+    assert '"tls_handshake_ms"' not in text

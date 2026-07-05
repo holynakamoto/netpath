@@ -19,6 +19,14 @@ LATENCY_YELLOW_MS = 80
 
 console = Console()
 
+_TRACE_SOURCE_LABELS = {
+    "mtr": "MTR",
+    "scamper": "Paris",
+    "dublin-traceroute": "Paris",
+    "traceroute-udp": "UDP",
+    "traceroute-tcp": "TCP",
+}
+
 
 # ── name helpers ─────────────────────────────────────────────────────────────
 
@@ -75,6 +83,10 @@ def fmt_bps(bps: float) -> str:
     if bps >= 1e6:
         return f"{bps / 1e6:.0f} Mbps"
     return f"{bps / 1e3:.0f} Kbps"
+
+
+def trace_source_label(source: str) -> str:
+    return _TRACE_SOURCE_LABELS.get(source, source)
 
 
 # ── sections ─────────────────────────────────────────────────────────────────
@@ -219,7 +231,7 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
             hop, host, asn_text, type_text,
         ]
         if show_sources:
-            sources = ",".join((hub.get("sources") or [])[:3])
+            sources = ",".join(trace_source_label(source) for source in (hub.get("sources") or [])[:3])
             if len(hub.get("sources") or []) > 3:
                 sources += ",…"
             row.append(Text(sources or "—", style="dim"))
@@ -310,6 +322,34 @@ def as_path_summary(hubs: list[dict]):
             parts.append(f"[yellow]{label}[/yellow]")
 
     console.print("  [dim]AS path:[/dim] " + " [dim]→[/dim] ".join(parts))
+    console.print()
+
+
+def trace_fusion_summary(metadata: dict):
+    methods = metadata.get("methods") or []
+    if not methods:
+        return
+    ok = [m for m in methods if m.get("status") == "ok"]
+    failed = [m for m in methods if m.get("status") != "ok"]
+    lines = []
+    if len(ok) <= 1:
+        label = trace_source_label(ok[0]["name"]) if ok else "none"
+        lines.append(f"  [yellow]Only {label} contributed hops.[/yellow] Treat this as a normal single-prober trace, not independent corroboration.")
+    else:
+        labels = ", ".join(trace_source_label(m["name"]) for m in ok)
+        lines.append(f"  [green]{len(ok)} probers contributed:[/green] {labels}")
+    ranges = metadata.get("filtered_ranges") or []
+    if ranges:
+        rendered = []
+        for item in ranges[:4]:
+            start = item.get("start")
+            end = item.get("end")
+            rendered.append(str(start) if start == end else f"{start}–{end}")
+        lines.append(f"  [dim]Silent hop ranges:[/dim] {', '.join(rendered)}")
+    if failed:
+        labels = ", ".join(trace_source_label(m["name"]) for m in failed[:4])
+        lines.append(f"  [dim]Unavailable/failed:[/dim] {labels}")
+    console.print(Panel("\n".join(lines), title="[bold]Trace fusion[/bold]", border_style="cyan", expand=False))
     console.print()
 
 

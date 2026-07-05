@@ -338,9 +338,52 @@ def _format_signal_evidence(signal: dict[str, Any]) -> str:
     if source or confidence:
         parts.append(f"({source or 'unknown source'}, confidence {confidence or 'unknown'})")
     evidence = signal.get("evidence") or {}
-    if evidence:
-        parts.append(json.dumps(evidence, sort_keys=True))
+    evidence_summary = _format_evidence_summary(evidence)
+    if evidence_summary:
+        parts.append(evidence_summary)
     return " ".join(parts)
+
+
+def _format_evidence_summary(evidence: dict[str, Any]) -> str:
+    if not evidence:
+        return ""
+    parts = []
+    if evidence.get("filter_scope"):
+        filtered = evidence.get("trailing_filtered_hops")
+        stall = evidence.get("stall_hop")
+        target = evidence.get("target_asn")
+        last = evidence.get("last_known_asn")
+        if filtered is not None and stall is not None:
+            parts.append(f"silent hops after {stall}: {filtered}")
+        if target:
+            parts.append(f"target {target} not observed" if evidence.get("filter_scope") == "before_target_asn" else f"target {target} observed")
+        if last:
+            parts.append(f"last known ASN {last}")
+    if evidence.get("tls_handshake_ms") is not None:
+        parts.append(f"TLS {evidence['tls_handshake_ms']:.0f} ms")
+    if evidence.get("tcp_connect_ms") is not None:
+        parts.append(f"TCP connect {evidence['tcp_connect_ms']:.0f} ms")
+    if evidence.get("remote_loss_pct") is not None:
+        parts.append(f"remote loss {evidence['remote_loss_pct']:.1f}%")
+    loss_hop = evidence.get("loss_hop")
+    if isinstance(loss_hop, dict):
+        hop_label = loss_hop.get("host") or f"hop {loss_hop.get('hop_index')}"
+        loss = loss_hop.get("loss_pct")
+        if loss is not None:
+            parts.append(f"{hop_label} loss {loss:.1f}%")
+        elif hop_label:
+            parts.append(str(hop_label))
+        if loss_hop.get("asn"):
+            parts.append(f"ASN {loss_hop['asn']}")
+    if evidence.get("downstream_clean") is False:
+        parts.append("downstream loss persists")
+    if evidence.get("jitter_ms") is not None:
+        parts.append(f"jitter {evidence['jitter_ms']:.1f} ms")
+    if evidence.get("bufferbloat_ms") is not None:
+        parts.append(f"bufferbloat {evidence['bufferbloat_ms']:.0f} ms")
+    if evidence.get("path_changes") is not None:
+        parts.append(f"path changes {evidence['path_changes']}")
+    return "[" + "; ".join(parts) + "]" if parts else ""
 
 
 def _recommended_action(culprit: dict[str, str | None], verdict: dict[str, Any]) -> str:
