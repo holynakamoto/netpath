@@ -42,6 +42,11 @@ _CF_TOK  = typer.Option(None,  "--cf-token",
 _GP_TOK  = typer.Option(None,  "--gp-token",
                          envvar="NETPATH_GLOBALPING_TOKEN",
                          help="Globalping token for a higher rate limit (or set NETPATH_GLOBALPING_TOKEN); optional")
+_TRACE_FUSION = typer.Option(
+    False,
+    "--trace-fusion",
+    help="Fuse mtr, Paris traceroute, UDP traceroute, and TCP traceroute observations by hop",
+)
 
 
 
@@ -103,6 +108,7 @@ def asn(
     globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probe"),
     ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
     compare_v6:    bool = typer.Option(False, "--compare-v6", help="Run parallel IPv4/IPv6 traces and display side-by-side"),
+    trace_fusion:  bool = _TRACE_FUSION,
 ):
     """Test latency, packet loss, and throughput to servers in a specific ASN."""
     asn_norm = normalize_asn(target)
@@ -146,6 +152,7 @@ def asn(
             cf_token=cf_token,
             ecmp_passes=ecmp_passes,
             compare_v6=compare_v6,
+            trace_fusion=trace_fusion,
             candidates=found,
         )
         print(json.dumps(output, indent=2))
@@ -162,6 +169,7 @@ def asn(
                 cycles=cycles, duration=duration,
                 skip_throughput=skip_throughput, cf_token=cf_token,
                 ecmp_passes=ecmp_passes, compare_v6=compare_v6,
+                trace_fusion=trace_fusion,
             )
             last_hubs = r["hubs"]
             if r.get("verdict"):
@@ -186,6 +194,7 @@ def host(
     globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probe"),
     ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
     compare_v6:    bool = typer.Option(False, "--compare-v6", help="Run parallel IPv4/IPv6 traces and display side-by-side"),
+    trace_fusion:  bool = _TRACE_FUSION,
 ):
     """Trace and diagnose the path to an exact hostname or IP endpoint."""
     if globe and output_json:
@@ -221,6 +230,7 @@ def host(
         cf_token=cf_token,
         ecmp_passes=ecmp_passes,
         compare_v6=compare_v6,
+        trace_fusion=trace_fusion,
         json_mode=output_json,
     )
     if output_json:
@@ -260,6 +270,7 @@ def explain(
     cf_token:      Optional[str] = _CF_TOK,
     baseline:      Optional[str] = typer.Option(None, "--baseline", help="JSON/JSONL monitor history to compare against"),
     output_json:   bool = typer.Option(False, "--json", help="Output explanation as JSON to stdout; suppresses terminal display"),
+    trace_fusion:  bool = _TRACE_FUSION,
 ):
     """Trace an endpoint and turn the measurements into an escalation-ready incident report."""
     endpoint = targets_mod.resolve_endpoint(destination)
@@ -309,6 +320,7 @@ def explain(
         cycles=cycles,
         skip_throughput=skip_throughput,
         cf_token=cf_token,
+        trace_fusion=trace_fusion,
         json_mode=output_json,
     )
     report = explain_mod.build_report(
@@ -347,6 +359,7 @@ def monitor(
     rtt_threshold: float = typer.Option(25.0, "--rtt-threshold-ms", help="Minimum RTT increase to report"),
     loss_threshold: float = typer.Option(1.0, "--loss-threshold-pct", help="Minimum loss increase to report"),
     throughput_drop: float = typer.Option(30.0, "--throughput-drop-pct", help="Minimum download drop to report"),
+    trace_fusion:  bool = _TRACE_FUSION,
 ):
     """Persist ASN probe snapshots and report path or performance regressions."""
     asn_norm = normalize_asn(target)
@@ -388,6 +401,7 @@ def monitor(
                     cycles=cycles,
                     skip_throughput=skip_throughput,
                     cf_token=cf_token,
+                    trace_fusion=trace_fusion,
                 )
             else:
                 result = _collect_endpoint_json(
@@ -396,6 +410,7 @@ def monitor(
                     cycles=cycles,
                     skip_throughput=skip_throughput,
                     cf_token=cf_token,
+                    trace_fusion=trace_fusion,
                 )
         except RuntimeError as e:
             display.error(str(e))
@@ -469,6 +484,7 @@ def country(
     no_remote:     bool = typer.Option(False, "--no-remote", help="Skip Globalping in-network measurements"),
     compare_v6:    bool = typer.Option(False, "--compare-v6", help="Run parallel IPv4/IPv6 traces in country mode"),
     ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
+    trace_fusion:  bool = _TRACE_FUSION,
     show_ids:      bool = typer.Option(False, "--show-ids", help="Show Globalping measurement IDs while scheduling"),
 ):
     """Test the top N ASNs (by allocated IPv4 address space) for a country."""
@@ -599,6 +615,7 @@ def country(
                 cf_token=cf_token,
                 ecmp_passes=ecmp_passes,
                 compare_v6=compare_v6,
+                trace_fusion=trace_fusion,
             )
         else:
             test_ip, target_origin = country_mod.get_test_target_for_asn(asn_str)
@@ -625,6 +642,7 @@ def country(
                     prefer_tcp=True,
                     ecmp_passes=ecmp_passes,
                     compare_v6=compare_v6,
+                    trace_fusion=trace_fusion,
                 )
             elif asn_str in _gp_covered_asns:
                 # No live local target, but Globalping probes exist inside the

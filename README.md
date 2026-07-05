@@ -75,6 +75,7 @@ Use `--json` on commands that support scripting output.
 | `--no-throughput` | `asn`, `country`, `monitor` | Trace only; skip throughput. |
 | `--compare-v6` | `host`, `asn`, `country` | Show IPv4/IPv6 traces side by side. |
 | `--ecmp-passes` | `host`, `asn`, `country` | Run multiple passes to expose route changes. |
+| `--trace-fusion` | `host`, `explain`, `asn`, `country`, `monitor` | Merge mtr, Paris traceroute, UDP traceroute, and TCP traceroute observations by hop. |
 | `--gp-token` | Globalping commands | Optional token for higher Globalping rate limits (`NETPATH_GLOBALPING_TOKEN`). |
 | `--cf-token` | RUM-capable commands | Cloudflare Radar token (`NETPATH_CF_TOKEN`). |
 | `--baseline` | `explain` | Compare against a monitor JSON/JSONL history file. |

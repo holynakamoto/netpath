@@ -15,6 +15,17 @@ def test_help_lists_product_commands():
         assert command in result.output
 
 
+def test_host_help_lists_trace_fusion_option():
+    host = get_command(cli.app).commands["host"]
+    option_names = {
+        opt
+        for param in host.params
+        for opt in getattr(param, "opts", [])
+    }
+
+    assert "--trace-fusion" in option_names
+
+
 def test_country_help_lists_remote_measurement_options():
     country = get_command(cli.app).commands["country"]
     option_names = {

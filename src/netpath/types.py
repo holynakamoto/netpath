@@ -41,6 +41,7 @@ class MeasurementResult(TypedDict, total=False):
     geo_path: Optional[dict]
     tcp_connect_ms: Optional[float]
     tls_handshake_ms: Optional[float]
+    trace_fusion: Optional[dict]
     ecmp_paths: Optional[int]
     path_changes: int
     hubs_v4: Optional[list]

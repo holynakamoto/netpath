@@ -152,6 +152,9 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
     table.add_column("Host", min_width=18)
     table.add_column("ASN", min_width=20)
     table.add_column("Type", width=8)
+    show_sources = any(h.get("sources") for h in hubs)
+    if show_sources:
+        table.add_column("Seen by", min_width=12)
     table.add_column("Loss", justify="right", width=7)
     table.add_column("Avg", justify="right", width=9)
     table.add_column("Best", justify="right", width=9)
@@ -173,8 +176,11 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
 
         if host in ("???", "", None):
             row = [hop, Text("* * *", style="dim"), Text("—", style="dim"),
-                   Text("—", style="dim"), Text("—", style="dim"),
-                   Text("—", style="dim"), Text("—", style="dim"), Text("—", style="dim")]
+                   Text("—", style="dim")]
+            if show_sources:
+                row.append(Text("—", style="dim"))
+            row.extend([Text("—", style="dim"),
+                        Text("—", style="dim"), Text("—", style="dim"), Text("—", style="dim")])
             if show_p95:
                 row.append(Text("—", style="dim"))
             table.add_row(*row)
@@ -211,8 +217,13 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
 
         row = [
             hop, host, asn_text, type_text,
-            fmt_loss(loss), fmt_latency(avg), fmt_latency(best), fmt_latency(worst),
         ]
+        if show_sources:
+            sources = ",".join((hub.get("sources") or [])[:3])
+            if len(hub.get("sources") or []) > 3:
+                sources += ",…"
+            row.append(Text(sources or "—", style="dim"))
+        row.extend([fmt_loss(loss), fmt_latency(avg), fmt_latency(best), fmt_latency(worst)])
         if show_p95:
             p95 = hub.get("p95")
             row.append(fmt_latency(p95) if p95 is not None else Text("—", style="dim"))

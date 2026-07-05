@@ -13,6 +13,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from netpath import display, dns as dns_mod, edge as edge_mod, explain as explain_mod
 from netpath import geo as geo_mod, globalping as globalping_mod, globe as globe_mod
 from netpath import iperf as iperf_mod, latency as latency_mod, mtr, paris, pmtu as pmtu_mod
+from netpath import trace_fusion as trace_fusion_mod
 from netpath import rum as rum_mod, speedtest
 from netpath.asn import normalize_asn
 from netpath.diagnosis import diagnose
@@ -223,7 +224,7 @@ def _measure(host: str, port: int, target_asn: str,
              cycles: int, duration: int, skip_throughput: bool,
              cf_token: Optional[str] = None, prefer_tcp: bool = False,
              ecmp_passes: int = 1, compare_v6: bool = False,
-             service_host: Optional[str] = None) -> MeasurementResult:
+             service_host: Optional[str] = None, trace_fusion: bool = False) -> MeasurementResult:
     """Collect all measurement data. Returns enriched result dict.
     No display calls, no json_mode parameter.
     Internal _-prefixed keys carry state needed by _run_test() for display.
@@ -239,6 +240,7 @@ def _measure(host: str, port: int, target_asn: str,
         "pmtu": None, "dns": None, "http_edge": None, "geo_path": None,
         "tcp_connect_ms": None, "tls_handshake_ms": None,
         "ecmp_paths": None, "path_changes": 0,
+        "trace_fusion": None,
         "hubs_v4": None, "hubs_v6": None,
         "trace_truncated": False,
         "_trace_method": None,
@@ -251,7 +253,16 @@ def _measure(host: str, port: int, target_asn: str,
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         # ── Trace section ─────────────────────────────────────────────────
-        if compare_v6:
+        if trace_fusion:
+            try:
+                hubs, fusion_meta = trace_fusion_mod.run(host, cycles=cycles, prefer_tcp=prefer_tcp)
+                result["_trace_method"] = "trace-fusion"
+                result["trace_fusion"] = fusion_meta
+            except RuntimeError as e:
+                result["probe_errors"]["v4_trace"] = f"trace fusion: {e}"
+                return result
+
+        elif compare_v6:
             v6_host = None
             try:
                 v6_info = socket.getaddrinfo(host, None, socket.AF_INET6)
@@ -340,7 +351,9 @@ def _measure(host: str, port: int, target_asn: str,
         result["as_path"] = _extract_as_path(hubs)
         result["hubs"] = hubs
 
-        if result["_trace_method"] == "traceroute":
+        if result["_trace_method"] == "trace-fusion":
+            result["probe_count"] = min(cycles, trace_fusion_mod.MAX_FUSION_PROBES)
+        elif result["_trace_method"] == "traceroute":
             result["probe_count"] = min(cycles, mtr.TRACEROUTE_MAX_PROBES)
         elif result["_trace_method"] in paris.SUPPORTED_BINARIES:
             result["probe_count"] = min(cycles, paris.PARIS_MAX_PROBES)
@@ -466,7 +479,8 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               cf_token: Optional[str] = None, show_server_heading: bool = True,
               json_mode: bool = False, prefer_tcp: bool = False,
               ecmp_passes: int = 1, compare_v6: bool = False,
-              service_host: Optional[str] = None, _measure_impl=None) -> dict:
+              service_host: Optional[str] = None, trace_fusion: bool = False,
+              _measure_impl=None) -> dict:
     """Run trace + optional throughput test. Returns enriched result dict."""
     measure = _measure_impl or _measure
     if show_server_heading and not json_mode:
@@ -489,11 +503,11 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
             p.add_task(f"probing → {host}", total=None)
             result = measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
                              prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
-                             service_host=service_host)
+                             service_host=service_host, trace_fusion=trace_fusion)
     else:
         result = measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
                          prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
-                         service_host=service_host)
+                         service_host=service_host, trace_fusion=trace_fusion)
 
     if result.get("probe_errors", {}).get("v4_trace") and not result.get("hubs"):
         if not json_mode:
@@ -502,6 +516,14 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
 
     if result.get("_trace_method") == "traceroute" and not json_mode:
         display.console.print("  [dim](mtr unavailable — using traceroute + Cymru ASN lookup)[/dim]\n")
+    elif result.get("_trace_method") == "trace-fusion" and not json_mode:
+        methods = [
+            item["name"]
+            for item in (result.get("trace_fusion") or {}).get("methods", [])
+            if item.get("status") == "ok"
+        ]
+        suffix = f": {', '.join(methods)}" if methods else ""
+        display.console.print(f"  [dim](trace fusion{suffix})[/dim]\n")
     elif result.get("_trace_method") in paris.SUPPORTED_BINARIES and not json_mode:
         display.console.print(
             f"  [dim](mtr unavailable — using {result['_trace_method']} Paris traceroute"

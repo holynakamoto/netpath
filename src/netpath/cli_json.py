@@ -31,21 +31,8 @@ def _asn_json_payload(asn_norm: str, server: dict, result: dict) -> dict:
         "target_host": server["HOST"],
         "target": target,
         "probes": _json_probes(result),
-        "path": [
-            {
-                "hop":      hub.get("count"),
-                "host":     hub.get("host"),
-                "asn":      hub.get("ASN"),
-                "loss_pct": hub.get("Loss%"),
-                "avg_ms":   hub.get("Avg"),
-                "best_ms":  hub.get("Best"),
-                "worst_ms": hub.get("Wrst"),
-                "p50_ms":   hub.get("p50"),
-                "p95_ms":   hub.get("p95"),
-                "p99_ms":   hub.get("p99"),
-            }
-            for hub in result.get("hubs", [])
-        ],
+        "path": [_json_path_hop(hub) for hub in result.get("hubs", [])],
+        "trace_fusion":      result.get("trace_fusion"),
         "throughput": (
             {"upload_mbps": upload_mbps, "download_mbps": download_mbps}
             if upload_mbps is not None or download_mbps is not None
@@ -67,6 +54,25 @@ def _asn_json_payload(asn_norm: str, server: dict, result: dict) -> dict:
         "evidence":         _json_evidence(verdict),
         "recommendation":   _json_recommendation(verdict),
     }
+
+
+def _json_path_hop(hub: dict) -> dict:
+    item = {
+        "hop":      hub.get("count"),
+        "host":     hub.get("host"),
+        "asn":      hub.get("ASN"),
+        "loss_pct": hub.get("Loss%"),
+        "avg_ms":   hub.get("Avg"),
+        "best_ms":  hub.get("Best"),
+        "worst_ms": hub.get("Wrst"),
+        "p50_ms":   hub.get("p50"),
+        "p95_ms":   hub.get("p95"),
+        "p99_ms":   hub.get("p99"),
+    }
+    for source_key in ("sources", "variants", "filtered"):
+        if source_key in hub:
+            item[source_key] = hub.get(source_key)
+    return item
 
 
 def _endpoint_json_payload(endpoint: dict, result: dict) -> dict:
@@ -217,6 +223,7 @@ def _collect_asn_json(
     cf_token: Optional[str],
     ecmp_passes: int = 1,
     compare_v6: bool = False,
+    trace_fusion: bool = False,
     candidates: list[dict] | None = None,
     _run_test_impl=None,
 ) -> dict:
@@ -231,6 +238,7 @@ def _collect_asn_json(
         cycles=cycles, duration=duration,
         skip_throughput=skip_throughput, cf_token=cf_token,
         json_mode=True, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
+        trace_fusion=trace_fusion,
     )
     return _asn_json_payload(asn_norm, server, result)
 
@@ -244,6 +252,7 @@ def _collect_endpoint_json(
     cf_token: Optional[str],
     ecmp_passes: int = 1,
     compare_v6: bool = False,
+    trace_fusion: bool = False,
     json_mode: bool = True,
     _run_test_impl=None,
 ) -> dict:
@@ -262,5 +271,6 @@ def _collect_endpoint_json(
         skip_throughput=skip_throughput, cf_token=cf_token,
         json_mode=json_mode, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
         service_host=endpoint.get("hostname") or endpoint.get("input"),
+        trace_fusion=trace_fusion,
     )
     return _endpoint_json_payload(endpoint, result)
