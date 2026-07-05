@@ -62,8 +62,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+          if gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "GitHub release $TAG_NAME already exists"
           else
-            gh release create "$TAG_NAME" --generate-notes --verify-tag --latest
+            gh release create "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag --latest
           fi
