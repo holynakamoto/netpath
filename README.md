@@ -126,10 +126,10 @@ When netpath needs a target inside an ASN, it tries public iperf3 servers, conne
 Releases are tag-driven. Cut them from `main` with the local helper:
 
 ```bash
-release-tag v0.25.0 "Describe the change"
+release-tag v0.27.0 "Describe the change"
 ```
 
-The helper verifies `main`, runs tests, pushes the commit/tag, and the `v*.*.*` tag triggers PyPI publishing via GitHub Actions.
+The helper verifies `main`, runs tests, pushes the commit/tag, and the `v*.*.*` tag triggers PyPI publishing plus GitHub Release creation via GitHub Actions.
 
 ## License
 

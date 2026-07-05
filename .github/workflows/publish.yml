@@ -1,4 +1,4 @@
-name: Publish to PyPI
+name: Publish release
 
 on:
   push:
@@ -49,3 +49,21 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: Create GitHub release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create release from tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "GitHub release $TAG_NAME already exists"
+          else
+            gh release create "$TAG_NAME" --generate-notes --verify-tag --latest
+          fi
