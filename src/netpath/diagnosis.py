@@ -51,7 +51,7 @@ def _signal(
         "confidence": confidence,
         "evidence": evidence,
     }
-    if sample_size is not _NO_SAMPLE:
+    if sample_size is not _NO_SAMPLE and sample_size is not None:
         signal["sample_size"] = sample_size
     return signal
 
@@ -61,6 +61,7 @@ def _hop_evidence(hop: dict, index: int) -> dict:
         "hop_index": index + 1,
         "hop_count": hop.get("count"),
         "host": hop.get("host"),
+        "asn": hop.get("ASN"),
         "loss_pct": float(hop.get("Loss%", 0.0) or 0.0),
     }
 

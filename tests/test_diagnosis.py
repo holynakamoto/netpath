@@ -16,6 +16,8 @@ def _assert_signal_metadata(signal, source, confidence, evidence_items, sample_s
         assert signal["evidence"][key] == value
     if sample_size is not None:
         assert signal["sample_size"] == sample_size
+    else:
+        assert "sample_size" not in signal
 
 
 def test_signal_metadata_for_major_conditions():
