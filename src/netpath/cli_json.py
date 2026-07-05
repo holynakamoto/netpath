@@ -254,6 +254,7 @@ def _collect_endpoint_json(
     compare_v6: bool = False,
     trace_fusion: bool = False,
     json_mode: bool = True,
+    show_operator_answer: bool = True,
     _run_test_impl=None,
 ) -> dict:
     run_test = _run_test_impl or _run_test
@@ -272,5 +273,6 @@ def _collect_endpoint_json(
         json_mode=json_mode, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
         service_host=endpoint.get("hostname") or endpoint.get("input"),
         trace_fusion=trace_fusion,
+        show_operator_answer=show_operator_answer,
     )
     return _endpoint_json_payload(endpoint, result)

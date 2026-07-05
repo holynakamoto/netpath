@@ -480,6 +480,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               json_mode: bool = False, prefer_tcp: bool = False,
               ecmp_passes: int = 1, compare_v6: bool = False,
               service_host: Optional[str] = None, trace_fusion: bool = False,
+              show_operator_answer: bool = True,
               _measure_impl=None) -> dict:
     """Run trace + optional throughput test. Returns enriched result dict."""
     measure = _measure_impl or _measure
@@ -522,8 +523,11 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
             for item in (result.get("trace_fusion") or {}).get("methods", [])
             if item.get("status") == "ok"
         ]
-        suffix = f": {', '.join(methods)}" if methods else ""
-        display.console.print(f"  [dim](trace fusion{suffix})[/dim]\n")
+        if len(methods) <= 1:
+            label = display.trace_source_label(methods[0]) if methods else "no prober"
+            display.console.print(f"  [dim](trace fusion: only {label} contributed)[/dim]\n")
+        else:
+            display.console.print(f"  [dim](trace fusion: {len(methods)} probers contributed)[/dim]\n")
     elif result.get("_trace_method") in paris.SUPPORTED_BINARIES and not json_mode:
         display.console.print(
             f"  [dim](mtr unavailable — using {result['_trace_method']} Paris traceroute"
@@ -531,11 +535,13 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         )
 
     answer_shown = False
-    if not json_mode:
+    if not json_mode and show_operator_answer:
         answer = explain_mod.build_operator_answer(destination=host, result=result)
         answer_shown = display.operator_answer(answer)
 
     if not json_mode:
+        if result.get("trace_fusion"):
+            display.trace_fusion_summary(result["trace_fusion"])
         truncated = result.get("trace_truncated", False)
         if compare_v6 and result.get("hubs_v6") is not None:
             display.dual_stack_columns(result["hubs_v4"], result["hubs_v6"], target_asn,

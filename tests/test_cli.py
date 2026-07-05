@@ -262,7 +262,7 @@ def test_explain_json_returns_culprit_and_ticket_summary(tmp_path):
     assert payload["recommendation"] == payload["recommended_action"]
     assert payload["evidence_details"][0]["condition"] == "remote_packet_loss"
     assert payload["evidence_details"][0]["sample_size"] == 30
-    assert "remote_loss_pct" in payload["evidence"][0]
+    assert "remote loss 2.0%" in payload["evidence"][0]
     assert "Requested action" in payload["ticket_summary"]
 
 
@@ -308,7 +308,7 @@ def test_explain_report_construction_reuses_signal_evidence_for_culprit():
     assert report["culprit_asn"] == "AS64510"
     assert report["confidence"] == "medium"
     assert report["evidence_details"][0]["evidence"]["loss_hop"]["asn"] == "AS64510"
-    assert "downstream_clean" in report["evidence"][0]
+    assert "downstream loss persists" in report["evidence"][0]
 
 
 def test_explain_json_reports_malformed_baseline(tmp_path):

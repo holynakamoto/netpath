@@ -321,6 +321,7 @@ def explain(
         skip_throughput=skip_throughput,
         cf_token=cf_token,
         trace_fusion=trace_fusion,
+        show_operator_answer=False,
         json_mode=output_json,
     )
     report = explain_mod.build_report(
