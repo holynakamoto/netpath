@@ -337,7 +337,17 @@ def trace_fusion_summary(metadata: dict):
         lines.append(f"  [yellow]Only {label} contributed hops.[/yellow] Treat this as a normal single-prober trace, not independent corroboration.")
     else:
         labels = ", ".join(trace_source_label(m["name"]) for m in ok)
-        lines.append(f"  [green]{len(ok)} probers contributed:[/green] {labels}")
+        confidence = metadata.get("confidence", "medium")
+        lines.append(f"  [green]{len(ok)} probers contributed:[/green] {labels}  [dim](confidence {confidence})[/dim]")
+    topology = metadata.get("topology") or {}
+    branch_points = topology.get("branch_points") or []
+    if branch_points:
+        rendered = []
+        for item in branch_points[:4]:
+            rendered.append(f"hop {item.get('hop')} ({len(item.get('variants') or [])} variants)")
+        lines.append(f"  [dim]ECMP/branch candidates:[/dim] {', '.join(rendered)}")
+    elif topology.get("mode") == "linear":
+        lines.append("  [dim]Topology:[/dim] no branch candidates observed")
     ranges = metadata.get("filtered_ranges") or []
     if ranges:
         rendered = []

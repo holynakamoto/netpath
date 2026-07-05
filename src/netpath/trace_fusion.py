@@ -46,6 +46,8 @@ def _fuse_hop(ttl: int, samples: list[tuple[str, dict]], method_count: int) -> d
             "sources": [],
             "variants": [],
             "filtered": True,
+            "status": "silent",
+            "confidence": "low",
         }
 
     by_host: dict[str, dict] = {}
@@ -98,6 +100,8 @@ def _fuse_hop(ttl: int, samples: list[tuple[str, dict]], method_count: int) -> d
         "sources": sorted(best["sources"]),
         "variants": variants,
         "filtered": False,
+        "status": "responsive",
+        "confidence": "high" if len(best["sources"]) >= 2 else "medium",
     }
     if best.get("asn_name"):
         hub["asn_name"] = best["asn_name"]
@@ -119,6 +123,57 @@ def _filtered_ranges(hubs: list[dict]) -> list[dict]:
     if start is not None:
         ranges.append({"start": start, "end": prev})
     return ranges
+
+
+def _annotate_silence(hubs: list[dict]) -> None:
+    responsive_counts = {
+        hub.get("count")
+        for hub in hubs
+        if not hub.get("filtered")
+    }
+    for hub in hubs:
+        if not hub.get("filtered"):
+            continue
+        ttl = hub.get("count")
+        downstream_seen = any(
+            isinstance(other, int) and isinstance(ttl, int) and other > ttl
+            for other in responsive_counts
+        )
+        if downstream_seen:
+            hub["status"] = "rate_limited_or_filtered"
+            hub["confidence"] = "medium"
+        else:
+            hub["status"] = "filtered_after_last_reply"
+            hub["confidence"] = "low"
+
+
+def _topology_summary(hubs: list[dict]) -> dict:
+    branch_points = []
+    for hub in hubs:
+        variants = hub.get("variants") or []
+        if len(variants) <= 1:
+            continue
+        branch_points.append({
+            "hop": hub.get("count"),
+            "variants": variants,
+        })
+    responsive = [hub for hub in hubs if not hub.get("filtered")]
+    silent = [hub for hub in hubs if hub.get("filtered")]
+    return {
+        "mode": "graph" if branch_points else "linear",
+        "responsive_hops": len(responsive),
+        "silent_hops": len(silent),
+        "branch_points": branch_points,
+    }
+
+
+def _method_confidence(successful_count: int, fused: list[dict]) -> str:
+    if successful_count <= 1:
+        return "low"
+    corroborated = any(len(hub.get("sources") or []) >= 2 for hub in fused if not hub.get("filtered"))
+    if successful_count >= 3 and corroborated:
+        return "high"
+    return "medium" if corroborated else "low"
 
 
 def run(host: str, cycles: int = 10, prefer_tcp: bool = False) -> tuple[list[dict], dict]:
@@ -161,10 +216,13 @@ def run(host: str, cycles: int = 10, prefer_tcp: bool = False) -> tuple[list[dic
             by_ttl.setdefault(ttl, []).append((item["name"], hub))
 
     fused = [_fuse_hop(ttl, by_ttl.get(ttl, []), len(successful)) for ttl in range(1, max_ttl + 1)]
+    _annotate_silence(fused)
     mtr._enrich_names(fused)
+    topology = _topology_summary(fused)
     metadata = {
         "enabled": True,
         "probes_per_method": probes,
+        "confidence": _method_confidence(len(successful), fused),
         "methods": [
             {
                 "name": item["name"],
@@ -175,5 +233,6 @@ def run(host: str, cycles: int = 10, prefer_tcp: bool = False) -> tuple[list[dic
             for item in results
         ],
         "filtered_ranges": _filtered_ranges(fused),
+        "topology": topology,
     }
     return fused, metadata

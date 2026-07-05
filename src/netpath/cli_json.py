@@ -72,6 +72,9 @@ def _json_path_hop(hub: dict) -> dict:
     for source_key in ("sources", "variants", "filtered"):
         if source_key in hub:
             item[source_key] = hub.get(source_key)
+    for source_key in ("status", "confidence"):
+        if source_key in hub:
+            item[source_key] = hub.get(source_key)
     return item
 
 
