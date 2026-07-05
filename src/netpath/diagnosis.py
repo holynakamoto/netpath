@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 JITTER_WARNING_MS = 10.0
 JITTER_MIN_SAMPLES = 5
 REMOTE_MIN_PACKETS = 5  # near-target figures drive the verdict only at this sample size
