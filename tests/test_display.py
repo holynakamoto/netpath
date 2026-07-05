@@ -111,6 +111,8 @@ def test_trace_fusion_summary_makes_single_prober_limit_explicit(monkeypatch):
             {"name": "traceroute-udp", "status": "ok"},
             {"name": "traceroute-tcp", "status": "error"},
         ],
+        "confidence": "low",
+        "topology": {"mode": "linear", "branch_points": []},
         "filtered_ranges": [{"start": 7, "end": 30}],
     })
 
@@ -119,6 +121,7 @@ def test_trace_fusion_summary_makes_single_prober_limit_explicit(monkeypatch):
     assert "normal single-prober trace" in text
     assert "Silent hop ranges:" in text
     assert "7–30" in text
+    assert "Topology:" in text
     assert "Unavailable/failed:" in text
     assert "TCP" in text
 
