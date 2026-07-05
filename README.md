@@ -121,6 +121,14 @@ netpath asn AS15169
 
 When netpath needs a target inside an ASN, it tries public iperf3 servers, connected RIPE Atlas probe addresses, PeeringDB IXP interface addresses, then a small verified sample from RIPEstat announced prefixes. User-provided targets are preserved and annotated with Cymru ASN/prefix attribution.
 
+## Development
+
+```bash
+make validate  # syncs dev extras, then runs tests and lint
+make test      # uv run python -m pytest -q
+make lint      # uv run python -m ruff check .
+```
+
 ## Maintainer release flow
 
 Releases are tag-driven. Cut them from `main` with the local helper:
