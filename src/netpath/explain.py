@@ -72,7 +72,11 @@ def build_report(
         "culprit_scope": culprit["scope"],
         "confidence": culprit["confidence"],
         "evidence": evidence,
+        "evidence_details": _signal_evidence(verdict),
+        "path": path,
+        "probes": result.get("probes"),
         "baseline_changes": baseline_changes,
+        "recommendation": recommendation,
         "recommended_action": recommendation,
         "ticket_summary": summary,
     }
@@ -137,12 +141,24 @@ def _infer_culprit(result: dict[str, Any], baseline: dict[str, Any] | None) -> d
             return {"asn": changed_asn, "scope": "route-change", "confidence": "medium"}
 
     if "last_mile_congestion" in conditions:
-        first = path[0] if path else {}
-        return {"asn": first.get("asn"), "scope": "local-access", "confidence": "medium"}
+        signal = _signal_for(verdict, "last_mile_congestion") or {}
+        first = (signal.get("evidence") or {}).get("first_hop") or {}
+        fallback = path[0] if path else {}
+        return {
+            "asn": first.get("asn") or fallback.get("asn"),
+            "scope": "local-access",
+            "confidence": signal.get("confidence") or "medium",
+        }
 
     if "mid_path_packet_loss" in conditions:
-        hop = _first_lossy_hop(path) or {}
-        return {"asn": hop.get("asn"), "scope": "transit-hop", "confidence": "medium"}
+        signal = _signal_for(verdict, "mid_path_packet_loss") or {}
+        hop = (signal.get("evidence") or {}).get("loss_hop") or {}
+        fallback = _first_lossy_hop(path) or {}
+        return {
+            "asn": hop.get("asn") or fallback.get("asn"),
+            "scope": "transit-hop",
+            "confidence": signal.get("confidence") or "medium",
+        }
 
     if "remote_packet_loss" in conditions:
         return {"asn": target_asn, "scope": "near-target", "confidence": "high"}
@@ -152,10 +168,12 @@ def _infer_culprit(result: dict[str, Any], baseline: dict[str, Any] | None) -> d
         return {"asn": hop.get("asn"), "scope": "last-responsive-hop", "confidence": "low"}
 
     if "pmtu_blackhole" in conditions:
-        return {"asn": target_asn, "scope": "path-mtu", "confidence": "medium"}
+        signal = _signal_for(verdict, "pmtu_blackhole") or {}
+        return {"asn": target_asn, "scope": "path-mtu", "confidence": signal.get("confidence") or "medium"}
 
     if {"tcp_latency", "tls_latency"} & conditions:
-        return {"asn": target_asn, "scope": "application-edge", "confidence": "medium"}
+        signal = _signal_for(verdict, "tcp_latency") or _signal_for(verdict, "tls_latency") or {}
+        return {"asn": target_asn, "scope": "application-edge", "confidence": signal.get("confidence") or "medium"}
 
     if "route_flapping" in conditions:
         return {"asn": target_asn, "scope": "routing-instability", "confidence": "medium"}
@@ -173,25 +191,50 @@ def _build_evidence(
 ) -> list[str]:
     evidence: list[str] = []
     verdict = result.get("verdict") or {}
-    if verdict.get("detail"):
+    for signal in verdict.get("signals") or []:
+        evidence.append(_format_signal_evidence(signal))
+    if not evidence and verdict.get("detail"):
         evidence.append(verdict["detail"])
     evidence.extend(change for change in baseline_changes if change != "No regression detected.")
     if as_path:
         evidence.append("AS path: " + " → ".join(as_path))
-
-    throughput = result.get("throughput") or {}
-    metrics = []
-    if result.get("jitter_ms") is not None:
-        metrics.append(f"jitter {result['jitter_ms']:.1f} ms")
-    if throughput.get("download_mbps") is not None:
-        metrics.append(f"download {throughput['download_mbps']:.0f} Mbps")
-    if result.get("tcp_connect_ms") is not None:
-        metrics.append(f"TCP connect {result['tcp_connect_ms']:.0f} ms")
-    if result.get("tls_handshake_ms") is not None:
-        metrics.append(f"TLS handshake {result['tls_handshake_ms']:.0f} ms")
-    if metrics:
-        evidence.append("Measured: " + ", ".join(metrics))
     return evidence
+
+
+def _signal_for(verdict: dict[str, Any], condition: str) -> dict[str, Any] | None:
+    for signal in verdict.get("signals") or []:
+        if signal.get("condition") == condition:
+            return signal
+    return None
+
+
+def _signal_evidence(verdict: dict[str, Any]) -> list[dict[str, Any]]:
+    details = []
+    for signal in verdict.get("signals") or []:
+        item = {
+            "condition": signal.get("condition"),
+            "severity": signal.get("severity"),
+            "source": signal.get("source"),
+            "confidence": signal.get("confidence"),
+            "detail": signal.get("detail"),
+            "evidence": signal.get("evidence") or {},
+        }
+        if signal.get("sample_size") is not None:
+            item["sample_size"] = signal["sample_size"]
+        details.append(item)
+    return details
+
+
+def _format_signal_evidence(signal: dict[str, Any]) -> str:
+    parts = [signal.get("detail") or signal.get("condition") or "Signal"]
+    source = signal.get("source")
+    confidence = signal.get("confidence")
+    if source or confidence:
+        parts.append(f"({source or 'unknown source'}, confidence {confidence or 'unknown'})")
+    evidence = signal.get("evidence") or {}
+    if evidence:
+        parts.append(json.dumps(evidence, sort_keys=True))
+    return " ".join(parts)
 
 
 def _recommended_action(culprit: dict[str, str | None], verdict: dict[str, Any]) -> str:
