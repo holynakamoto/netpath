@@ -28,6 +28,7 @@ class MeasurementResult(TypedDict, total=False):
     upload_mbps: Optional[float]
     verdict: dict
     path_complete: bool
+    target_asn: str
     verified_rtt_ms: Optional[float]
     entry_transit_asn: Optional[str]
     stall_hop: Optional[int]

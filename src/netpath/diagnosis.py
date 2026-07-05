@@ -68,6 +68,15 @@ def _hop_evidence(hop: dict, index: int) -> dict:
     }
 
 
+def _norm_asn(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip().upper()
+    if not text:
+        return None
+    return text if text.startswith("AS") else f"AS{text}"
+
+
 def diagnose(result: dict) -> dict:
     """Classify collected measurements into a plain-language verdict.
 
@@ -165,13 +174,34 @@ def diagnose(result: dict) -> dict:
                     ]
                     if stall is not None and max_count > stall:
                         # Trailing ??? hops — downstream routers filter ICMP
+                        last_responsive = responsive_hops[-1] if responsive_hops else {}
+                        last_asn = _norm_asn(last_responsive.get("ASN"))
+                        last_known_asn = None
+                        for hop in reversed(responsive_hops):
+                            candidate = _norm_asn(hop.get("ASN"))
+                            if candidate and candidate != "AS???":
+                                last_known_asn = candidate
+                                break
+                        target_asn = _norm_asn(result.get("target_asn"))
+                        if target_asn and last_asn == target_asn:
+                            detail = (
+                                "Downstream routers inside the target ASN filter ICMP "
+                                "TTL-exceeded responses. The route is likely healthy."
+                            )
+                            filter_scope = "target_asn"
+                        else:
+                            target_part = f" {target_asn}" if target_asn else ""
+                            last_part = f" after {last_known_asn}" if last_known_asn else ""
+                            detail = (
+                                f"Traceroute did not expose the target ASN{target_part}; "
+                                f"ICMP TTL-exceeded responses are filtered{last_part}. "
+                                "The endpoint may still be reachable by TCP/HTTPS."
+                            )
+                            filter_scope = "before_target_asn"
                         signals.append(_signal(
                             "icmp_filtered_path",
                             "ok",
-                            (
-                                "Downstream routers inside the target ISP filter ICMP "
-                                "TTL-exceeded responses. The route is likely healthy."
-                            ),
+                            detail,
                             "path",
                             CONFIDENCE_MEDIUM,
                             {
@@ -181,6 +211,10 @@ def diagnose(result: dict) -> dict:
                                 "responsive_hops": len(responsive_hops),
                                 "hop_count": len(hubs_local),
                                 "trailing_filtered_hops": max_count - stall,
+                                "filter_scope": filter_scope,
+                                "last_responsive_asn": last_asn,
+                                "last_known_asn": last_known_asn,
+                                "target_asn": target_asn,
                             },
                             sample_size=len(hubs_local),
                         ))
