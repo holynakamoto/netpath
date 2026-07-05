@@ -194,6 +194,29 @@ def test_explain_json_returns_culprit_and_ticket_summary(tmp_path):
     assert "Requested action" in payload["ticket_summary"]
 
 
+def test_explain_json_reports_malformed_baseline(tmp_path):
+    endpoint = {
+        "input": "zoom.example",
+        "hostname": "zoom.example",
+        "ip": "203.0.113.10",
+        "asn": "AS64500",
+        "prefix": "203.0.113.0/24",
+        "name": "Example Video",
+    }
+    baseline_file = tmp_path / "baseline.jsonl"
+    baseline_file.write_text("{not-json}\n")
+
+    with patch("netpath.cli.targets_mod.resolve_endpoint", return_value=endpoint):
+        result = CliRunner().invoke(
+            cli.app,
+            ["explain", "zoom.example", "--baseline", str(baseline_file), "--json"],
+        )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert "not valid JSON/JSONL" in payload["error"]
+
+
 def test_monitor_persists_first_snapshot(tmp_path):
     measurement = {
         "asn": "AS64500",

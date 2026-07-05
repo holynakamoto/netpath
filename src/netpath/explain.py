@@ -9,25 +9,27 @@ from netpath import monitor
 
 def load_baseline(path: str) -> dict[str, Any] | None:
     """Load the newest JSON object from a snapshot JSON or JSONL history file."""
-    latest = None
-    try:
-        with Path(path).expanduser().open() as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                latest = json.loads(line)
-    except FileNotFoundError:
-        raise
-    except json.JSONDecodeError:
-        with Path(path).expanduser().open() as f:
-            data = json.load(f)
-        if isinstance(data, list):
-            return data[-1] if data else None
-        if isinstance(data, dict):
-            return data
+    text = Path(path).expanduser().read_text()
+    stripped = text.strip()
+    if not stripped:
         return None
-    return latest
+
+    try:
+        data = json.loads(stripped)
+    except json.JSONDecodeError:
+        latest = None
+        for line in stripped.splitlines():
+            line = line.strip()
+            if line:
+                latest = json.loads(line)
+        return latest if isinstance(latest, dict) else None
+
+    if isinstance(data, list):
+        latest = data[-1] if data else None
+        return latest if isinstance(latest, dict) else None
+    if isinstance(data, dict):
+        return data
+    return None
 
 
 def build_report(

@@ -911,6 +911,13 @@ def explain(
             else:
                 display.error(msg)
             raise typer.Exit(1)
+        except json.JSONDecodeError:
+            msg = f"Baseline file is not valid JSON/JSONL: {baseline}"
+            if output_json:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                display.error(msg)
+            raise typer.Exit(1)
 
     skip_throughput = _check_deps(not throughput)
     if not output_json:
