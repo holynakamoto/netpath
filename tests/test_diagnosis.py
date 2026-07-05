@@ -505,6 +505,35 @@ def test_icmp_filtered_path_trailing_stars():
     assert any(s["condition"] == "icmp_filtered_path" for s in result["signals"])
     icmp_signal = next(s for s in result["signals"] if s["condition"] == "icmp_filtered_path")
     assert icmp_signal["severity"] == "ok"
+    assert icmp_signal["evidence"]["filter_scope"] == "before_target_asn"
+    assert "did not expose the target ASN" in icmp_signal["detail"]
+
+
+def test_icmp_filtered_path_inside_target_asn_only_when_last_responsive_matches_target():
+    hubs = [
+        {"count": 1, "host": "192.168.1.1", "ASN": "AS64501", "Loss%": 0.0},
+        {"count": 2, "host": "203.0.113.10", "ASN": "AS64500", "Loss%": 0.0},
+        {"count": 3, "host": "???", "ASN": "AS???", "Loss%": 100.0},
+    ]
+    result = diagnose({"path_complete": False, "hubs": hubs, "stall_hop": 2, "target_asn": "AS64500"})
+
+    icmp_signal = next(s for s in result["signals"] if s["condition"] == "icmp_filtered_path")
+    assert icmp_signal["severity"] == "ok"
+    assert icmp_signal["evidence"]["filter_scope"] == "target_asn"
+    assert "inside the target ASN" in icmp_signal["detail"]
+
+
+def test_icmp_filtered_path_unknown_target_asn_is_not_inside_target():
+    hubs = [
+        {"count": 1, "host": "192.168.1.1", "ASN": "AS???", "Loss%": 0.0},
+        {"count": 2, "host": "198.51.100.10", "ASN": "AS???", "Loss%": 0.0},
+        {"count": 3, "host": "???", "ASN": "AS???", "Loss%": 100.0},
+    ]
+    result = diagnose({"path_complete": False, "hubs": hubs, "stall_hop": 2, "target_asn": "AS???"})
+
+    icmp_signal = next(s for s in result["signals"] if s["condition"] == "icmp_filtered_path")
+    assert icmp_signal["evidence"]["filter_scope"] == "before_target_asn"
+    assert "inside the target ASN" not in icmp_signal["detail"]
 
 
 def test_incomplete_path_genuine_stall():
