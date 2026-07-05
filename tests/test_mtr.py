@@ -45,6 +45,12 @@ traceroute to 8.8.8.8 (8.8.8.8), 64 hops max, 52 byte packets
  2  10.0.0.1 (10.0.0.1)  5.432 ms  5.654 ms  5.891 ms
 """
 
+PARTIAL_STAR_REPLY = """\
+traceroute to 23.96.224.33 (23.96.224.33), 30 hops max, 60 byte packets
+ 6  * * 206.51.46.81  39.600 ms
+ 9  * 51.10.50.76  56.800 ms *
+"""
+
 
 # _parse_traceroute_output tests
 
@@ -90,6 +96,15 @@ def test_macos_format_with_parenthesized_ip():
     assert hubs[0]["host"] == "192.168.1.1"
     assert hubs[1]["host"] == "10.0.0.1"
     assert hubs[0]["Avg"] > 0
+
+
+def test_partial_star_reply_uses_responding_host_not_literal_star():
+    hubs = _parse_traceroute_output(PARTIAL_STAR_REPLY)
+
+    assert hubs[0]["host"] == "206.51.46.81"
+    assert hubs[0]["Loss%"] == pytest.approx(66.666, rel=0.01)
+    assert hubs[1]["host"] == "51.10.50.76"
+    assert hubs[1]["Loss%"] == pytest.approx(66.666, rel=0.01)
 
 
 # _all_stars tests

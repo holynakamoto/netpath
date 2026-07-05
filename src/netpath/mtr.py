@@ -178,11 +178,18 @@ def _parse_traceroute_output(output: str) -> "list[Hub]":
             continue
 
         tokens = rest.split()
-        host = tokens[0]
+        host = "???"
+        for idx, token in enumerate(tokens):
+            if token == "*" or token == "ms" or token.startswith("("):
+                continue
+            if idx + 1 < len(tokens) and tokens[idx + 1] == "ms":
+                continue
+            host = token
+            break
 
         rtts = []
         stars = 0
-        i = 1
+        i = 0
         while i < len(tokens):
             if tokens[i] == "*":
                 stars += 1

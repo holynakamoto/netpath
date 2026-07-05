@@ -393,7 +393,16 @@ def edge_metrics(result: dict):
 
     pmtu = result.get("pmtu") or {}
     if pmtu.get("effective_mtu_bytes") is not None:
-        label = "PMTU black-hole" if pmtu.get("blackhole") else "PMTU"
+        edge = result.get("http_edge") or {}
+        app_reachable = (
+            edge.get("status_code") is not None
+            or result.get("tcp_connect_ms") is not None
+            or result.get("tls_handshake_ms") is not None
+        )
+        if pmtu.get("blackhole") and app_reachable:
+            label = "Large ICMP filtered"
+        else:
+            label = "PMTU black-hole" if pmtu.get("blackhole") else "PMTU"
         lines.append(f"{label} effective MTU {pmtu['effective_mtu_bytes']} bytes")
 
     geo = result.get("geo_path") or {}

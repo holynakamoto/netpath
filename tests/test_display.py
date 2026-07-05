@@ -145,3 +145,17 @@ def test_operator_answer_evidence_omits_raw_json(monkeypatch):
     text = output.getvalue()
     assert "[TLS 568 ms]" in text
     assert '"tls_handshake_ms"' not in text
+
+
+def test_edge_metrics_labels_reachable_large_icmp_as_filtered(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(display, "console", Console(file=output, width=120, force_terminal=False))
+
+    display.edge_metrics({
+        "pmtu": {"blackhole": True, "effective_mtu_bytes": 92},
+        "http_edge": {"status_code": 403},
+    })
+
+    text = output.getvalue()
+    assert "Large ICMP filtered" in text
+    assert "PMTU black-hole" not in text
