@@ -530,3 +530,48 @@ def test_get_public_ip_returns_none_on_error():
     with patch("netpath.globalping.requests.get",
                side_effect=req_lib.RequestException("down")):
         assert get_public_ip() is None
+
+
+def test_schedule_tcp_ping_uses_global_probes_and_requested_port():
+    from netpath.globalping import schedule_tcp_ping
+
+    response = _json_response({"id": "tcp-measurement"})
+    with patch("netpath.globalping.requests.post", return_value=response) as post:
+        measurement_id = schedule_tcp_ping("203.0.113.7", 5201, "token", limit=3)
+
+    assert measurement_id == "tcp-measurement"
+    payload = post.call_args.kwargs["json"]
+    assert payload["locations"] == [{"magic": "world"}]
+    assert payload["limit"] == 3
+    assert payload["measurementOptions"] == {
+        "packets": 3,
+        "protocol": "TCP",
+        "port": 5201,
+    }
+
+
+def test_parse_tcp_reachability_summarizes_probe_results():
+    from netpath.globalping import parse_tcp_reachability
+
+    results = [
+        {
+            "probe": {
+                "city": "Denver",
+                "country": "US",
+                "network": "Example",
+                "asn": 64500,
+            },
+            "result": {"stats": {"rcv": 3, "loss": 0}},
+        },
+        {
+            "probe": {"city": "London", "country": "GB"},
+            "result": {"stats": {"rcv": 0, "loss": 100}},
+        },
+    ]
+
+    summary = parse_tcp_reachability(results)
+
+    assert summary["reachable"] is True
+    assert summary["reachable_probes"] == 1
+    assert summary["total_probes"] == 2
+    assert summary["probes"][1]["reachable"] is False

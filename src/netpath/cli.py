@@ -1192,6 +1192,11 @@ def serve(
     ),
     advertise_host: Optional[str] = typer.Option(None, "--advertise-host", help="Hostname or IP to publish for this server (default: detected public IP)"),
     site:           str = typer.Option("", "--site", help="Human-readable location label for the registry entry, e.g. 'London DC3'"),
+    speed:          str = typer.Option("", "--speed", help="Advertised server speed, e.g. '1 Gbps'"),
+    options:        str = typer.Option("-R, -u", "--options", help="Supported public-list options"),
+    continent:      str = typer.Option("", "--continent", help="Server continent for the public list"),
+    publish:        bool = typer.Option(False, "--publish", help="Verify external reachability and open a prefilled public-list submission"),
+    gp_token:       Optional[str] = _GP_TOK,
     announce_url:   Optional[str] = typer.Option(None, "--announce",
                                                  envvar="NETPATH_REGISTRY_URL",
                                                  help="POST this server's entry to a community registry URL (or set NETPATH_REGISTRY_URL)"),
@@ -1232,7 +1237,14 @@ def serve(
     name = f" · {identity['name']}" if identity.get("name") else ""
     display.console.print(f"[green]✓[/green] {identity['host']} — {asn_label}{name}\n")
 
-    entry = serve_mod.build_entry(identity, port=port, site=site)
+    entry = serve_mod.build_entry(
+        identity,
+        port=port,
+        site=site,
+        speed=speed,
+        options=options,
+        continent=continent,
+    )
 
     if register_local:
         path = serve_mod.register_local(entry)
@@ -1246,19 +1258,61 @@ def serve(
             display.warn(f"registry announce failed: {e}")
 
     srv_domain = serve_mod.suggest_srv_domain(str(identity["host"]))
-    display.console.print("\n[bold]Make this server discoverable to others[/bold]")
+    display.console.print("\n[bold]Discovery status[/bold]")
+    if register_local:
+        display.console.print(
+            "  [green]✓[/green] Local registry: available to this netpath installation"
+        )
+    else:
+        display.console.print("  [dim]Local registry: skipped (--no-register-local)[/dim]")
     display.console.print("  Shared list entry (host the JSON anywhere, users set NETPATH_SERVERS_URL):")
     display.console.print(f"    [dim]{json.dumps(entry)}[/dim]")
     display.console.print("  DNS SRV record (lets `netpath host <your-domain> --throughput` find it):")
     display.console.print(f"    [dim]{serve_mod.srv_record(srv_domain or 'example.com', str(identity['host']), port)}[/dim]")
-    display.console.print(f"  Public list (checked by every netpath install): [dim]{serve_mod.PUBLIC_LIST_REPO}[/dim]")
+    display.console.print(
+        "  Public list: [yellow]not submitted[/yellow] "
+        f"([dim]use --publish after opening TCP {port}[/dim])"
+    )
     display.console.print(f"\n[dim]Remember to open TCP+UDP {port} in your firewall / security group.[/dim]\n")
 
+    def publish_server() -> None:
+        display.console.print(
+            f"\n[dim]Checking {identity['host']}:{port} from independent Globalping probes…[/dim]"
+        )
+        try:
+            check = serve_mod.check_public_reachability(
+                str(identity["host"]), port, gp_token
+            )
+        except Exception as exc:
+            display.error(f"External reachability check failed: {exc}")
+            raise typer.Exit(1)
+        for probe in check["probes"]:
+            location = ", ".join(
+                value for value in (probe["city"], probe["country"]) if value
+            )
+            status = "[green]reachable[/green]" if probe["reachable"] else "[red]blocked[/red]"
+            display.console.print(
+                f"  {status}  {location or 'unknown location'} · "
+                f"{probe['network'] or 'unknown network'}"
+            )
+        if not check["reachable"]:
+            display.error(
+                f"TCP/{port} is not reachable from any external probe. "
+                "Check firewall/NAT forwarding; CGNAT connections cannot host a public server."
+            )
+            raise typer.Exit(1)
+        url = serve_mod.open_public_submission(entry)
+        display.console.print(
+            f"\n[green]✓[/green] Public-list submission opened in your browser:\n  [link={url}]{url}[/link]"
+        )
+
     if setup_only:
+        if publish:
+            publish_server()
         return
 
     display.console.print(f"[bold]Starting iperf3 server on port {port}[/bold] — Ctrl-C to stop\n")
-    code = serve_mod.run_server(port)
+    code = serve_mod.run_server(port, on_started=publish_server if publish else None)
     if code:
         raise typer.Exit(code)
 

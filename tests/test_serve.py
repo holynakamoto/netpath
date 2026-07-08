@@ -1,5 +1,6 @@
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -46,7 +47,7 @@ def test_build_entry_matches_public_list_schema():
     assert entry == {
         "IP/HOST": "203.0.113.7",
         "PORT": "5202",
-        "OPTIONS": "",
+        "OPTIONS": "-R, -u",
         "GB/S": "",
         "CONTINENT": "",
         "COUNTRY": "GB",
@@ -119,6 +120,55 @@ def test_announce_posts_entry():
         json={"IP/HOST": "mine.example"},
         timeout=15,
     )
+
+
+def test_check_public_reachability_uses_completed_globalping_measurement():
+    parsed = {"reachable": True, "reachable_probes": 2, "total_probes": 3, "probes": []}
+    with patch(
+        "netpath.serve.globalping.schedule_tcp_ping", return_value="measurement-id"
+    ), patch(
+        "netpath.serve.globalping.poll_until_done",
+        return_value={"measurement-id": "finished"},
+    ), patch(
+        "netpath.serve.globalping.fetch_results", return_value=[{"result": {}}]
+    ), patch(
+        "netpath.serve.globalping.parse_tcp_reachability", return_value=parsed
+    ):
+        result = serve.check_public_reachability("iperf.example", 5201, "token")
+
+    assert result["measurement_id"] == "measurement-id"
+    assert result["reachable"] is True
+
+
+def test_public_submission_url_prefills_server_request():
+    entry = serve.build_entry(
+        IDENTITY,
+        site="Denver, CO",
+        speed="1 Gbps",
+        continent="North America",
+    )
+
+    url = serve.public_submission_url(entry)
+    query = parse_qs(urlparse(url).query)
+
+    assert query["template"] == ["new-iperf3-server-request.md"]
+    assert query["title"] == ["[New Server]: 203.0.113.7"]
+    assert "**IP / Hostname:** 203.0.113.7" in query["body"][0]
+    assert "**Site:** Denver, CO" in query["body"][0]
+
+
+def test_run_server_terminates_child_when_publish_callback_fails():
+    process = MagicMock()
+    with patch("netpath.serve.iperf_mod.available", return_value=True), \
+         patch("netpath.serve.subprocess.Popen", return_value=process):
+        with pytest.raises(RuntimeError, match="blocked"):
+            serve.run_server(
+                5201,
+                on_started=lambda: (_ for _ in ()).throw(RuntimeError("blocked")),
+            )
+
+    process.terminate.assert_called_once()
+    process.wait.assert_called_once()
 
 
 def test_registry_tcp_check_rejects_private_resolution():

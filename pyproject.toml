@@ -25,6 +25,7 @@ classifiers = [
     "Topic :: System :: Networking :: Monitoring",
 ]
 dependencies = [
+    "dpkt>=1.9.8",
     "rich>=13.0",
     "textual>=0.86",
     "typer>=0.9",

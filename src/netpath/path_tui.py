@@ -11,10 +11,11 @@ import sys
 from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Container, Horizontal, Vertical
+from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Header, Input, RichLog, Select, Static
 
-from netpath import globe, path_service
+from netpath import globe, local_capture, path_service
 
 MeasureImpl = Callable[..., dict]
 _MAP_WIDTH = 58
@@ -33,6 +34,7 @@ _MODES = [
     ("Find ASN target", "target"),
     ("Probe coverage", "coverage"),
     ("Set up iperf3 server", "serve"),
+    ("Capture local traffic", "capture"),
 ]
 _MODE_FIELDS = {
     "city": ("Source city", "Destination city"),
@@ -46,7 +48,58 @@ _MODE_FIELDS = {
     "target": ("Target ASN", "Optional: preferred target IP"),
     "coverage": ("Optional: countries to show", ""),
     "serve": ("Optional: advertised hostname/IP", "Optional: port (default 5201)"),
+    "capture": ("Describe what to capture", ""),
 }
+
+
+class CaptureConfirmation(ModalScreen[bool]):
+    CSS = """
+    CaptureConfirmation {
+        align: center middle;
+        background: rgba(0, 0, 0, 65%);
+    }
+    #capture-confirm {
+        width: 72;
+        height: auto;
+        padding: 1 2;
+        border: round #248da3;
+        background: #09151e;
+    }
+    #capture-plan { height: auto; margin-bottom: 1; }
+    #capture-actions { height: 3; align-horizontal: right; }
+    #capture-actions Button { margin-left: 1; }
+    """
+
+    def __init__(self, spec: local_capture.CaptureSpec) -> None:
+        super().__init__()
+        self.spec = spec
+
+    def compose(self) -> ComposeResult:
+        estimate = min(
+            local_capture.MAX_CAPTURE_MIB,
+            max(1, round(self.spec.duration_seconds * local_capture.SNAPLEN * 100 / 1_000_000)),
+        )
+        text = (
+            "[bold cyan]Confirm local packet capture[/bold cyan]\n\n"
+            f"Interface: {self.spec.interface}\n"
+            f"Match: {self.spec.filter_description}\n"
+            f"Filter: {self.spec.filter_bpf}\n"
+            f"Duration: {self.spec.duration_seconds} seconds\n"
+            f"Privacy: headers only ({local_capture.SNAPLEN}-byte snap length)\n"
+            f"Maximum file size: {local_capture.MAX_CAPTURE_MIB} MiB "
+            f"(rough estimate: ≤{estimate} MiB)\n"
+            "Retention: delete immediately after analysis\n\n"
+            "[yellow]Header capture is best-effort: unusual extension headers may expose "
+            "a few payload bytes.[/yellow]"
+        )
+        with Container(id="capture-confirm"):
+            yield Static(text, id="capture-plan", markup=True)
+            with Horizontal(id="capture-actions"):
+                yield Button("Cancel", id="capture-cancel")
+                yield Button("Confirm capture", id="capture-accept", variant="primary")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(event.button.id == "capture-accept")
 
 
 def discover_baselines(directory: Path | None = None) -> list[tuple[str, str]]:
@@ -282,8 +335,24 @@ class PathTui(App[None]):
             return
         if mode in _PATH_MODES:
             self.run_measurement(mode, source, destination)
+        elif mode == "capture":
+            try:
+                spec = local_capture.plan_capture(source)
+            except local_capture.CapturePlanError as exc:
+                self._set_status(str(exc), error=True)
+                return
+            self.push_screen(
+                CaptureConfirmation(spec),
+                lambda confirmed: self._capture_confirmed(spec, confirmed),
+            )
         else:
             self.run_console_command(mode, source, destination)
+
+    def _capture_confirmed(self, spec: local_capture.CaptureSpec, confirmed: bool) -> None:
+        if not confirmed:
+            self._set_status("Capture cancelled; no packets were captured")
+            return
+        self.run_local_capture(spec)
 
     def action_open_globe(self) -> None:
         if self.result:
@@ -346,6 +415,25 @@ class PathTui(App[None]):
                     f"{mode} complete · {datetime.now():%H:%M:%S}",
                 )
         except Exception as exc:
+            self.call_from_thread(self._set_status, str(exc), True)
+        finally:
+            self.call_from_thread(self._set_running, False)
+
+    @work(thread=True, exclusive=True)
+    def run_local_capture(self, spec: local_capture.CaptureSpec) -> None:
+        self.call_from_thread(self._set_running, True)
+        log = self.query_one("#console", RichLog)
+        self.call_from_thread(log.clear)
+        self.call_from_thread(log.write, "Capture confirmed. Waiting for local traffic…")
+        try:
+            outcome = local_capture.execute_capture(spec)
+            self.call_from_thread(log.write, local_capture.format_report(outcome.report))
+            self.call_from_thread(
+                self._set_status,
+                f"Capture analyzed and deleted · {datetime.now():%H:%M:%S}",
+            )
+        except Exception as exc:
+            self.call_from_thread(log.write, f"Capture failed: {exc}")
             self.call_from_thread(self._set_status, str(exc), True)
         finally:
             self.call_from_thread(self._set_running, False)
@@ -470,6 +558,8 @@ class PathTui(App[None]):
             message = "Create a reusable baseline JSON/JSONL for incident comparisons"
         elif mode == "explain" and not discover_baselines():
             message = "Enter a destination, or create a baseline first for comparison"
+        elif mode == "capture":
+            message = "Describe local traffic to capture; you will review the plan before it starts"
         else:
             message = f"Configure and run {mode}"
         self._set_status(message)

@@ -228,6 +228,35 @@ def schedule_location_path_measurements(
     return {"ping": ping_id, "mtr": mtr_id}
 
 
+def schedule_tcp_ping(
+    target: str,
+    port: int,
+    token: str | None = None,
+    limit: int = 3,
+) -> str:
+    """Schedule a TCP reachability check from globally distributed probes."""
+    if not 1 <= port <= 65535:
+        raise ValueError("port must be between 1 and 65535")
+    r = _with_retry(lambda: requests.post(
+        f"{_BASE}/measurements",
+        json={
+            "type": "ping",
+            "target": target,
+            "locations": [{"magic": "world"}],
+            "limit": limit,
+            "measurementOptions": {
+                "packets": 3,
+                "protocol": "TCP",
+                "port": port,
+            },
+        },
+        headers=_hdr(token),
+        timeout=30,
+    ))
+    r.raise_for_status()
+    return r.json()["id"]
+
+
 def poll_until_done(
     measurement_ids: list[str],
     token: str | None = None,
@@ -281,6 +310,32 @@ def fetch_results(measurement_id: str, token: str | None = None) -> list[dict]:
         return r.json().get("results", [])
     except Exception:
         return []
+
+
+def parse_tcp_reachability(results: list[dict]) -> dict:
+    """Summarize per-probe TCP ping results."""
+    probes: list[dict] = []
+    for item in results:
+        probe = item.get("probe") or {}
+        result = item.get("result") or {}
+        stats = result.get("stats") or {}
+        received = int(stats.get("rcv") or 0)
+        probes.append({
+            "city": probe.get("city") or "",
+            "country": probe.get("country") or "",
+            "network": probe.get("network") or "",
+            "asn": probe.get("asn"),
+            "reachable": received > 0,
+            "received": received,
+            "loss_pct": float(stats.get("loss") or 0),
+        })
+    reachable = sum(1 for probe in probes if probe["reachable"])
+    return {
+        "reachable": reachable > 0,
+        "reachable_probes": reachable,
+        "total_probes": len(probes),
+        "probes": probes,
+    }
 
 
 def parse_ping_rtt(results: list[dict]) -> dict[str, float] | None:
