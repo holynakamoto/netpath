@@ -1,5 +1,6 @@
 import sys
 import json
+import os
 
 import pytest
 
@@ -44,8 +45,8 @@ def test_discover_baselines_uses_latest_snapshot_and_newest_file(tmp_path):
             "timestamp": "2026-07-08T12:30:00+00:00",
         }),
     ]) + "\n")
-    older.touch()
-    newer.touch()
+    os.utime(older, (1_700_000_000, 1_700_000_000))
+    os.utime(newer, (1_800_000_000, 1_800_000_000))
 
     options = discover_baselines(tmp_path)
 
