@@ -1,8 +1,9 @@
 import sys
+import json
 
 import pytest
 
-from netpath.path_tui import build_command
+from netpath.path_tui import build_command, discover_baselines
 
 
 @pytest.mark.parametrize(
@@ -25,3 +26,35 @@ def test_build_command(mode, primary, secondary, expected):
         "netpath",
         *expected,
     ]
+
+
+def test_discover_baselines_uses_latest_snapshot_and_newest_file(tmp_path):
+    older = tmp_path / "AS64500.jsonl"
+    older.write_text(json.dumps({
+        "asn": "AS64500",
+        "target_host": "198.51.100.1",
+        "timestamp": "2026-07-01T10:00:00+00:00",
+    }) + "\n")
+    newer = tmp_path / "AS64501_service.jsonl"
+    newer.write_text("\n".join([
+        json.dumps({"target_input": "old.example"}),
+        json.dumps({
+            "asn": "AS64501",
+            "target_input": "service.example",
+            "timestamp": "2026-07-08T12:30:00+00:00",
+        }),
+    ]) + "\n")
+    older.touch()
+    newer.touch()
+
+    options = discover_baselines(tmp_path)
+
+    assert options[0][1] == str(newer)
+    assert "service.example" in options[0][0]
+    assert "AS64501" in options[0][0]
+
+
+def test_discover_baselines_skips_malformed_files(tmp_path):
+    (tmp_path / "broken.jsonl").write_text("{nope}\n")
+
+    assert discover_baselines(tmp_path) == []

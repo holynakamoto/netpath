@@ -109,7 +109,7 @@ netpath tui "Denver" "Tel Aviv"
 netpath tui AS14593 AS12400 --asn
 ```
 
-The TUI is the default interface and includes city and ASN path ranking, endpoint traces, ASN and country tests, DNS propagation, incident explanations, monitor snapshots, target discovery, and Globalping coverage. Existing subcommands remain available for scripts and automation. Path views show each geolocated hop with RTT and network ownership, plot an approximate terminal route, and can open the result on the browser globe. Press `Ctrl+R` to run, `m` to cycle modes, `g` for the globe, and `q` to quit.
+The TUI is the default interface and includes city and ASN path ranking, endpoint traces, ASN and country tests, DNS propagation, incident explanations, reusable baselines, target discovery, and Globalping coverage. Use **Create baseline** to save a measurement; **Explain incident** automatically lists the available JSON/JSONL baselines in a dropdown. Existing subcommands remain available for scripts and automation. Path views show each geolocated hop with RTT and network ownership, plot an approximate terminal route, and can open the result on the browser globe. Press `Ctrl+R` to run, `m` to cycle modes, `g` for the globe, and `q` to quit.
 
 Check the installed version with `netpath --version` or `netpath -V`.
 

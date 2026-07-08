@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
+import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 
@@ -25,8 +27,8 @@ _MODES = [
     ("ASN test", "asn"),
     ("Country analysis", "country"),
     ("DNS propagation", "dns"),
+    ("Create baseline", "monitor"),
     ("Explain incident", "explain"),
-    ("Monitor snapshot", "monitor"),
     ("Find ASN target", "target"),
     ("Probe coverage", "coverage"),
 ]
@@ -37,11 +39,39 @@ _MODE_FIELDS = {
     "asn": ("Target ASN", "Optional: server count"),
     "country": ("Country code", "Optional: number of ASNs"),
     "dns": ("Domain", "Optional: record type (A, AAAA, MX...)"),
-    "explain": ("Hostname or IP", "Optional: baseline JSON/JSONL"),
+    "explain": ("Hostname or IP", ""),
     "monitor": ("Target ASN", "Optional: exact hostname or IP"),
     "target": ("Target ASN", "Optional: preferred target IP"),
     "coverage": ("Optional: countries to show", ""),
 }
+
+
+def discover_baselines(directory: Path | None = None) -> list[tuple[str, str]]:
+    """Return monitor baseline files as newest-first Select options."""
+    root = directory or Path("~/.netpath/monitor").expanduser()
+    files = list(root.glob("*.jsonl")) + list(root.glob("*.json"))
+    options: list[tuple[str, str]] = []
+    for path in sorted(files, key=lambda item: item.stat().st_mtime, reverse=True):
+        latest: dict = {}
+        try:
+            with path.open(encoding="utf-8") as handle:
+                for line in handle:
+                    if line.strip():
+                        latest = json.loads(line)
+        except (OSError, json.JSONDecodeError):
+            continue
+        target = (
+            latest.get("target_input")
+            or latest.get("target_host")
+            or latest.get("monitor_key")
+            or path.stem
+        )
+        asn = latest.get("asn")
+        stamp = str(latest.get("timestamp") or "")[:16].replace("T", " ")
+        details = " · ".join(value for value in (asn, stamp) if value)
+        label = f"{target} ({details})" if details else str(target)
+        options.append((label, str(path)))
+    return options
 
 
 def build_command(mode: str, primary: str, secondary: str = "") -> list[str]:
@@ -93,6 +123,7 @@ class PathTui(App[None]):
     }
     #mode { width: 22; margin-right: 1; }
     #source, #destination { width: 1fr; margin-right: 1; }
+    #baseline { width: 1fr; margin-right: 1; }
     #run, #globe { min-width: 12; margin-left: 1; }
     #status {
         height: 2;
@@ -170,6 +201,13 @@ class PathTui(App[None]):
             )
             yield Input(value=self.initial_source, placeholder="Source city", id="source")
             yield Input(value=self.initial_destination, placeholder="Destination city", id="destination")
+            yield Select(
+                [],
+                prompt="Optional baseline JSON/JSONL",
+                allow_blank=True,
+                id="baseline",
+                classes="hidden",
+            )
             yield Button("Run", id="run", variant="primary")
             yield Button("Globe", id="globe", disabled=True)
         yield Static("Enter two endpoints and run a measurement", id="status")
@@ -191,6 +229,7 @@ class PathTui(App[None]):
         hops = self.query_one("#hops", DataTable)
         hops.add_columns("Hop", "RTT", "IP", "Network", "Location")
         self._update_placeholders(self.initial_mode)
+        self._refresh_baselines()
         self.query_one("#source", Input).focus()
 
     def on_select_changed(self, event: Select.Changed) -> None:
@@ -220,8 +259,12 @@ class PathTui(App[None]):
 
     def action_run_measurement(self) -> None:
         source = self.query_one("#source", Input).value.strip()
-        destination = self.query_one("#destination", Input).value.strip()
         mode = str(self.query_one("#mode", Select).value)
+        if mode == "explain":
+            selected = self.query_one("#baseline", Select).value
+            destination = "" if selected is Select.BLANK else str(selected)
+        else:
+            destination = self.query_one("#destination", Input).value.strip()
         if mode != "coverage" and not source:
             self._set_status("The primary input is required", error=True)
             return
@@ -287,6 +330,8 @@ class PathTui(App[None]):
                     True,
                 )
             else:
+                if mode == "monitor":
+                    self.call_from_thread(self._refresh_baselines, True)
                 self.call_from_thread(
                     self._set_status,
                     f"{mode} complete · {datetime.now():%H:%M:%S}",
@@ -399,17 +444,33 @@ class PathTui(App[None]):
         primary, secondary = _MODE_FIELDS.get(mode, ("Primary input", "Optional input"))
         source = self.query_one("#source", Input)
         destination = self.query_one("#destination", Input)
+        baseline = self.query_one("#baseline", Select)
         source.placeholder = primary
         destination.placeholder = secondary
         source.disabled = mode == "coverage"
         destination.disabled = not bool(secondary)
+        destination.set_class(mode == "explain", "hidden")
+        baseline.set_class(mode != "explain", "hidden")
         path_mode = mode in _PATH_MODES
         self.query_one("#path-view").set_class(not path_mode, "hidden")
         self.query_one("#console-view").set_class(path_mode, "hidden")
         self.query_one("#globe", Button).display = path_mode
-        self._set_status(
-            "Enter source and destination" if path_mode else f"Configure and run {mode}"
-        )
+        if path_mode:
+            message = "Enter source and destination"
+        elif mode == "monitor":
+            message = "Create a reusable baseline JSON/JSONL for incident comparisons"
+        elif mode == "explain" and not discover_baselines():
+            message = "Enter a destination, or create a baseline first for comparison"
+        else:
+            message = f"Configure and run {mode}"
+        self._set_status(message)
+
+    def _refresh_baselines(self, select_newest: bool = False) -> None:
+        select = self.query_one("#baseline", Select)
+        options = discover_baselines()
+        select.set_options(options)
+        if select_newest and options:
+            select.value = options[0][1]
 
     def _set_status(self, message: str, error: bool = False) -> None:
         style = "bold red" if error else "cyan"
