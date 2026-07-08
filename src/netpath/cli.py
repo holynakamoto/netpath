@@ -296,6 +296,24 @@ def dns(
         display.dns_propagation(domain, record_type, rows, summary)
 
 
+@app.command("tui")
+def tui(
+    source: str = typer.Argument("", help="Initial source city or ASN"),
+    destination: str = typer.Argument("", help="Initial destination city or ASN"),
+    asn_mode: bool = typer.Option(False, "--asn", help="Start in ASN path mode"),
+    gp_token: Optional[str] = _GP_TOK,
+):
+    """Launch the interactive city and ASN path analyzer."""
+    from netpath import path_tui
+
+    path_tui.run(
+        source=source,
+        destination=destination,
+        mode="asn" if asn_mode else "city",
+        token=gp_token,
+    )
+
+
 # ── explain subcommand ─────────────────────────────────────────────────────────
 
 @app.command("explain")

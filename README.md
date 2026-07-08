@@ -94,6 +94,18 @@ Use `host` when troubleshooting an application path. It bypasses representative 
 
 Use `asn`, `country`, `aspath`, and `citypath` when characterizing networks or comparing providers. Those modes intentionally select usable targets or remote probes to answer broader path questions.
 
+## Interactive TUI
+
+Launch the full-screen path analyzer and enter any source and destination:
+
+```bash
+netpath tui
+netpath tui "Denver" "Tel Aviv"
+netpath tui AS14593 AS12400 --asn
+```
+
+The TUI ranks measured paths, shows each geolocated hop with RTT and network ownership, plots an approximate terminal route, and can open the selected result on the browser globe. Press `Ctrl+R` to run, `m` to switch city/ASN mode, `g` for the globe, and `q` to quit.
+
 ## Monitoring
 
 `monitor` stores JSONL history under `~/.netpath/monitor` by default:

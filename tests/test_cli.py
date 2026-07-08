@@ -11,7 +11,7 @@ def test_help_lists_product_commands():
     result = CliRunner().invoke(cli.app, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("asn", "host", "dns", "explain", "monitor", "country", "aspath", "citypath", "target", "coverage"):
+    for command in ("asn", "host", "dns", "tui", "explain", "monitor", "country", "aspath", "citypath", "target", "coverage"):
         assert command in result.output
 
 
@@ -101,6 +101,21 @@ def test_dns_rejects_unknown_record_type():
 
     assert result.exit_code == 2
     assert "record type must be one of" in result.output
+
+
+def test_tui_command_passes_initial_path_and_mode():
+    with patch("netpath.path_tui.run") as run_tui:
+        result = CliRunner().invoke(
+            cli.app, ["tui", "AS14593", "AS12400", "--asn"]
+        )
+
+    assert result.exit_code == 0
+    run_tui.assert_called_once_with(
+        source="AS14593",
+        destination="AS12400",
+        mode="asn",
+        token=None,
+    )
 
 
 def test_country_help_lists_remote_measurement_options():

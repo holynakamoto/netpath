@@ -332,7 +332,7 @@ def render_aspath(result: dict) -> None:
         ))
         return
 
-    raw_points = candidate.get("geo_points") or []
+    raw_points = candidate.get("hop_points") or candidate.get("geo_points") or []
     points: list[dict] = []
     seen: set[tuple[float, float, str]] = set()
     for idx, point in enumerate(raw_points, 1):
