@@ -11,7 +11,7 @@ def test_help_lists_product_commands():
     result = CliRunner().invoke(cli.app, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("asn", "host", "explain", "monitor", "country", "aspath", "citypath", "target", "coverage"):
+    for command in ("asn", "host", "dns", "explain", "monitor", "country", "aspath", "citypath", "target", "coverage"):
         assert command in result.output
 
 
@@ -24,6 +24,52 @@ def test_host_help_lists_trace_fusion_option():
     }
 
     assert "--trace-fusion" in option_names
+
+
+def test_dns_json_queries_public_resolvers():
+    rows = [
+        {
+            "name": "Google Public DNS",
+            "location": "Anycast",
+            "ip": "8.8.8.8",
+            "lat": 37.4,
+            "lon": -122.1,
+            "elapsed_ms": 24,
+            "status": "ok",
+            "records": [{"type": "A", "ttl": 60, "value": "203.0.113.10"}],
+            "values": ["203.0.113.10"],
+            "min_ttl": 60,
+        },
+        {
+            "name": "Cloudflare",
+            "location": "Anycast",
+            "ip": "1.1.1.1",
+            "lat": 37.8,
+            "lon": -122.4,
+            "elapsed_ms": 31,
+            "status": "ok",
+            "records": [{"type": "A", "ttl": 55, "value": "203.0.113.10"}],
+            "values": ["203.0.113.10"],
+            "min_ttl": 55,
+        },
+    ]
+    with patch("netpath.cli.dns_mod.query_public_resolvers", return_value=rows):
+        result = CliRunner().invoke(cli.app, ["dns", "example.com", "a", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["domain"] == "example.com"
+    assert payload["record_type"] == "A"
+    assert payload["summary"]["agree"] == 2
+    assert payload["summary"]["percentage"] == 100
+    assert payload["resolvers"][0]["name"] == "Google Public DNS"
+
+
+def test_dns_rejects_unknown_record_type():
+    result = CliRunner().invoke(cli.app, ["dns", "example.com", "PTR"])
+
+    assert result.exit_code == 2
+    assert "record type must be one of" in result.output
 
 
 def test_country_help_lists_remote_measurement_options():

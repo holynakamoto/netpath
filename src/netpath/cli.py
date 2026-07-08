@@ -14,7 +14,7 @@ from rich.table import Table
 from netpath import __version__
 from netpath import country as country_mod
 from netpath import cli_json as _cli_json_mod, cli_measurement as _cli_measurement_mod
-from netpath import display, globalping as globalping_mod, globe as globe_mod
+from netpath import display, dns as dns_mod, globalping as globalping_mod, globe as globe_mod
 from netpath import explain as explain_mod
 from netpath import monitor as monitor_mod
 from netpath import iperf as iperf_mod, mtr as mtr, paris as paris, servers, speedtest, targets as targets_mod
@@ -257,6 +257,37 @@ def host(
     code = _worst_exit_code([result.get("verdict", {})])
     if code:
         raise typer.Exit(code)
+
+
+# ── dns subcommand ────────────────────────────────────────────────────────────
+
+@app.command("dns")
+def dns(
+    domain: str = typer.Argument(..., help="Domain to query across public resolvers"),
+    record_type: str = typer.Argument("A", help="DNS record type: A, AAAA, CNAME, MX, NS, TXT, SOA"),
+    output_json: bool = typer.Option(False, "--json", help="Output resolver results as JSON"),
+    timeout: int = typer.Option(3, "--timeout", help="Per-resolver timeout in seconds"),
+):
+    """Check DNS propagation across public resolvers worldwide."""
+    record_type = record_type.upper()
+    if record_type not in dns_mod.SUPPORTED_RECORD_TYPES:
+        raise typer.BadParameter(
+            f"record type must be one of {', '.join(dns_mod.SUPPORTED_RECORD_TYPES)}"
+        )
+    if timeout < 1:
+        raise typer.BadParameter("--timeout must be at least 1")
+
+    rows = dns_mod.query_public_resolvers(domain, record_type, timeout=timeout)
+    summary = dns_mod.summarize_public_resolver_rows(rows)
+    if output_json:
+        print(json.dumps({
+            "domain": domain,
+            "record_type": record_type,
+            "summary": summary,
+            "resolvers": rows,
+        }, indent=2))
+    else:
+        display.dns_propagation(domain, record_type, rows, summary)
 
 
 # ── explain subcommand ─────────────────────────────────────────────────────────

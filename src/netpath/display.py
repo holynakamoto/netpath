@@ -105,6 +105,144 @@ def header(version: str = "0.1.0"):
     console.print()
 
 
+def _dns_status_text(row: dict, agrees: bool) -> Text:
+    status = row.get("status")
+    if status == "error":
+        return Text("✗ ERR", style="bold red")
+    if status == "servfail":
+        return Text("! SERVFAIL", style="bold red")
+    if status == "none":
+        return Text("∅ NONE", style="yellow")
+    if agrees:
+        return Text("✓ OK", style="bold green")
+    return Text("≠ DIFFERS", style="bold magenta")
+
+
+def _fmt_dns_answer(row: dict) -> Text:
+    if row.get("status") == "error":
+        return Text(row.get("error") or "error", style="red")
+    if row.get("status") == "servfail":
+        return Text("SERVFAIL", style="red")
+    values = row.get("values") or []
+    if not values:
+        return Text("—", style="dim")
+    answer = ", ".join(values)
+    if len(answer) > 42:
+        answer = answer[:39] + "…"
+    return Text(answer)
+
+
+def _resolver_map(rows: list[dict], majority_rows: list[bool]) -> Panel:
+    width = 54
+    height = 16
+    cells = [[" " for _ in range(width)] for _ in range(height)]
+    styles: dict[tuple[int, int], str] = {}
+    for i, row in enumerate(rows):
+        lon = row.get("lon")
+        lat = row.get("lat")
+        if lon is None or lat is None:
+            continue
+        x = round(((float(lon) + 180.0) / 360.0) * (width - 1))
+        y = round(((90.0 - float(lat)) / 180.0) * (height - 1))
+        x = max(0, min(width - 1, x))
+        y = max(0, min(height - 1, y))
+        cells[y][x] = "●"
+        if row.get("status") == "error":
+            styles[(y, x)] = "red"
+        elif row.get("status") in {"none", "servfail"}:
+            styles[(y, x)] = "yellow"
+        elif i < len(majority_rows) and majority_rows[i]:
+            styles[(y, x)] = "green"
+        else:
+            styles[(y, x)] = "magenta"
+
+    lines = []
+    for y, row in enumerate(cells):
+        line = Text()
+        for x, char in enumerate(row):
+            line.append(char, style=styles.get((y, x), "dim"))
+        lines.append(line)
+    legend = Text("● agrees  ● differs  ● none/servfail  ● error", style="dim")
+    legend.stylize("green", 0, 1)
+    legend.stylize("magenta", 10, 11)
+    legend.stylize("yellow", 21, 22)
+    legend.stylize("red", 38, 39)
+    return Panel(
+        Text("\n").join(lines + [Text(""), legend]),
+        title="[bold cyan]Resolver Map[/bold cyan]",
+        border_style="cyan",
+        expand=False,
+    )
+
+
+def dns_propagation(domain: str, record_type: str, rows: list[dict], summary: dict) -> None:
+    type_labels = "   ".join(
+        f"[black on cyan bold] {rtype} [/]" if rtype == record_type else f"[dim] {rtype} [/]"
+        for rtype in ("A", "AAAA", "CNAME", "MX", "NS", "TXT", "SOA")
+    )
+    console.print(
+        Panel(
+            f"[dim] Domain:[/dim] [bold]{domain}[/bold]\n[dim] Type:  [/dim] {type_labels}",
+            title="[bold]🌍 DNS Propagation Checker[/bold]",
+            border_style="cyan",
+            expand=False,
+        )
+    )
+    console.print(
+        "[cyan]━[/cyan] "
+        f"propagation [bold]{summary['agree']}/{summary['responding']}[/bold] "
+        f"({summary['percentage']}%)"
+        f" · {summary['errors']} unreachable"
+        f" · {summary['groups']} answer group(s)"
+    )
+
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style="bold cyan",
+        expand=False,
+        padding=(0, 1),
+    )
+    table.add_column("Resolver", min_width=18)
+    table.add_column("Loc", width=8)
+    table.add_column("IP", width=15)
+    table.add_column("Time", justify="right", width=7)
+    table.add_column("TTL", justify="right", width=6)
+    table.add_column("Status", width=12)
+    table.add_column("Answer", min_width=18)
+
+    majority_rows = summary.get("majority_rows") or []
+    for i, row in enumerate(rows):
+        agrees = i < len(majority_rows) and majority_rows[i]
+        ttl = row.get("min_ttl")
+        ttl_text = Text(str(ttl) if ttl is not None else "—", style="dim" if ttl is None else "")
+        table.add_row(
+            row["name"],
+            row["location"],
+            row["ip"],
+            f"{row.get('elapsed_ms', 0)}ms",
+            ttl_text,
+            _dns_status_text(row, agrees),
+            _fmt_dns_answer(row),
+        )
+
+    majority = summary.get("majority_values") or []
+    majority_text = Text("Majority answer:\n", style="bold")
+    if majority:
+        for value in majority:
+            majority_text.append(f"  • {value}\n")
+    else:
+        majority_text.append("  —\n", style="dim")
+
+    console.print(Columns([table, _resolver_map(rows, majority_rows)], expand=False))
+    console.print(Panel(majority_text, border_style="cyan", expand=False))
+    console.print(
+        f"[bold]{domain} {record_type}:[/bold] "
+        f"{summary['responding'] - summary['none'] - summary['servfail']} ok"
+        f" · {summary['none']} none · {summary['servfail']} servfail · {summary['errors']} err"
+    )
+
+
 def server_heading(server: dict):
     host = server.get("HOST", "?")
     site = server.get("SITE", "")
