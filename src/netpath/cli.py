@@ -266,6 +266,7 @@ def dns(
     domain: str = typer.Argument(..., help="Domain to query across public resolvers"),
     record_type: str = typer.Argument("A", help="DNS record type: A, AAAA, CNAME, MX, NS, TXT, SOA"),
     output_json: bool = typer.Option(False, "--json", help="Output resolver results as JSON"),
+    once: bool = typer.Option(False, "--once", help="Print one non-interactive snapshot instead of launching the TUI"),
     timeout: int = typer.Option(3, "--timeout", help="Per-resolver timeout in seconds"),
 ):
     """Check DNS propagation across public resolvers worldwide."""
@@ -276,6 +277,11 @@ def dns(
         )
     if timeout < 1:
         raise typer.BadParameter("--timeout must be at least 1")
+
+    if not output_json and not once:
+        from netpath import dns_tui
+        dns_tui.run(domain, record_type, timeout=timeout)
+        return
 
     rows = dns_mod.query_public_resolvers(domain, record_type, timeout=timeout)
     summary = dns_mod.summarize_public_resolver_rows(rows)

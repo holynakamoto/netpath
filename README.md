@@ -48,9 +48,13 @@ netpath monitor AS15169 --target zoom.us --every 10m
 # Compare measured paths between ASNs or cities
 netpath aspath AS7922 AS7018
 netpath citypath "Los Angeles" "Tokyo"
+
+# Check global DNS propagation in an interactive TUI
+netpath dns example.com A
 ```
 
-Use `--json` on commands that support scripting output.
+Use `--json` on commands that support scripting output. For DNS, use `--once`
+for the non-interactive terminal snapshot.
 
 ## Command guide
 
@@ -65,6 +69,7 @@ Use `--json` on commands that support scripting output.
 | `citypath` | Compare measured paths between two cities using Globalping and RIPE Atlas targets. | `netpath citypath "Los Angeles" "Tokyo"` |
 | `target` | Discover or validate a usable probe target inside an ASN. | `netpath target AS7018 --json` |
 | `coverage` | Show Globalping probe coverage by country. | `netpath coverage --top 20 --globe` |
+| `dns` | Check DNS propagation across public resolvers in an interactive TUI. | `netpath dns example.com A` |
 
 ### Common options
 

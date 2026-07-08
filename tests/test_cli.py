@@ -65,6 +65,37 @@ def test_dns_json_queries_public_resolvers():
     assert payload["resolvers"][0]["name"] == "Google Public DNS"
 
 
+def test_dns_default_launches_tui():
+    with patch("netpath.dns_tui.run") as run_tui:
+        result = CliRunner().invoke(cli.app, ["dns", "example.com", "aaaa"])
+
+    assert result.exit_code == 0
+    run_tui.assert_called_once_with("example.com", "AAAA", timeout=3)
+
+
+def test_dns_once_prints_static_snapshot():
+    rows = [
+        {
+            "name": "Google Public DNS",
+            "location": "Anycast",
+            "ip": "8.8.8.8",
+            "lat": 37.4,
+            "lon": -122.1,
+            "elapsed_ms": 24,
+            "status": "ok",
+            "records": [{"type": "A", "ttl": 60, "value": "203.0.113.10"}],
+            "values": ["203.0.113.10"],
+            "min_ttl": 60,
+        },
+    ]
+    with patch("netpath.cli.dns_mod.query_public_resolvers", return_value=rows):
+        result = CliRunner().invoke(cli.app, ["dns", "example.com", "A", "--once"])
+
+    assert result.exit_code == 0
+    assert "DNS Propagation Checker" in result.output
+    assert "Resolver Map" in result.output
+
+
 def test_dns_rejects_unknown_record_type():
     result = CliRunner().invoke(cli.app, ["dns", "example.com", "PTR"])
 
