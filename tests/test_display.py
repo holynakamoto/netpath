@@ -52,6 +52,58 @@ def test_operator_answer_renders_concise_warning(monkeypatch):
     assert "hidden evidence" not in text
 
 
+def test_dns_propagation_renders_world_map_backdrop(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(display, "console", Console(file=output, width=150, force_terminal=False))
+
+    rows = [
+        {
+            "name": "Google Public DNS",
+            "location": "Anycast",
+            "ip": "8.8.8.8",
+            "lat": 37.4,
+            "lon": -122.1,
+            "elapsed_ms": 24,
+            "status": "ok",
+            "values": ["203.0.113.10"],
+            "min_ttl": 60,
+        },
+        {
+            "name": "Cloudflare",
+            "location": "Anycast",
+            "ip": "1.1.1.1",
+            "lat": 37.8,
+            "lon": -122.4,
+            "elapsed_ms": 31,
+            "status": "ok",
+            "values": ["203.0.113.10"],
+            "min_ttl": 55,
+        },
+    ]
+
+    display.dns_propagation(
+        "example.com",
+        "A",
+        rows,
+        {
+            "agree": 2,
+            "responding": 2,
+            "percentage": 100,
+            "errors": 0,
+            "groups": 1,
+            "majority_values": ["203.0.113.10"],
+            "majority_rows": [True, True],
+            "none": 0,
+            "servfail": 0,
+        },
+    )
+
+    text = output.getvalue()
+    assert "Resolver Map" in text
+    assert "░" in text
+    assert "●" in text
+
+
 def test_run_test_places_operator_answer_before_path_table(monkeypatch):
     output = StringIO()
     monkeypatch.setattr(display, "console", Console(file=output, width=120, force_terminal=False))
