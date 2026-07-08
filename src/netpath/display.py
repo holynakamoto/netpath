@@ -27,6 +27,25 @@ _TRACE_SOURCE_LABELS = {
     "traceroute-tcp": "TCP",
 }
 
+_DNS_WORLD_MAP = (
+    "     ░░░░░░░░░░░            ░░░░░░░░░░░░░        ",
+    "   ░░░░░░░░░░░░░░░        ░░░░░░░░░░░░░░░░░       ",
+    "  ░░░░░░░░░░░░░░░░░      ░░░░░░░░░░░░░░░░░░░   ░░ ",
+    "   ░░░░░░░░░░░░░░░       ░░░░░░░░░░░░░░░░░░░░░░░  ",
+    "     ░░░░░░░░░░░          ░░░░░░░░░░░░░░░░░░░░░   ",
+    "       ░░░░░░░              ░░░░░░░░░░░░░░░░░░    ",
+    "        ░░░░░                ░░░░░░░░░░░░░░       ",
+    "         ░░░░                 ░░░░░░░░░░░         ",
+    "          ░░░                 ░░░░░░░░░       ░░░ ",
+    "          ░░░                  ░░░░░░░      ░░░░░ ",
+    "           ░░                  ░░░░░       ░░░░░░ ",
+    "                               ░░░░       ░░░░░░░ ",
+    "                                ░░        ░░░░░░  ",
+    "                                          ░░░░    ",
+    "                                                  ",
+    "                                                  ",
+)
+
 
 # ── name helpers ─────────────────────────────────────────────────────────────
 
@@ -135,8 +154,17 @@ def _fmt_dns_answer(row: dict) -> Text:
 def _resolver_map(rows: list[dict], majority_rows: list[bool]) -> Panel:
     width = 54
     height = 16
-    cells = [[" " for _ in range(width)] for _ in range(height)]
+    cells = [
+        list(line[:width].ljust(width))
+        for line in _DNS_WORLD_MAP[:height]
+    ]
+    while len(cells) < height:
+        cells.append([" " for _ in range(width)])
     styles: dict[tuple[int, int], str] = {}
+    for y, row in enumerate(cells):
+        for x, char in enumerate(row):
+            if char != " ":
+                styles[(y, x)] = "dark_green"
     for i, row in enumerate(rows):
         lon = row.get("lon")
         lat = row.get("lat")
