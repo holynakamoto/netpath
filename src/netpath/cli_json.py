@@ -75,6 +75,8 @@ def _json_path_hop(hub: dict) -> dict:
     for source_key in ("status", "confidence"):
         if source_key in hub:
             item[source_key] = hub.get(source_key)
+    if hub.get("geo"):
+        item["geo"] = hub["geo"]
     return item
 
 
@@ -258,6 +260,8 @@ def _collect_endpoint_json(
     trace_fusion: bool = False,
     json_mode: bool = True,
     show_operator_answer: bool = True,
+    iperf_host: Optional[str] = None,
+    iperf_port: Optional[int] = None,
     _run_test_impl=None,
 ) -> dict:
     run_test = _run_test_impl or _run_test
@@ -266,7 +270,7 @@ def _collect_endpoint_json(
         "HOST": endpoint["ip"],
         "SITE": endpoint.get("input") or "",
         "asn": target_asn,
-        "port": 5201,
+        "port": iperf_port or 5201,
     }
     result = run_test(
         host=endpoint["ip"], port=5201,
@@ -277,5 +281,6 @@ def _collect_endpoint_json(
         service_host=endpoint.get("hostname") or endpoint.get("input"),
         trace_fusion=trace_fusion,
         show_operator_answer=show_operator_answer,
+        iperf_host=iperf_host, iperf_port=iperf_port,
     )
     return _endpoint_json_payload(endpoint, result)

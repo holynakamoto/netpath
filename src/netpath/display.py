@@ -330,6 +330,9 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
     table.add_column("Host", min_width=18)
     table.add_column("ASN", min_width=20)
     table.add_column("Type", width=8)
+    show_geo = any(h.get("geo") for h in hubs)
+    if show_geo:
+        table.add_column("Approx. location", min_width=16)
     show_sources = any(h.get("sources") for h in hubs)
     if show_sources:
         table.add_column("Seen by", min_width=12)
@@ -355,6 +358,8 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
         if host in ("???", "", None):
             row = [hop, Text("* * *", style="dim"), Text("—", style="dim"),
                    Text("—", style="dim")]
+            if show_geo:
+                row.append(Text("—", style="dim"))
             if show_sources:
                 row.append(Text("—", style="dim"))
             row.extend([Text("—", style="dim"),
@@ -396,6 +401,18 @@ def _build_hub_table(hubs: list[dict], target_asn: str, show_p95: bool = True) -
         row = [
             hop, host, asn_text, type_text,
         ]
+        if show_geo:
+            geo = hub.get("geo") or {}
+            location = ", ".join(
+                value
+                for value in (
+                    geo.get("city"),
+                    geo.get("region"),
+                    geo.get("country_code"),
+                )
+                if value
+            )
+            row.append(Text(location or "—", style="cyan" if location else "dim"))
         if show_sources:
             sources = ",".join(trace_source_label(source) for source in (hub.get("sources") or [])[:3])
             if len(hub.get("sources") or []) > 3:

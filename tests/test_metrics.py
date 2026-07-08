@@ -57,6 +57,35 @@ def test_geo_path_flags_multi_country_trombone():
     assert "multi_country_trombone" in result["warnings"]
 
 
+def test_attach_hop_locations_adds_geo_to_matching_public_hops():
+    hubs = [
+        {"count": 1, "host": "192.168.1.1"},
+        {"count": 2, "host": "8.8.8.8"},
+    ]
+    analysis = {
+        "hops": [{
+            "hop": 2,
+            "host": "8.8.8.8",
+            "city": "Mountain View",
+            "region": "California",
+            "country_code": "US",
+            "lat": 37.4,
+            "lon": -122.1,
+        }]
+    }
+
+    geo.attach_hop_locations(hubs, analysis)
+
+    assert "geo" not in hubs[0]
+    assert hubs[1]["geo"] == {
+        "city": "Mountain View",
+        "region": "California",
+        "country_code": "US",
+        "lat": 37.4,
+        "lon": -122.1,
+    }
+
+
 def test_edge_measure_parses_status_ttfb_and_certificate():
     class FakeSock:
         def __init__(self):

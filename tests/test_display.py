@@ -21,6 +21,32 @@ def test_clean_asn_name_short_code_preserved():
     assert clean_asn_name("PARTNER-AS - Partner Comms") == "Partner Comms"
 
 
+def test_path_table_renders_approximate_hop_location(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(display, "console", Console(file=output, width=160, force_terminal=False))
+    hubs = [{
+        "count": 4,
+        "host": "8.8.8.8",
+        "ASN": "AS15169",
+        "Loss%": 0.0,
+        "Avg": 12.0,
+        "Best": 10.0,
+        "Wrst": 15.0,
+        "p95": 14.0,
+        "geo": {
+            "city": "Mountain View",
+            "region": "California",
+            "country_code": "US",
+        },
+    }]
+
+    display.path_table(hubs, "AS15169")
+
+    text = output.getvalue()
+    assert "Approx. location" in text
+    assert "Mountain View, California, US" in text
+
+
 def test_operator_answer_renders_concise_warning(monkeypatch):
     output = StringIO()
     monkeypatch.setattr(display, "console", Console(file=output, width=120, force_terminal=False))

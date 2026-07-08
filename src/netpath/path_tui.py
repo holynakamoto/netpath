@@ -20,6 +20,7 @@ MeasureImpl = Callable[..., dict]
 _MAP_WIDTH = 58
 _MAP_HEIGHT = 16
 _PATH_MODES = {"city", "aspath"}
+_OPTIONAL_PRIMARY_MODES = {"coverage", "serve"}
 _MODES = [
     ("City path", "city"),
     ("ASN path", "aspath"),
@@ -31,6 +32,7 @@ _MODES = [
     ("Explain incident", "explain"),
     ("Find ASN target", "target"),
     ("Probe coverage", "coverage"),
+    ("Set up iperf3 server", "serve"),
 ]
 _MODE_FIELDS = {
     "city": ("Source city", "Destination city"),
@@ -43,6 +45,7 @@ _MODE_FIELDS = {
     "monitor": ("Target ASN", "Optional: exact hostname or IP"),
     "target": ("Target ASN", "Optional: preferred target IP"),
     "coverage": ("Optional: countries to show", ""),
+    "serve": ("Optional: advertised hostname/IP", "Optional: port (default 5201)"),
 }
 
 
@@ -105,6 +108,12 @@ def build_command(mode: str, primary: str, secondary: str = "") -> list[str]:
             command.extend(["--target", secondary])
     elif mode == "coverage":
         command.extend(["coverage", "--top", primary or "50"])
+    elif mode == "serve":
+        command.extend(["serve", "--setup-only"])
+        if primary:
+            command.extend(["--advertise-host", primary])
+        if secondary:
+            command.extend(["--port", secondary])
     else:
         raise ValueError(f"Unsupported console mode: {mode}")
     return command
@@ -265,7 +274,7 @@ class PathTui(App[None]):
             destination = "" if selected is Select.BLANK else str(selected)
         else:
             destination = self.query_one("#destination", Input).value.strip()
-        if mode != "coverage" and not source:
+        if mode not in _OPTIONAL_PRIMARY_MODES and not source:
             self._set_status("The primary input is required", error=True)
             return
         if mode in _PATH_MODES and not destination:

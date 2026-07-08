@@ -11,7 +11,7 @@ def test_help_lists_product_commands():
     result = CliRunner().invoke(cli.app, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("asn", "host", "dns", "tui", "explain", "monitor", "country", "aspath", "citypath", "target", "coverage"):
+    for command in ("asn", "host", "dns", "tui", "explain", "monitor", "country", "aspath", "citypath", "target", "coverage", "serve"):
         assert command in result.output
 
 
@@ -118,7 +118,8 @@ def test_dns_rejects_unknown_record_type():
     assert "record type must be one of" in result.output
 
 
-def test_tui_command_passes_initial_path_and_mode():
+def test_tui_command_passes_initial_path_and_mode(monkeypatch):
+    monkeypatch.delenv("NETPATH_GLOBALPING_TOKEN", raising=False)
     with patch("netpath.path_tui.run") as run_tui:
         result = CliRunner().invoke(
             cli.app, ["tui", "AS14593", "AS12400", "--asn"]
@@ -245,6 +246,12 @@ def test_host_json_uses_exact_endpoint_without_asn_target_selection():
                 "p50": 5.0,
                 "p95": 6.0,
                 "p99": 6.0,
+                "geo": {
+                    "lat": 37.4,
+                    "lon": -122.1,
+                    "city": "Mountain View",
+                    "country_code": "US",
+                },
             }
         ],
         "verdict": {
@@ -283,6 +290,12 @@ def test_host_json_uses_exact_endpoint_without_asn_target_selection():
         "prefix": "203.0.113.0/24",
     }
     assert payload["confidence"] == "high"
+    assert payload["path"][0]["geo"] == {
+        "lat": 37.4,
+        "lon": -122.1,
+        "city": "Mountain View",
+        "country_code": "US",
+    }
     assert payload["evidence"][0]["condition"] == "tcp_latency"
     assert payload["evidence"][0]["evidence"]["tcp_connect_ms"] == 250.0
     assert "destination application edge" in payload["recommendation"]

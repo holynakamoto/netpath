@@ -1,0 +1,21 @@
+[Unit]
+Description=iperf3 throughput test server (netpath)
+Documentation=https://github.com/holynakamoto/netpath
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/env iperf3 -s -p 5201
+Restart=always
+RestartSec=5
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

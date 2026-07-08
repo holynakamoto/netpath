@@ -18,6 +18,9 @@ from netpath.path_tui import build_command, discover_baselines
         ("monitor", "AS15169", "example.com", ["monitor", "AS15169", "--runs", "1", "--target", "example.com"]),
         ("target", "AS7018", "1.1.1.1", ["target", "AS7018", "--target", "1.1.1.1"]),
         ("coverage", "", "", ["coverage", "--top", "50"]),
+        ("serve", "iperf.example.com", "5202", [
+            "serve", "--setup-only", "--advertise-host", "iperf.example.com", "--port", "5202"
+        ]),
     ],
 )
 def test_build_command(mode, primary, secondary, expected):

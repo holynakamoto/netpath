@@ -224,9 +224,12 @@ def _measure(host: str, port: int, target_asn: str,
              cycles: int, duration: int, skip_throughput: bool,
              cf_token: Optional[str] = None, prefer_tcp: bool = False,
              ecmp_passes: int = 1, compare_v6: bool = False,
-             service_host: Optional[str] = None, trace_fusion: bool = False) -> MeasurementResult:
+             service_host: Optional[str] = None, trace_fusion: bool = False,
+             iperf_host: Optional[str] = None, iperf_port: Optional[int] = None) -> MeasurementResult:
     """Collect all measurement data. Returns enriched result dict.
     No display calls, no json_mode parameter.
+    iperf_host/iperf_port run the throughput test against a different
+    endpoint than the traced one (e.g. a DNS-SRV-advertised iperf3 server).
     Internal _-prefixed keys carry state needed by _run_test() for display.
     """
     result: dict = {
@@ -403,6 +406,7 @@ def _measure(host: str, port: int, target_asn: str,
 
         try:
             result["geo_path"] = fut_geo.result(timeout=15)
+            geo_mod.attach_hop_locations(hubs, result["geo_path"])
         except Exception:
             result["probe_errors"]["geo_path"] = "timeout"
 
@@ -431,7 +435,9 @@ def _measure(host: str, port: int, target_asn: str,
             result["_iperf_idle_rtt"] = idle_rtt
             fut_ping = executor.submit(_run_ping_probe_sync, host, duration)
             try:
-                upload, download = iperf_mod.run_bidirectional(host, port, duration)
+                upload, download = iperf_mod.run_bidirectional(
+                    iperf_host or host, iperf_port or port, duration
+                )
                 fut_ping.cancel()
                 try:
                     loaded_rtt = fut_ping.result(timeout=duration + 10)
@@ -481,6 +487,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               ecmp_passes: int = 1, compare_v6: bool = False,
               service_host: Optional[str] = None, trace_fusion: bool = False,
               show_operator_answer: bool = True,
+              iperf_host: Optional[str] = None, iperf_port: Optional[int] = None,
               _measure_impl=None) -> dict:
     """Run trace + optional throughput test. Returns enriched result dict."""
     measure = _measure_impl or _measure
@@ -492,7 +499,8 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         if not skip_throughput:
             if iperf_mod.available():
                 display.console.print(
-                    f"  [dim]Measuring throughput via iperf3 to {host}:{port} ({duration}s each direction)…[/dim]"
+                    f"  [dim]Measuring throughput via iperf3 to "
+                    f"{iperf_host or host}:{iperf_port or port} ({duration}s each direction)…[/dim]"
                 )
             else:
                 display.console.print(
@@ -504,11 +512,13 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
             p.add_task(f"probing → {host}", total=None)
             result = measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
                              prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
-                             service_host=service_host, trace_fusion=trace_fusion)
+                             service_host=service_host, trace_fusion=trace_fusion,
+                             iperf_host=iperf_host, iperf_port=iperf_port)
     else:
         result = measure(host, port, target_asn, cycles, duration, skip_throughput, cf_token,
                          prefer_tcp=prefer_tcp, ecmp_passes=ecmp_passes, compare_v6=compare_v6,
-                         service_host=service_host, trace_fusion=trace_fusion)
+                         service_host=service_host, trace_fusion=trace_fusion,
+                         iperf_host=iperf_host, iperf_port=iperf_port)
 
     if result.get("probe_errors", {}).get("v4_trace") and not result.get("hubs"):
         if not json_mode:

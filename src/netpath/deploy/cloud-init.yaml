@@ -1,0 +1,33 @@
+#cloud-config
+# Boot a fresh VM as an iperf3 server for netpath throughput measurement.
+# Works on Ubuntu/Debian cloud images; open TCP+UDP 5201 in your provider's
+# firewall / security group as well.
+package_update: true
+packages:
+  - iperf3
+
+write_files:
+  - path: /etc/systemd/system/iperf3-server.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=iperf3 throughput test server (netpath)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      ExecStart=/usr/bin/env iperf3 -s -p 5201
+      Restart=always
+      RestartSec=5
+      DynamicUser=yes
+      NoNewPrivileges=yes
+      ProtectSystem=strict
+      ProtectHome=yes
+      PrivateTmp=yes
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - systemctl daemon-reload
+  - systemctl enable --now iperf3-server.service

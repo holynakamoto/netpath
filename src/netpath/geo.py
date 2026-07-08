@@ -85,3 +85,29 @@ def analyze_path(hubs: list[dict]) -> dict:
     if len(set(result["country_hops"])) >= 3:
         result["warnings"].append("multi_country_trombone")
     return result
+
+
+def attach_hop_locations(hubs: list[dict], analysis: dict | None) -> None:
+    """Attach structured approximate geolocation to matching trace hops in place."""
+    locations = {
+        hop.get("host"): {
+            key: hop.get(key)
+            for key in (
+                "lat",
+                "lon",
+                "city",
+                "region",
+                "country",
+                "country_code",
+                "as",
+                "org",
+            )
+            if hop.get(key) not in (None, "")
+        }
+        for hop in (analysis or {}).get("hops", [])
+        if hop.get("host")
+    }
+    for hub in hubs:
+        location = locations.get(hub.get("host"))
+        if location:
+            hub["geo"] = location

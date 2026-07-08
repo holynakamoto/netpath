@@ -60,7 +60,7 @@ for the non-interactive terminal snapshot.
 
 | Command | Use when you need to… | Example |
 | --- | --- | --- |
-| `host` | Trace the exact hostname/IP an app uses; best for SaaS/CDN/Anycast troubleshooting. | `netpath host zoom.us --json` |
+| `host` | Trace the exact hostname/IP with approximate hop locations; best for SaaS/CDN/Anycast troubleshooting. | `netpath host zoom.us --json` |
 | `explain` | Turn an endpoint trace into a likely-cause report with evidence and an escalation summary. | `netpath explain zoom.us --baseline ~/.netpath/monitor/AS15169.jsonl` |
 | `asn` | Probe representative public iperf3 servers inside a target ASN. | `netpath asn AS15169 --no-throughput` |
 | `country` | Compare top ASNs in a country, with optional Globalping inside-out measurements. | `netpath country GB --top 5` |
@@ -70,6 +70,7 @@ for the non-interactive terminal snapshot.
 | `target` | Discover or validate a usable probe target inside an ASN. | `netpath target AS7018 --json` |
 | `coverage` | Show Globalping probe coverage by country. | `netpath coverage --top 20 --globe` |
 | `dns` | Check DNS propagation across public resolvers in an interactive TUI. | `netpath dns example.com A` |
+| `serve` | Run a self-hosted iperf3 server in your ASN and make it discoverable to netpath. | `netpath serve --announce https://registry.example/register` |
 
 ### Common options
 
@@ -146,7 +147,34 @@ netpath asn AS15169
 
 ## Target discovery
 
-When netpath needs a target inside an ASN, it tries public iperf3 servers, connected RIPE Atlas probe addresses, PeeringDB IXP interface addresses, then a small verified sample from RIPEstat announced prefixes. User-provided targets are preserved and annotated with Cymru ASN/prefix attribution.
+When netpath needs a target inside an ASN, it tries self-hosted/registered iperf3 servers (local registry and `NETPATH_SERVERS_URL` lists), public iperf3 servers, connected RIPE Atlas probe addresses, PeeringDB IXP interface addresses, then a small verified sample from RIPEstat announced prefixes. User-provided targets are preserved and annotated with Cymru ASN/prefix attribution.
+
+## Host an iperf3 server in your ASN
+
+Real cross-ASN throughput numbers require an iperf3 server *inside* the target network, and public coverage is sparse. If you operate a network, one command fills the gap:
+
+```bash
+netpath serve
+```
+
+That runs `iperf3 -s`, detects your public IP and ASN via Cymru, registers the server in `~/.netpath/servers.json`, and prints everything needed to make it discoverable to others. Open TCP+UDP 5201.
+
+Prefer containers, systemd, or cloud-init? Deployment assets ship with the package:
+
+```bash
+netpath serve --emit install | sudo sh    # iperf3 + hardened systemd unit
+netpath serve --emit compose              # docker-compose.yml (with --emit docker for the Dockerfile)
+netpath serve --emit cloud-init           # user-data for a fresh VM
+```
+
+Discovery works at whatever radius you want:
+
+- **Just you** — the local registry written by `netpath serve` is merged ahead of the public list.
+- **Your org or community** — host the printed JSON entry anywhere and point users at it with `NETPATH_SERVERS_URL=https://…` (comma-separated URLs allowed), or run the reference community registry (`netpath serve --emit registry`) and announce servers to it with `netpath serve --announce https://registry…/register`.
+- **Anyone probing your domain** — publish the printed DNS SRV record (`_netpath-iperf3._tcp.example.com`); `netpath host example.com --throughput` finds and uses the record owned by that exact domain.
+- **Everyone** — submit the entry to [the public iperf3 server list](https://github.com/R0GGER/public-iperf3-servers), which every netpath install checks.
+
+See [`src/netpath/deploy/README.md`](src/netpath/deploy/README.md) for the full operator guide.
 
 ## Development
 

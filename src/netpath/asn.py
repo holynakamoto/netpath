@@ -80,7 +80,7 @@ def cymru_bulk_lookup_rich(ips: list[str], timeout: int = 30) -> dict[str, dict]
     """
     Bulk Cymru whois returning full record per IP.
     Response format: ASN | IP | prefix | country | registry | date | name
-    Returns {ip: {asn, prefix, name}}.
+    Returns {ip: {asn, prefix, country, name}}.
     """
     if not ips:
         return {}
@@ -105,12 +105,14 @@ def cymru_bulk_lookup_rich(ips: list[str], timeout: int = 30) -> dict[str, dict]
         asn_num = parts[0]
         ip      = parts[1]
         prefix  = parts[2] if len(parts) > 2 else ""
+        country = parts[3] if len(parts) > 3 else ""
         name    = parts[6].split(",")[0].strip() if len(parts) > 6 else ""
         if asn_num and asn_num not in ("NA", "") and ip:
             result[ip] = {
-                "asn":    f"AS{asn_num}",
-                "prefix": prefix,
-                "name":   name,
+                "asn":     f"AS{asn_num}",
+                "prefix":  prefix,
+                "country": country,
+                "name":    name,
             }
     return result
 

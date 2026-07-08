@@ -17,7 +17,7 @@ from netpath import cli_json as _cli_json_mod, cli_measurement as _cli_measureme
 from netpath import display, dns as dns_mod, globalping as globalping_mod, globe as globe_mod
 from netpath import explain as explain_mod
 from netpath import monitor as monitor_mod
-from netpath import iperf as iperf_mod, mtr as mtr, paris as paris, servers, speedtest, targets as targets_mod
+from netpath import iperf as iperf_mod, mtr as mtr, paris as paris, serve as serve_mod, servers, speedtest, targets as targets_mod
 from netpath.asn import normalize_asn
 from netpath.cli_json import _apply_path_json_contract, _worst_exit_code
 from netpath.cli_measurement import _fetch_rum, _merge_globalping_path_results
@@ -237,6 +237,13 @@ def host(
         raise typer.Exit(1)
 
     skip_throughput = _check_deps(not throughput)
+
+    # A self-hosted iperf3 server advertised via DNS SRV beats blindly trying
+    # port 5201 on the service address (see `netpath serve`).
+    advertised = None
+    if throughput and not skip_throughput and endpoint.get("hostname"):
+        advertised = servers.find_advertised_server(endpoint["hostname"])
+
     if not output_json:
         display.header(__version__)
         display.console.print(
@@ -248,6 +255,12 @@ def host(
             display.console.print(f"[dim]Cymru: {endpoint['asn']}{name}[/dim]\n")
         else:
             display.console.print("[dim]Cymru: no public ASN attribution found[/dim]\n")
+        if advertised:
+            display.console.print(
+                f"[dim]DNS SRV advertisement found — throughput will use "
+                f"{advertised['host']}:{advertised['port']} "
+                f"({servers.SRV_SERVICE_PREFIX}.{advertised['domain']})[/dim]\n"
+            )
 
     result = _collect_endpoint_json(
         endpoint,
@@ -259,6 +272,8 @@ def host(
         compare_v6=compare_v6,
         trace_fusion=trace_fusion,
         json_mode=output_json,
+        iperf_host=advertised["host"] if advertised else None,
+        iperf_port=advertised["port"] if advertised else None,
     )
     if output_json:
         print(json.dumps(result, indent=2))
@@ -1161,6 +1176,91 @@ def target(
         print(json.dumps(output, indent=2))
     else:
         display.target_report(asn_norm, info)
+
+
+# ── serve subcommand ──────────────────────────────────────────────────────────
+
+@app.command("serve")
+def serve(
+    port:           int = typer.Option(
+        5201,
+        "--port",
+        "-p",
+        min=1,
+        max=65535,
+        help="Port for the iperf3 server (TCP+UDP)",
+    ),
+    advertise_host: Optional[str] = typer.Option(None, "--advertise-host", help="Hostname or IP to publish for this server (default: detected public IP)"),
+    site:           str = typer.Option("", "--site", help="Human-readable location label for the registry entry, e.g. 'London DC3'"),
+    announce_url:   Optional[str] = typer.Option(None, "--announce",
+                                                 envvar="NETPATH_REGISTRY_URL",
+                                                 help="POST this server's entry to a community registry URL (or set NETPATH_REGISTRY_URL)"),
+    register_local: bool = typer.Option(True, "--register-local/--no-register-local",
+                                        help="Record this server in ~/.netpath/servers.json so local netpath runs find it"),
+    setup_only:     bool = typer.Option(False, "--setup-only", help="Register and print discovery info without starting the server"),
+    emit:           Optional[str] = typer.Option(None, "--emit",
+                                                 help="Print a deployment asset and exit: "
+                                                      + ", ".join(sorted(serve_mod.DEPLOY_ASSETS))),
+):
+    """Run a self-hosted iperf3 server in your ASN and make it discoverable to netpath."""
+    if emit:
+        try:
+            print(serve_mod.emit_asset(emit, port=port), end="")
+        except KeyError as exc:
+            raise typer.BadParameter(str(exc.args[0]))
+        return
+
+    if not setup_only and not iperf_mod.available():
+        display.error(
+            "iperf3 is not installed — install it first "
+            "(brew install iperf3 / apt install iperf3 / dnf install iperf3),\n"
+            "  or deploy without netpath: netpath serve --emit install | sudo sh"
+        )
+        raise typer.Exit(1)
+
+    display.header(__version__)
+    display.console.print("[dim]Detecting public IP + ASN attribution via Cymru…[/dim]")
+    identity = serve_mod.detect_identity(advertise_host)
+    if not identity["host"]:
+        display.error(
+            "Could not detect a public IP — pass --advertise-host with the "
+            "address clients should reach this server on."
+        )
+        raise typer.Exit(1)
+
+    asn_label = identity.get("asn") or "unknown ASN"
+    name = f" · {identity['name']}" if identity.get("name") else ""
+    display.console.print(f"[green]✓[/green] {identity['host']} — {asn_label}{name}\n")
+
+    entry = serve_mod.build_entry(identity, port=port, site=site)
+
+    if register_local:
+        path = serve_mod.register_local(entry)
+        display.console.print(f"[green]✓[/green] Registered in local registry: {path}")
+
+    if announce_url:
+        try:
+            serve_mod.announce(announce_url, entry)
+            display.console.print(f"[green]✓[/green] Announced to community registry: {announce_url}")
+        except requests.RequestException as e:
+            display.warn(f"registry announce failed: {e}")
+
+    srv_domain = serve_mod.suggest_srv_domain(str(identity["host"]))
+    display.console.print("\n[bold]Make this server discoverable to others[/bold]")
+    display.console.print("  Shared list entry (host the JSON anywhere, users set NETPATH_SERVERS_URL):")
+    display.console.print(f"    [dim]{json.dumps(entry)}[/dim]")
+    display.console.print("  DNS SRV record (lets `netpath host <your-domain> --throughput` find it):")
+    display.console.print(f"    [dim]{serve_mod.srv_record(srv_domain or 'example.com', str(identity['host']), port)}[/dim]")
+    display.console.print(f"  Public list (checked by every netpath install): [dim]{serve_mod.PUBLIC_LIST_REPO}[/dim]")
+    display.console.print(f"\n[dim]Remember to open TCP+UDP {port} in your firewall / security group.[/dim]\n")
+
+    if setup_only:
+        return
+
+    display.console.print(f"[bold]Starting iperf3 server on port {port}[/bold] — Ctrl-C to stop\n")
+    code = serve_mod.run_server(port)
+    if code:
+        raise typer.Exit(code)
 
 
 _COUNTRY_NAMES: dict[str, str] = {
