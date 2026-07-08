@@ -2,23 +2,87 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
+import os
+import subprocess
+import sys
 
 from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, DataTable, Footer, Header, Input, Select, Static
+from textual.widgets import Button, DataTable, Footer, Header, Input, RichLog, Select, Static
 
 from netpath import globe, path_service
 
 MeasureImpl = Callable[..., dict]
 _MAP_WIDTH = 58
 _MAP_HEIGHT = 16
+_PATH_MODES = {"city", "aspath"}
+_MODES = [
+    ("City path", "city"),
+    ("ASN path", "aspath"),
+    ("Host trace", "host"),
+    ("ASN test", "asn"),
+    ("Country analysis", "country"),
+    ("DNS propagation", "dns"),
+    ("Explain incident", "explain"),
+    ("Monitor snapshot", "monitor"),
+    ("Find ASN target", "target"),
+    ("Probe coverage", "coverage"),
+]
+_MODE_FIELDS = {
+    "city": ("Source city", "Destination city"),
+    "aspath": ("Source ASN", "Destination ASN"),
+    "host": ("Hostname or IP", "Optional: throughput (yes/no)"),
+    "asn": ("Target ASN", "Optional: server count"),
+    "country": ("Country code", "Optional: number of ASNs"),
+    "dns": ("Domain", "Optional: record type (A, AAAA, MX...)"),
+    "explain": ("Hostname or IP", "Optional: baseline JSON/JSONL"),
+    "monitor": ("Target ASN", "Optional: exact hostname or IP"),
+    "target": ("Target ASN", "Optional: preferred target IP"),
+    "coverage": ("Optional: countries to show", ""),
+}
+
+
+def build_command(mode: str, primary: str, secondary: str = "") -> list[str]:
+    """Build a safe one-shot netpath command for a non-path TUI operation."""
+    command = [sys.executable, "-m", "netpath"]
+    if mode == "host":
+        command.extend(["host", primary])
+        if secondary.lower() in {"yes", "y", "true", "1", "throughput"}:
+            command.append("--throughput")
+    elif mode == "asn":
+        command.extend(["asn", primary])
+        if secondary:
+            command.extend(["--count", secondary])
+    elif mode == "country":
+        command.extend(["country", primary])
+        if secondary:
+            command.extend(["--top", secondary])
+    elif mode == "dns":
+        command.extend(["dns", primary, secondary or "A", "--once"])
+    elif mode == "explain":
+        command.extend(["explain", primary])
+        if secondary:
+            command.extend(["--baseline", secondary])
+    elif mode == "monitor":
+        command.extend(["monitor", primary, "--runs", "1"])
+        if secondary:
+            command.extend(["--target", secondary])
+    elif mode == "target":
+        command.extend(["target", primary])
+        if secondary:
+            command.extend(["--target", secondary])
+    elif mode == "coverage":
+        command.extend(["coverage", "--top", primary or "50"])
+    else:
+        raise ValueError(f"Unsupported console mode: {mode}")
+    return command
 
 
 class PathTui(App[None]):
     TITLE = "netpath"
-    SUB_TITLE = "interactive path analyzer"
+    SUB_TITLE = "interactive network analysis console"
     CSS = """
     Screen { layout: vertical; background: #071017; }
     Header { background: #0b1d28; color: #d7f7ff; }
@@ -27,7 +91,7 @@ class PathTui(App[None]):
         padding: 1 1 0 1;
         background: #0b1d28;
     }
-    #mode { width: 18; margin-right: 1; }
+    #mode { width: 22; margin-right: 1; }
     #source, #destination { width: 1fr; margin-right: 1; }
     #run, #globe { min-width: 12; margin-left: 1; }
     #status {
@@ -53,6 +117,17 @@ class PathTui(App[None]):
         background: #09151e;
     }
     #hops { height: 1fr; }
+    #console-view {
+        height: 1fr;
+        padding: 0 1;
+    }
+    #console {
+        height: 1fr;
+        border: round #248da3;
+        background: #050c11;
+        padding: 1 2;
+    }
+    .hidden { display: none; }
     DataTable > .datatable--header { background: #123346; color: #8be9fd; text-style: bold; }
     DataTable:focus > .datatable--cursor { background: #164e63; }
     Button.-primary { background: #137c8f; }
@@ -62,7 +137,7 @@ class PathTui(App[None]):
         ("q", "quit", "Quit"),
         ("ctrl+r", "run_measurement", "Run"),
         ("g", "open_globe", "Globe"),
-        ("m", "toggle_mode", "Mode"),
+        ("m", "next_mode", "Mode"),
     ]
 
     def __init__(
@@ -88,7 +163,7 @@ class PathTui(App[None]):
         yield Header(show_clock=True)
         with Horizontal(id="controls"):
             yield Select(
-                [("City path", "city"), ("ASN path", "asn")],
+                _MODES,
                 value=self.initial_mode,
                 allow_blank=False,
                 id="mode",
@@ -99,12 +174,15 @@ class PathTui(App[None]):
             yield Button("Globe", id="globe", disabled=True)
         yield Static("Enter two endpoints and run a measurement", id="status")
         with Horizontal(id="main"):
-            with Vertical(id="left"):
-                yield Static(self._summary_text(), id="summary")
-                yield DataTable(id="candidates", cursor_type="row", zebra_stripes=True)
-            with Vertical(id="right"):
-                yield Static(self._route_map([]), id="route-map")
-                yield DataTable(id="hops", cursor_type="row", zebra_stripes=True)
+            with Horizontal(id="path-view"):
+                with Vertical(id="left"):
+                    yield Static(self._summary_text(), id="summary")
+                    yield DataTable(id="candidates", cursor_type="row", zebra_stripes=True)
+                with Vertical(id="right"):
+                    yield Static(self._route_map([]), id="route-map")
+                    yield DataTable(id="hops", cursor_type="row", zebra_stripes=True)
+            with Vertical(id="console-view", classes="hidden"):
+                yield RichLog(id="console", wrap=True, highlight=True, markup=False)
         yield Footer()
 
     def on_mount(self) -> None:
@@ -134,17 +212,26 @@ class PathTui(App[None]):
         self.selected_candidate = event.cursor_row
         self._render_selected_candidate()
 
-    def action_toggle_mode(self) -> None:
+    def action_next_mode(self) -> None:
         select = self.query_one("#mode", Select)
-        select.value = "asn" if select.value == "city" else "city"
+        values = [value for _, value in _MODES]
+        index = values.index(str(select.value))
+        select.value = values[(index + 1) % len(values)]
 
     def action_run_measurement(self) -> None:
         source = self.query_one("#source", Input).value.strip()
         destination = self.query_one("#destination", Input).value.strip()
-        if not source or not destination:
+        mode = str(self.query_one("#mode", Select).value)
+        if mode != "coverage" and not source:
+            self._set_status("The primary input is required", error=True)
+            return
+        if mode in _PATH_MODES and not destination:
             self._set_status("Source and destination are required", error=True)
             return
-        self.run_measurement(str(self.query_one("#mode", Select).value), source, destination)
+        if mode in _PATH_MODES:
+            self.run_measurement(mode, source, destination)
+        else:
+            self.run_console_command(mode, source, destination)
 
     def action_open_globe(self) -> None:
         if self.result:
@@ -166,6 +253,46 @@ class PathTui(App[None]):
             self.call_from_thread(self._measurement_failed, str(exc))
         else:
             self.call_from_thread(self._apply_result, result)
+        finally:
+            self.call_from_thread(self._set_running, False)
+
+    @work(thread=True, exclusive=True)
+    def run_console_command(self, mode: str, primary: str, secondary: str) -> None:
+        self.call_from_thread(self._set_running, True)
+        log = self.query_one("#console", RichLog)
+        self.call_from_thread(log.clear)
+        try:
+            command = build_command(mode, primary, secondary)
+            self.call_from_thread(
+                log.write,
+                f"$ netpath {' '.join(command[3:])}\n",
+            )
+            env = {**os.environ, "NO_COLOR": "1", "PYTHONUNBUFFERED": "1"}
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
+            assert process.stdout is not None
+            for line in process.stdout:
+                self.call_from_thread(log.write, line.rstrip())
+            exit_code = process.wait()
+            if exit_code:
+                self.call_from_thread(
+                    self._set_status,
+                    f"{mode} finished with exit code {exit_code}",
+                    True,
+                )
+            else:
+                self.call_from_thread(
+                    self._set_status,
+                    f"{mode} complete · {datetime.now():%H:%M:%S}",
+                )
+        except Exception as exc:
+            self.call_from_thread(self._set_status, str(exc), True)
         finally:
             self.call_from_thread(self._set_running, False)
 
@@ -269,9 +396,20 @@ class PathTui(App[None]):
         return text
 
     def _update_placeholders(self, mode: str) -> None:
-        city_mode = mode == "city"
-        self.query_one("#source", Input).placeholder = "Source city" if city_mode else "Source ASN"
-        self.query_one("#destination", Input).placeholder = "Destination city" if city_mode else "Destination ASN"
+        primary, secondary = _MODE_FIELDS.get(mode, ("Primary input", "Optional input"))
+        source = self.query_one("#source", Input)
+        destination = self.query_one("#destination", Input)
+        source.placeholder = primary
+        destination.placeholder = secondary
+        source.disabled = mode == "coverage"
+        destination.disabled = not bool(secondary)
+        path_mode = mode in _PATH_MODES
+        self.query_one("#path-view").set_class(not path_mode, "hidden")
+        self.query_one("#console-view").set_class(path_mode, "hidden")
+        self.query_one("#globe", Button).display = path_mode
+        self._set_status(
+            "Enter source and destination" if path_mode else f"Configure and run {mode}"
+        )
 
     def _set_status(self, message: str, error: bool = False) -> None:
         style = "bold red" if error else "cyan"
@@ -284,4 +422,5 @@ def run(
     mode: str = "city",
     token: str | None = None,
 ) -> None:
-    PathTui(source=source, destination=destination, mode=mode, token=token).run()
+    normalized_mode = "aspath" if mode == "asn" else mode
+    PathTui(source=source, destination=destination, mode=normalized_mode, token=token).run()

@@ -27,8 +27,35 @@ from netpath.diagnosis import diagnose
 app = typer.Typer(
     help="netpath — probe throughput, latency, and packet loss to an ASN.",
     add_completion=False,
-    no_args_is_help=True,
+    no_args_is_help=False,
+    invoke_without_command=True,
 )
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"netpath {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the installed netpath version and exit.",
+    ),
+) -> None:
+    """Network path analysis from the terminal or interactive TUI."""
+    if ctx.invoked_subcommand is None:
+        from netpath import path_tui
+
+        path_tui.run()
+
 
 # ── shared options ────────────────────────────────────────────────────────────
 
@@ -303,7 +330,7 @@ def tui(
     asn_mode: bool = typer.Option(False, "--asn", help="Start in ASN path mode"),
     gp_token: Optional[str] = _GP_TOK,
 ):
-    """Launch the interactive city and ASN path analyzer."""
+    """Launch the interactive network analysis console."""
     from netpath import path_tui
 
     path_tui.run(

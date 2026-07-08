@@ -96,15 +96,22 @@ Use `asn`, `country`, `aspath`, and `citypath` when characterizing networks or c
 
 ## Interactive TUI
 
-Launch the full-screen path analyzer and enter any source and destination:
+Launch the full-screen network analyzer:
 
 ```bash
-netpath tui
+netpath
+```
+
+You can optionally start with a path prefilled:
+
+```bash
 netpath tui "Denver" "Tel Aviv"
 netpath tui AS14593 AS12400 --asn
 ```
 
-The TUI ranks measured paths, shows each geolocated hop with RTT and network ownership, plots an approximate terminal route, and can open the selected result on the browser globe. Press `Ctrl+R` to run, `m` to switch city/ASN mode, `g` for the globe, and `q` to quit.
+The TUI is the default interface and includes city and ASN path ranking, endpoint traces, ASN and country tests, DNS propagation, incident explanations, monitor snapshots, target discovery, and Globalping coverage. Existing subcommands remain available for scripts and automation. Path views show each geolocated hop with RTT and network ownership, plot an approximate terminal route, and can open the result on the browser globe. Press `Ctrl+R` to run, `m` to cycle modes, `g` for the globe, and `q` to quit.
+
+Check the installed version with `netpath --version` or `netpath -V`.
 
 ## Monitoring
 

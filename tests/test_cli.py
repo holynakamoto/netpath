@@ -15,6 +15,21 @@ def test_help_lists_product_commands():
         assert command in result.output
 
 
+def test_version_flag():
+    result = CliRunner().invoke(cli.app, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == f"netpath {cli.__version__}"
+
+
+def test_no_args_launches_tui():
+    with patch("netpath.path_tui.run") as run_tui:
+        result = CliRunner().invoke(cli.app)
+
+    assert result.exit_code == 0
+    run_tui.assert_called_once_with()
+
+
 def test_host_help_lists_trace_fusion_option():
     host = get_command(cli.app).commands["host"]
     option_names = {
