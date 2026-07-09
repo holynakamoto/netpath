@@ -1,6 +1,8 @@
 import asyncio
+from contextlib import nullcontext
 import importlib
 import sys
+from unittest.mock import Mock, patch
 import json
 import os
 
@@ -110,3 +112,36 @@ def test_capture_planner_selector_defaults_to_codex(monkeypatch):
             assert str(app.query_one("#planner").value) == "codex"
 
     asyncio.run(exercise())
+
+
+def test_capture_confirmation_prompts_for_sudo_then_runs():
+    spec = local_capture.plan_capture("watch DNS for 10 seconds", interface="en0")
+    app = PathTui()
+    with (
+        patch("netpath.path_tui.local_capture.capture_permission_cached", return_value=False),
+        patch("netpath.path_tui.subprocess.run", return_value=Mock(returncode=0)) as sudo,
+        patch.object(app, "suspend", return_value=nullcontext()),
+        patch.object(app, "run_local_capture") as run_capture,
+    ):
+        app._capture_confirmed(spec, True)
+
+    sudo.assert_called_once_with(["sudo", "-v"])
+    run_capture.assert_called_once_with(spec)
+
+
+def test_capture_confirmation_stops_when_sudo_is_denied():
+    spec = local_capture.plan_capture("watch DNS for 10 seconds", interface="en0")
+    app = PathTui()
+    with (
+        patch("netpath.path_tui.local_capture.capture_permission_cached", return_value=False),
+        patch("netpath.path_tui.subprocess.run", return_value=Mock(returncode=1)),
+        patch.object(app, "suspend", return_value=nullcontext()),
+        patch.object(app, "_set_status") as status,
+        patch.object(app, "run_local_capture") as run_capture,
+    ):
+        app._capture_confirmed(spec, True)
+
+    run_capture.assert_not_called()
+    status.assert_called_once_with(
+        "Capture cancelled; administrator permission was not granted"
+    )

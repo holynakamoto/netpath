@@ -431,6 +431,26 @@ def tcpdump_command(spec: CaptureSpec, output: Path, *, privileged: bool | None 
     return ["sudo", "-n", *command] if privileged else command
 
 
+def capture_permission_cached(
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> bool:
+    """Return whether tcpdump can run without opening an invisible password prompt."""
+    if not hasattr(os, "geteuid") or os.geteuid() == 0:
+        return True
+    if not shutil.which("sudo"):
+        return False
+    try:
+        result = runner(
+            ["sudo", "-n", "-v"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
 def _audit(spec: CaptureSpec, *, confirmed_at: str, deleted_at: str | None, error: str | None = None) -> None:
     path = Path("~/.netpath/captures/audit.jsonl").expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)

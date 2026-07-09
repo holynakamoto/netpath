@@ -86,9 +86,9 @@ prompt. Netpath invokes the selected, already-authenticated CLI in
 non-interactive schema-only mode; credentials are never copied into netpath.
 The prompt is sent to that provider, but packet data is not.
 
-Packet capture may require elevated permission on macOS. Run `sudo -v` in
-another terminal before confirming; netpath never opens a hidden password
-prompt.
+Packet capture may require elevated permission on macOS. When needed, netpath
+temporarily suspends the TUI and shows the normal system `sudo` prompt, then
+resumes after authentication. It never opens a hidden password prompt.
 
 ## Baselines and incident analysis
 

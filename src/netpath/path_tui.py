@@ -10,7 +10,7 @@ import sys
 
 from rich.text import Text
 from textual import work
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, SuspendNotSupported
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Header, Input, RichLog, Select, Static
@@ -370,6 +370,20 @@ class PathTui(App[None]):
         if not confirmed:
             self._set_status("Capture cancelled; no packets were captured")
             return
+        if not local_capture.capture_permission_cached():
+            try:
+                with self.suspend():
+                    print("netpath needs administrator permission to capture local packets.")
+                    permission = subprocess.run(["sudo", "-v"])
+            except (OSError, SuspendNotSupported) as exc:
+                self._set_status(
+                    f"Could not open the permission prompt: {exc}. Run sudo -v and retry.",
+                    error=True,
+                )
+                return
+            if permission.returncode:
+                self._set_status("Capture cancelled; administrator permission was not granted")
+                return
         self.run_local_capture(spec)
 
     def action_open_globe(self) -> None:

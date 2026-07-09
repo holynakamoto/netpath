@@ -161,6 +161,26 @@ def test_tcpdump_command_is_fixed_argv(tmp_path):
     assert command[-1] == "(udp or tcp) and (port 53)"
 
 
+def test_capture_permission_accepts_cached_sudo():
+    runner = Mock(return_value=Mock(returncode=0))
+    with (
+        patch("netpath.local_capture.os.geteuid", return_value=501),
+        patch("netpath.local_capture.shutil.which", return_value="/usr/bin/sudo"),
+    ):
+        assert local_capture.capture_permission_cached(runner) is True
+
+    assert runner.call_args.args[0] == ["sudo", "-n", "-v"]
+
+
+def test_capture_permission_rejects_missing_cache():
+    runner = Mock(return_value=Mock(returncode=1))
+    with (
+        patch("netpath.local_capture.os.geteuid", return_value=501),
+        patch("netpath.local_capture.shutil.which", return_value="/usr/bin/sudo"),
+    ):
+        assert local_capture.capture_permission_cached(runner) is False
+
+
 def test_execute_deletes_capture_after_analysis(tmp_path):
     spec = local_capture.plan_capture("watch dns for 1 second", interface="en0")
     process = Mock(returncode=-15)
