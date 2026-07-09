@@ -1,4 +1,5 @@
 import asyncio
+import importlib
 import sys
 import json
 import os
@@ -75,5 +76,37 @@ def test_capture_confirmation_stylesheet_loads():
             app.push_screen(CaptureConfirmation(spec))
             await pilot.pause()
             assert isinstance(app.screen, CaptureConfirmation)
+
+    asyncio.run(exercise())
+
+
+def test_capture_planner_selector_defaults_from_environment(monkeypatch):
+    import netpath.path_tui as path_tui
+
+    monkeypatch.setenv("NETPATH_CAPTURE_PLANNER", "codex")
+    reloaded = importlib.reload(path_tui)
+
+    async def exercise():
+        app = reloaded.PathTui(mode="capture")
+        async with app.run_test():
+            assert str(app.query_one("#planner").value) == "codex"
+
+    try:
+        asyncio.run(exercise())
+    finally:
+        monkeypatch.delenv("NETPATH_CAPTURE_PLANNER", raising=False)
+        importlib.reload(path_tui)
+
+
+def test_capture_planner_selector_defaults_to_codex(monkeypatch):
+    import netpath.path_tui as path_tui
+
+    monkeypatch.delenv("NETPATH_CAPTURE_PLANNER", raising=False)
+    reloaded = importlib.reload(path_tui)
+
+    async def exercise():
+        app = reloaded.PathTui(mode="capture")
+        async with app.run_test():
+            assert str(app.query_one("#planner").value) == "codex"
 
     asyncio.run(exercise())

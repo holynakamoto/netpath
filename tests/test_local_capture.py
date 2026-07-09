@@ -46,7 +46,11 @@ def test_other_device_request_fails_closed():
 
 def test_unknown_prompt_fails_without_capture():
     with pytest.raises(local_capture.CapturePlanError, match="AI planner"):
-        local_capture.plan_capture("Figure out why everything feels odd", interface="en0")
+        local_capture.plan_capture(
+            "Figure out why everything feels odd",
+            interface="en0",
+            planner_provider="off",
+        )
 
 
 def test_codex_account_plans_named_app_with_schema_constrained_cli():

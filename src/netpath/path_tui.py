@@ -20,6 +20,10 @@ from netpath import globe, local_capture, path_service
 MeasureImpl = Callable[..., dict]
 _MAP_WIDTH = 58
 _MAP_HEIGHT = 16
+_ENV_CAPTURE_PLANNER = os.getenv("NETPATH_CAPTURE_PLANNER", "codex").lower()
+_DEFAULT_CAPTURE_PLANNER = (
+    _ENV_CAPTURE_PLANNER if _ENV_CAPTURE_PLANNER in {"codex", "claude"} else "off"
+)
 _PATH_MODES = {"city", "aspath"}
 _OPTIONAL_PRIMARY_MODES = {"coverage", "serve"}
 _MODES = [
@@ -271,7 +275,7 @@ class PathTui(App[None]):
                     ("Use Codex account", "codex"),
                     ("Use Claude account", "claude"),
                 ],
-                value="off",
+                value=_DEFAULT_CAPTURE_PLANNER,
                 allow_blank=False,
                 id="planner",
                 classes="hidden",

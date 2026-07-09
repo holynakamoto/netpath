@@ -254,7 +254,7 @@ def plan_capture(
             duration_seconds=duration,
             source_prompt=clean,
         ))
-    provider = (planner_provider or os.getenv("NETPATH_CAPTURE_PLANNER", "off")).lower()
+    provider = (planner_provider or os.getenv("NETPATH_CAPTURE_PLANNER", "codex")).lower()
     if provider in {"codex", "claude"}:
         return _plan_with_cli(provider, clean, chosen_interface, duration)
     raise CapturePlanError(
