@@ -80,6 +80,12 @@ minutes.” Netpath shows the interface, filter, duration, privacy boundary, and
 size cap before asking for confirmation. Captures are limited to traffic visible
 to the local machine and the raw pcap is deleted after analysis.
 
+Known requests use local rules. For requests such as “capture my Slack
+traffic,” choose **Use Codex account** or **Use Claude account** beside the
+prompt. Netpath invokes the selected, already-authenticated CLI in
+non-interactive schema-only mode; credentials are never copied into netpath.
+The prompt is sent to that provider, but packet data is not.
+
 Packet capture may require elevated permission on macOS. Run `sudo -v` in
 another terminal before confirming; netpath never opens a hidden password
 prompt.

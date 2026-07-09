@@ -56,7 +56,7 @@ class CaptureConfirmation(ModalScreen[bool]):
     CSS = """
     CaptureConfirmation {
         align: center middle;
-        background: rgba(0, 0, 0, 65%);
+        background: #000000;
     }
     #capture-confirm {
         width: 72;
@@ -83,6 +83,7 @@ class CaptureConfirmation(ModalScreen[bool]):
             "[bold cyan]Confirm local packet capture[/bold cyan]\n\n"
             f"Interface: {self.spec.interface}\n"
             f"Match: {self.spec.filter_description}\n"
+            f"Planner: {self.spec.planner}\n"
             f"Filter: {self.spec.filter_bpf}\n"
             f"Duration: {self.spec.duration_seconds} seconds\n"
             f"Privacy: headers only ({local_capture.SNAPLEN}-byte snap length)\n"
@@ -184,6 +185,7 @@ class PathTui(App[None]):
         background: #0b1d28;
     }
     #mode { width: 22; margin-right: 1; }
+    #planner { width: 18; margin-right: 1; }
     #source, #destination { width: 1fr; margin-right: 1; }
     #baseline { width: 1fr; margin-right: 1; }
     #run, #globe { min-width: 12; margin-left: 1; }
@@ -264,6 +266,17 @@ class PathTui(App[None]):
             yield Input(value=self.initial_source, placeholder="Source city", id="source")
             yield Input(value=self.initial_destination, placeholder="Destination city", id="destination")
             yield Select(
+                [
+                    ("Rules only", "off"),
+                    ("Use Codex account", "codex"),
+                    ("Use Claude account", "claude"),
+                ],
+                value="off",
+                allow_blank=False,
+                id="planner",
+                classes="hidden",
+            )
+            yield Select(
                 [],
                 prompt="Optional baseline JSON/JSONL",
                 allow_blank=True,
@@ -337,7 +350,8 @@ class PathTui(App[None]):
             self.run_measurement(mode, source, destination)
         elif mode == "capture":
             try:
-                spec = local_capture.plan_capture(source)
+                provider = str(self.query_one("#planner", Select).value)
+                spec = local_capture.plan_capture(source, planner_provider=provider)
             except local_capture.CapturePlanError as exc:
                 self._set_status(str(exc), error=True)
                 return
@@ -546,7 +560,8 @@ class PathTui(App[None]):
         destination.placeholder = secondary
         source.disabled = mode == "coverage"
         destination.disabled = not bool(secondary)
-        destination.set_class(mode == "explain", "hidden")
+        destination.set_class(mode in {"explain", "capture"}, "hidden")
+        self.query_one("#planner", Select).set_class(mode != "capture", "hidden")
         baseline.set_class(mode != "explain", "hidden")
         path_mode = mode in _PATH_MODES
         self.query_one("#path-view").set_class(not path_mode, "hidden")

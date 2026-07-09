@@ -1,10 +1,12 @@
+import asyncio
 import sys
 import json
 import os
 
 import pytest
 
-from netpath.path_tui import build_command, discover_baselines
+from netpath import local_capture
+from netpath.path_tui import CaptureConfirmation, PathTui, build_command, discover_baselines
 
 
 @pytest.mark.parametrize(
@@ -62,3 +64,16 @@ def test_discover_baselines_skips_malformed_files(tmp_path):
     (tmp_path / "broken.jsonl").write_text("{nope}\n")
 
     assert discover_baselines(tmp_path) == []
+
+
+def test_capture_confirmation_stylesheet_loads():
+    spec = local_capture.plan_capture("watch DNS for 10 seconds", interface="en0")
+
+    async def exercise():
+        app = PathTui()
+        async with app.run_test() as pilot:
+            app.push_screen(CaptureConfirmation(spec))
+            await pilot.pause()
+            assert isinstance(app.screen, CaptureConfirmation)
+
+    asyncio.run(exercise())

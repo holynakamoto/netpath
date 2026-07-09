@@ -45,8 +45,71 @@ def test_other_device_request_fails_closed():
 
 
 def test_unknown_prompt_fails_without_capture():
-    with pytest.raises(local_capture.CapturePlanError, match="No traffic was captured"):
+    with pytest.raises(local_capture.CapturePlanError, match="AI planner"):
         local_capture.plan_capture("Figure out why everything feels odd", interface="en0")
+
+
+def test_codex_account_plans_named_app_with_schema_constrained_cli():
+    response = Mock(
+        returncode=0,
+        stdout="""{
+            "target_type": "process",
+            "target_value": "Slack",
+            "protocols": ["tcp", "udp"],
+            "hosts": [],
+            "ports": [],
+            "filter_description": "Active Slack traffic",
+            "duration_seconds": 60
+        }""",
+        stderr="",
+    )
+    with (
+        patch("netpath.local_capture.shutil.which", return_value="/usr/local/bin/codex"),
+        patch("netpath.local_capture.subprocess.run", return_value=response) as run,
+        patch("netpath.local_capture._process_hosts", return_value=("44.237.180.172",)),
+    ):
+        spec = local_capture.plan_capture(
+            "do a packet capture on my slack traffic",
+            interface="en0",
+            planner_provider="codex",
+        )
+
+    assert spec.target == local_capture.CaptureTarget("process", "Slack")
+    assert spec.planner == "llm"
+    assert spec.hosts == ("44.237.180.172",)
+    command = run.call_args.args[0]
+    assert command[:2] == ["/usr/local/bin/codex", "exec"]
+    assert "--output-schema" in command
+    assert "--sandbox" in command
+    assert "read-only" in command
+    assert "--ignore-user-config" in command
+
+
+def test_ai_process_plan_fails_when_app_has_no_active_endpoints():
+    response = Mock(
+        returncode=0,
+        stdout="""{
+            "target_type": "process",
+            "target_value": "Slack",
+            "protocols": ["tcp"],
+            "hosts": [],
+            "ports": [],
+            "filter_description": "Slack traffic",
+            "duration_seconds": 60
+        }""",
+        stderr="",
+    )
+    with (
+        patch("netpath.local_capture.shutil.which", return_value="/usr/local/bin/codex"),
+        patch("netpath.local_capture.subprocess.run", return_value=response),
+        patch("netpath.local_capture._process_hosts", return_value=()),
+    ):
+        with pytest.raises(local_capture.CapturePlanError, match="Start the app"):
+            local_capture.plan_capture(
+                "capture Slack",
+                interface="en0",
+                planner_provider="codex",
+            )
 
 
 @pytest.mark.parametrize("duration", ["0 seconds", "31 minutes"])

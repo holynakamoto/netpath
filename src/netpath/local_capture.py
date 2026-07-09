@@ -21,6 +21,44 @@ MAX_CAPTURE_MIB = 25
 _INTERFACE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,32}$")
 _DURATION_RE = re.compile(r"\b(\d+)\s*(seconds?|secs?|s|minutes?|mins?|m)\b", re.I)
 _IP_RE = re.compile(r"(?<![\w:])(?:\d{1,3}\.){3}\d{1,3}(?![\w:])")
+_PLANNER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "target_type": {"type": "string", "enum": ["process", "protocol", "interface_all"]},
+        "target_value": {"type": "string", "maxLength": 80},
+        "protocols": {
+            "type": "array",
+            "items": {"type": "string", "enum": ["tcp", "udp", "icmp", "icmp6"]},
+            "maxItems": 4,
+        },
+        "hosts": {
+            "type": "array",
+            "items": {"type": "string", "maxLength": 45},
+            "maxItems": 20,
+        },
+        "ports": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "maxItems": 20,
+        },
+        "filter_description": {"type": "string", "maxLength": 160},
+        "duration_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": MAX_DURATION_SECONDS,
+        },
+    },
+    "required": [
+        "target_type",
+        "target_value",
+        "protocols",
+        "hosts",
+        "ports",
+        "filter_description",
+        "duration_seconds",
+    ],
+    "additionalProperties": False,
+}
 
 
 class CapturePlanError(ValueError):
@@ -149,11 +187,20 @@ def _process_hosts(process_names: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(sorted(hosts))
 
 
-def plan_capture(prompt: str, interface: str | None = None) -> CaptureSpec:
+def plan_capture(
+    prompt: str,
+    interface: str | None = None,
+    planner_provider: str | None = None,
+) -> CaptureSpec:
     clean = " ".join(prompt.split())
     lower = clean.lower()
     if not clean:
         raise CapturePlanError("Describe the local traffic you want to capture.")
+    if re.search(r"\b(playstation|xbox|smart\s*tv|console|other device)\b", lower):
+        raise CapturePlanError(
+            "That appears to be another device. Phase 1 can only capture traffic "
+            "to or from this Mac."
+        )
 
     mentioned_ips = []
     for candidate in _IP_RE.findall(clean):
@@ -193,7 +240,10 @@ def plan_capture(prompt: str, interface: str | None = None) -> CaptureSpec:
             duration_seconds=duration,
             source_prompt=clean,
         ))
-    if re.search(r"\b(my|local|this mac|this computer|all traffic)\b", lower):
+    if re.search(
+        r"\b(all (?:my )?(?:local )?traffic|this mac|this computer|my traffic|local traffic)\b",
+        lower,
+    ):
         return validate_spec(CaptureSpec(
             target=CaptureTarget("interface_all", chosen_interface),
             interface=chosen_interface,
@@ -204,10 +254,151 @@ def plan_capture(prompt: str, interface: str | None = None) -> CaptureSpec:
             duration_seconds=duration,
             source_prompt=clean,
         ))
+    provider = (planner_provider or os.getenv("NETPATH_CAPTURE_PLANNER", "off")).lower()
+    if provider in {"codex", "claude"}:
+        return _plan_with_cli(provider, clean, chosen_interface, duration)
     raise CapturePlanError(
-        "I can currently plan local DNS, Zoom, or all-local-traffic captures. "
+        "This request needs an AI planner. Set NETPATH_CAPTURE_PLANNER=codex or "
+        "NETPATH_CAPTURE_PLANNER=claude to reuse that CLI's existing login. "
         "No traffic was captured."
     )
+
+
+def _planner_prompt(user_prompt: str, duration: int) -> str:
+    return (
+        "Convert the user's request into a LOCAL packet-capture plan for traffic to or "
+        "from this computer. Return only the requested schema. Never return commands or "
+        "BPF. Use process for named desktop apps, protocol for named protocols, and "
+        "interface_all only when explicitly requested. Hosts must be literal IPs; omit "
+        "hosts when unknown. Ports may be empty for apps with dynamic connections. "
+        f"Use {duration} seconds unless the user explicitly specifies another duration. "
+        "Do not plan captures for another LAN device; describe that limitation in "
+        "filter_description and use an empty target_value.\n\n"
+        f"User request: {user_prompt}"
+    )
+
+
+def _plan_with_cli(
+    provider: str,
+    prompt: str,
+    interface: str,
+    duration: int,
+) -> CaptureSpec:
+    executable = shutil.which(provider)
+    if not executable:
+        raise CapturePlanError(
+            f"The {provider} CLI is not installed. No traffic was captured."
+        )
+    schema = json.dumps(_PLANNER_SCHEMA, separators=(",", ":"))
+    instruction = _planner_prompt(prompt, duration)
+    try:
+        if provider == "claude":
+            command = [
+                executable,
+                "--print",
+                "--safe-mode",
+                "--tools",
+                "",
+                "--no-session-persistence",
+                "--permission-mode",
+                "dontAsk",
+                "--output-format",
+                "json",
+                "--json-schema",
+                schema,
+                instruction,
+            ]
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=tempfile.gettempdir(),
+            )
+            payload = json.loads(result.stdout or "{}")
+            planned = payload.get("structured_output") or payload.get("result") or payload
+            if isinstance(planned, str):
+                planned = json.loads(planned)
+        else:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                encoding="utf-8",
+                delete=False,
+            ) as schema_file:
+                schema_file.write(json.dumps(_PLANNER_SCHEMA))
+                schema_path = schema_file.name
+            try:
+                result = subprocess.run(
+                    [
+                        executable,
+                        "exec",
+                        "--ephemeral",
+                        "--sandbox",
+                        "read-only",
+                        "--ignore-user-config",
+                        "--ignore-rules",
+                        "--skip-git-repo-check",
+                        "--cd",
+                        tempfile.gettempdir(),
+                        "--output-schema",
+                        schema_path,
+                        instruction,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                planned = json.loads(result.stdout or "{}")
+            finally:
+                Path(schema_path).unlink(missing_ok=True)
+    except subprocess.TimeoutExpired as exc:
+        raise CapturePlanError(f"The {provider} planner timed out. No traffic was captured.") from exc
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CapturePlanError(
+            f"The {provider} planner returned an invalid plan. No traffic was captured."
+        ) from exc
+    if result.returncode:
+        detail = (result.stderr or "").strip().splitlines()
+        message = detail[-1] if detail else "check that the CLI is signed in"
+        raise CapturePlanError(f"The {provider} planner failed: {message}")
+    if not isinstance(planned, dict):
+        raise CapturePlanError(f"The {provider} planner returned an invalid plan.")
+    if not planned.get("target_value"):
+        raise CapturePlanError(
+            planned.get("filter_description")
+            or "That traffic is not visible from this Mac. No traffic was captured."
+        )
+
+    target_type = planned.get("target_type")
+    target_value = str(planned.get("target_value", "")).strip()
+    if target_type not in {"process", "protocol", "interface_all"}:
+        raise CapturePlanError(f"The {provider} planner returned an invalid target type.")
+    protocols = tuple(planned.get("protocols") or ())
+    hosts = tuple(planned.get("hosts") or ())
+    ports = tuple(planned.get("ports") or ())
+    if target_type == "process":
+        observed = _process_hosts((target_value, target_value.lower()))
+        if not observed:
+            raise CapturePlanError(
+                f"No active network endpoints were found for {target_value}. "
+                "Start the app and try again; no traffic was captured."
+            )
+        hosts = observed
+        if not protocols:
+            protocols = ("tcp", "udp")
+    spec = CaptureSpec(
+        target=CaptureTarget(target_type, target_value),
+        interface=interface,
+        protocols=protocols,
+        hosts=hosts,
+        ports=ports,
+        filter_description=str(planned.get("filter_description") or target_value),
+        duration_seconds=int(planned.get("duration_seconds") or duration),
+        source_prompt=prompt,
+        planner="llm",
+    )
+    return validate_spec(spec)
 
 
 def validate_spec(spec: CaptureSpec) -> CaptureSpec:
