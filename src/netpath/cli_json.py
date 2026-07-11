@@ -181,10 +181,31 @@ def _json_recommendation(verdict: dict) -> str:
 def _apply_path_json_contract(result: dict) -> dict:
     if result.get("optimal_path"):
         path = result["optimal_path"].get("path") or []
-        verdict = {"severity": "ok", "verdict": "Reachable Path", "signals": []}
-        recommendation = "No escalation needed; the destination was reachable from the selected probes."
-        confidence = "high"
-        evidence = []
+        verdict = {
+            "severity": "ok",
+            "verdict": "Target Network Observed",
+            "detail": (
+                "The sampled MTR entered the destination ASN. This does not prove "
+                "that the exact target or service was reachable."
+            ),
+            "signals": [],
+        }
+        recommendation = (
+            "The target network was visible from the selected probes. If the service "
+            "symptom persists, diagnose the exact hostname or IP before closing or escalating."
+        )
+        confidence = "medium"
+        evidence = [{
+            "condition": "target_network_observed",
+            "severity": "ok",
+            "source": "globalping_mtr",
+            "confidence": "medium",
+            "detail": verdict["detail"],
+            "evidence": {
+                "target_asn_observed": True,
+                "exact_target_reachability": "not_established",
+            },
+        }]
     else:
         path = result.get("partial_paths") or result.get("candidates") or []
         verdict = {

@@ -14,6 +14,8 @@ import subprocess
 import tempfile
 from typing import Callable, Literal
 
+from netpath import processes
+
 MAX_DURATION_SECONDS = 30 * 60
 DEFAULT_DURATION_SECONDS = 60
 SNAPLEN = 128
@@ -84,7 +86,7 @@ class CaptureSpec:
     ports: tuple[int, ...]
     filter_description: str
     duration_seconds: int
-    privacy_level: Literal["headers_only"] = "headers_only"
+    privacy_level: Literal["truncated_packets"] = "truncated_packets"
     retention: Literal["delete_immediately"] = "delete_immediately"
     source_prompt: str = ""
     planner: Literal["deterministic", "llm"] = "deterministic"
@@ -191,6 +193,7 @@ def plan_capture(
     prompt: str,
     interface: str | None = None,
     planner_provider: str | None = None,
+    on_process: Callable[[subprocess.Popen | None], None] | None = None,
 ) -> CaptureSpec:
     clean = " ".join(prompt.split())
     lower = clean.lower()
@@ -256,7 +259,13 @@ def plan_capture(
         ))
     provider = (planner_provider or os.getenv("NETPATH_CAPTURE_PLANNER", "codex")).lower()
     if provider in {"codex", "claude"}:
-        return _plan_with_cli(provider, clean, chosen_interface, duration)
+        return _plan_with_cli(
+            provider,
+            clean,
+            chosen_interface,
+            duration,
+            on_process=on_process,
+        )
     raise CapturePlanError(
         "This request needs an AI planner. Set NETPATH_CAPTURE_PLANNER=codex or "
         "NETPATH_CAPTURE_PLANNER=claude to reuse that CLI's existing login. "
@@ -278,11 +287,63 @@ def _planner_prompt(user_prompt: str, duration: int) -> str:
     )
 
 
+def _run_planner_command(
+    command: list[str],
+    *,
+    timeout: int,
+    cwd: str | None = None,
+    on_process: Callable[[subprocess.Popen | None], None] | None = None,
+) -> subprocess.CompletedProcess:
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=cwd,
+        start_new_session=os.name == "posix",
+    )
+    _notify_process(on_process, process)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        processes.terminate_process_tree(process)
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            processes.terminate_process_tree(process, grace_seconds=0)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+        raise
+    finally:
+        _notify_process(on_process, None)
+    return subprocess.CompletedProcess(
+        command,
+        process.returncode,
+        stdout,
+        stderr,
+    )
+
+
+def _notify_process(
+    callback: Callable[[subprocess.Popen | None], None] | None,
+    process: subprocess.Popen | None,
+) -> None:
+    if callback is None:
+        return
+    try:
+        callback(process)
+    except Exception:
+        pass
+
+
 def _plan_with_cli(
     provider: str,
     prompt: str,
     interface: str,
     duration: int,
+    on_process: Callable[[subprocess.Popen | None], None] | None = None,
 ) -> CaptureSpec:
     executable = shutil.which(provider)
     if not executable:
@@ -308,12 +369,11 @@ def _plan_with_cli(
                 schema,
                 instruction,
             ]
-            result = subprocess.run(
+            result = _run_planner_command(
                 command,
-                capture_output=True,
-                text=True,
                 timeout=60,
                 cwd=tempfile.gettempdir(),
+                on_process=on_process,
             )
             payload = json.loads(result.stdout or "{}")
             planned = payload.get("structured_output") or payload.get("result") or payload
@@ -329,7 +389,7 @@ def _plan_with_cli(
                 schema_file.write(json.dumps(_PLANNER_SCHEMA))
                 schema_path = schema_file.name
             try:
-                result = subprocess.run(
+                result = _run_planner_command(
                     [
                         executable,
                         "exec",
@@ -345,9 +405,8 @@ def _plan_with_cli(
                         schema_path,
                         instruction,
                     ],
-                    capture_output=True,
-                    text=True,
                     timeout=60,
+                    on_process=on_process,
                 )
                 planned = json.loads(result.stdout or "{}")
             finally:
@@ -406,8 +465,10 @@ def validate_spec(spec: CaptureSpec) -> CaptureSpec:
         raise CapturePlanError("Invalid capture interface.")
     if not 1 <= spec.duration_seconds <= MAX_DURATION_SECONDS:
         raise CapturePlanError("Capture duration is outside the allowed range.")
-    if spec.privacy_level != "headers_only" or spec.retention != "delete_immediately":
-        raise CapturePlanError("Phase 1 only permits headers-only, delete-immediately captures.")
+    if spec.privacy_level != "truncated_packets" or spec.retention != "delete_immediately":
+        raise CapturePlanError(
+            "Phase 1 only permits truncated-packet, delete-immediately captures."
+        )
     if any(proto not in {"tcp", "udp", "icmp", "icmp6"} for proto in spec.protocols):
         raise CapturePlanError("Unsupported capture protocol.")
     if any(not 1 <= port <= 65535 for port in spec.ports):
@@ -578,6 +639,7 @@ def execute_capture(
     *,
     analyzer: Callable[[Path], dict] = analyze_pcap,
     popen: Callable[..., subprocess.Popen] = subprocess.Popen,
+    on_process: Callable[[subprocess.Popen | None], None] | None = None,
 ) -> CaptureOutcome:
     confirmed_at = datetime.now(timezone.utc).isoformat()
     deleted_at: str | None = None
@@ -590,12 +652,27 @@ def execute_capture(
         os.close(fd)
         path = Path(name)
         command = tcpdump_command(spec, path)
-        process = popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        process = popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=os.name == "posix",
+        )
+        _notify_process(on_process, process)
         try:
             _, stderr = process.communicate(timeout=spec.duration_seconds)
         except subprocess.TimeoutExpired:
-            process.terminate()
-            _, stderr = process.communicate(timeout=5)
+            processes.terminate_process_tree(process)
+            try:
+                _, stderr = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                processes.terminate_process_tree(process, grace_seconds=0)
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    pass
+                _, stderr = "", "capture process did not exit after SIGKILL"
         if process.returncode not in {0, -15}:
             detail = (stderr or "").strip().splitlines()[-1:] or ["capture failed"]
             if command[0] == "sudo":
@@ -611,6 +688,7 @@ def execute_capture(
         error = str(exc)
         raise
     finally:
+        _notify_process(on_process, None)
         if path is not None and spec.retention == "delete_immediately":
             path.unlink(missing_ok=True)
             if deleted_at is None:

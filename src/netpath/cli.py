@@ -25,7 +25,7 @@ from netpath.cli_monitor import _display_monitor_result, _parse_interval_seconds
 from netpath.diagnosis import diagnose
 
 app = typer.Typer(
-    help="netpath — probe throughput, latency, and packet loss to an ASN.",
+    help="netpath — diagnosis-first network incident investigation from the terminal.",
     add_completion=False,
     no_args_is_help=False,
     invoke_without_command=True,
@@ -50,7 +50,7 @@ def main(
         help="Show the installed netpath version and exit.",
     ),
 ) -> None:
-    """Network path analysis from the terminal or interactive TUI."""
+    """Evidence-backed network diagnosis from the CLI or incident workbench."""
     if ctx.invoked_subcommand is None:
         from netpath import path_tui
 
@@ -321,8 +321,13 @@ def dns(
         raise typer.BadParameter("--timeout must be at least 1")
 
     if not output_json and not once:
-        from netpath import dns_tui
-        dns_tui.run(domain, record_type, timeout=timeout)
+        from netpath import path_tui
+        path_tui.run(
+            source=domain,
+            destination=record_type,
+            mode="dns",
+            dns_timeout=timeout,
+        )
         return
 
     rows = dns_mod.query_public_resolvers(domain, record_type, timeout=timeout)
@@ -340,18 +345,19 @@ def dns(
 
 @app.command("tui")
 def tui(
-    source: str = typer.Argument("", help="Initial source city or ASN"),
-    destination: str = typer.Argument("", help="Initial destination city or ASN"),
+    source: str = typer.Argument("", help="Initial source city (or ASN with --asn)"),
+    destination: str = typer.Argument("", help="Initial destination city (or ASN with --asn)"),
     asn_mode: bool = typer.Option(False, "--asn", help="Start in ASN path mode"),
     gp_token: Optional[str] = _GP_TOK,
 ):
-    """Launch the interactive network analysis console."""
+    """Launch the network incident workbench."""
     from netpath import path_tui
 
+    launch_mode = "asn" if asn_mode else ("city" if source or destination else "host")
     path_tui.run(
         source=source,
         destination=destination,
-        mode="asn" if asn_mode else "city",
+        mode=launch_mode,
         token=gp_token,
     )
 

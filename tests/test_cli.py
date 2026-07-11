@@ -81,11 +81,16 @@ def test_dns_json_queries_public_resolvers():
 
 
 def test_dns_default_launches_tui():
-    with patch("netpath.dns_tui.run") as run_tui:
+    with patch("netpath.path_tui.run") as run_tui:
         result = CliRunner().invoke(cli.app, ["dns", "example.com", "aaaa"])
 
     assert result.exit_code == 0
-    run_tui.assert_called_once_with("example.com", "AAAA", timeout=3)
+    run_tui.assert_called_once_with(
+        source="example.com",
+        destination="AAAA",
+        mode="dns",
+        dns_timeout=3,
+    )
 
 
 def test_dns_once_prints_static_snapshot():
@@ -130,6 +135,20 @@ def test_tui_command_passes_initial_path_and_mode(monkeypatch):
         source="AS14593",
         destination="AS12400",
         mode="asn",
+        token=None,
+    )
+
+
+def test_tui_command_without_path_opens_diagnosis_workbench(monkeypatch):
+    monkeypatch.delenv("NETPATH_GLOBALPING_TOKEN", raising=False)
+    with patch("netpath.path_tui.run") as run_tui:
+        result = CliRunner().invoke(cli.app, ["tui"])
+
+    assert result.exit_code == 0
+    run_tui.assert_called_once_with(
+        source="",
+        destination="",
+        mode="host",
         token=None,
     )
 

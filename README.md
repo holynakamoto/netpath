@@ -1,11 +1,12 @@
 # netpath
 
-An interactive network path analyzer for investigating routes, latency, packet
-loss, throughput, DNS propagation, and regional probe coverage.
+A diagnosis-first network incident investigator for the terminal.
 
-`netpath` brings traceroute/MTR, optional iperf3 throughput tests, Globalping
-remote probes, Cloudflare Radar RUM data, and incident baselines into one
-terminal interface.
+`netpath` answers the operational question behind a traceroute: **is the issue
+local, on the route, or at the destination — and who owns the next action?** It
+combines traceroute/MTR, application-edge timing, optional iperf3 tests,
+Globalping remote corroboration, Cloudflare Radar RUM data, DNS checks, and
+saved snapshots into one evidence-backed incident workbench.
 
 ## Install
 
@@ -44,31 +45,34 @@ Launch netpath:
 netpath
 ```
 
-Choose an analysis mode, enter the requested endpoints, and select **Run**.
+Enter a hostname or IP and select **Diagnose**. The workbench leads with a
+verdict, likely owner, confidence, strongest evidence, and recommended next
+action. Path and raw measurements remain available in dedicated tabs.
 
-The TUI includes:
+The workbench is organized around user goals:
 
-- city-to-city and ASN-to-ASN path ranking
-- hostname and IP traces
-- ASN and country analysis
-- DNS propagation checks
-- natural-language, headers-only local traffic capture
-- reusable monitoring baselines and incident explanations
-- ASN target discovery
-- Globalping probe coverage
-- iperf3 server setup
+- **Investigate:** diagnose an endpoint, compare against a saved snapshot, or
+  check DNS propagation
+- **Explore:** sample city-to-city and ASN-to-ASN paths, test an ASN, or scan a
+  country
+- **Tools:** save snapshots, plan a privacy-bounded capture, discover targets,
+  inspect probe coverage, or set up iperf3
 
-Path results include geolocated hops, RTT, network ownership, an approximate
-terminal route map, and an optional browser-based globe.
+Every structured investigation keeps the evidence behind its conclusion.
+`F6` saves a redacted Markdown + JSON incident bundle under
+`~/.netpath/reports` for tickets and handoffs. City and ASN path views are
+explicitly labeled as sampled routes to representative discovered targets;
+they are not presented as every possible route between the named endpoints.
 
 ### Keyboard shortcuts
 
 | Key | Action |
 | --- | --- |
 | `Ctrl+R` | Run the current analysis |
-| `m` | Cycle through analysis modes |
-| `g` | Open the latest path on the globe |
-| `q` | Quit |
+| `F6` | Export a redacted incident bundle |
+| `Ctrl+Q` | Quit |
+
+Sampled city and ASN path results also expose a contextual **Globe** button.
 
 Check the installed version with `netpath --version`.
 
@@ -78,7 +82,10 @@ Select **Capture local traffic** and describe the diagnostic in plain language,
 such as “watch DNS traffic for 60 seconds” or “capture my Zoom call for 5
 minutes.” Netpath shows the interface, filter, duration, privacy boundary, and
 size cap before asking for confirmation. Captures are limited to traffic visible
-to the local machine and the raw pcap is deleted after analysis.
+to the local machine and store only the first 128 bytes of each matching
+packet. Those prefixes can contain tens of bytes of application payload; the
+confirmation screen states that boundary explicitly. The raw pcap is deleted
+after local analysis, and payload content is not included in the report.
 
 Known requests use local rules. For requests such as “capture my Slack
 traffic,” choose **Use Codex account** or **Use Claude account** beside the
@@ -90,15 +97,16 @@ Packet capture may require elevated permission on macOS. When needed, netpath
 temporarily suspends the TUI and shows the normal system `sudo` prompt, then
 resumes after authentication. It never opens a hidden password prompt.
 
-## Baselines and incident analysis
+## Snapshots and incident analysis
 
-Select **Create baseline** to save a measurement. Baselines are stored under
+Select **Save snapshot** to record a measurement. Snapshots are stored under
 `~/.netpath/monitor` and capture route stability, RTT, loss, throughput, and
-diagnostic verdicts.
+diagnostic verdicts. A single saved run is intentionally called a snapshot;
+repeat monitoring builds the history needed for a meaningful baseline.
 
-Select **Explain incident** to compare a new endpoint trace with an existing
-baseline. Available JSON and JSONL baseline files appear automatically in the
-interface.
+Select **Compare snapshot** to compare a new endpoint trace with an existing
+measurement. Available JSON and JSONL history files appear automatically in
+the interface.
 
 ## Remote measurements
 
