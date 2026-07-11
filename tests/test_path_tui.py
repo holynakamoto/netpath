@@ -32,6 +32,8 @@ from netpath.path_tui import (
         ("monitor", "AS15169", "example.com", ["monitor", "AS15169", "--runs", "1", "--target", "example.com"]),
         ("target", "AS7018", "1.1.1.1", ["target", "AS7018", "--target", "1.1.1.1"]),
         ("coverage", "", "", ["coverage", "--top", "50"]),
+        ("coverage", "10", "", ["coverage", "--top", "10"]),
+        ("coverage", "US", "", ["coverage", "--country", "US"]),
         ("serve", "iperf.example.com", "5202", [
             "serve", "--setup-only", "--no-register-local", "--advertise-host", "iperf.example.com", "--port", "5202"
         ]),

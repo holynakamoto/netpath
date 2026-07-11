@@ -118,8 +118,8 @@ def measure_citypath(
     target = targets.atlas_target_near_city(dest)
     if not target:
         raise RuntimeError(
-            f"No connected RIPE Atlas IPv4 target found near "
-            f"{dest['name']}, {dest['country_code']}"
+            f"No connected RIPE Atlas IPv4 target with a matching registry "
+            f"country found near {dest['name']}, {dest['country_code']}"
         )
 
     source_label = f"{source['name']}, {source['country_code']}"

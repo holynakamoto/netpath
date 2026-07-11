@@ -116,24 +116,42 @@ def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+_ATLAS_PROBE_PAGES = 4
+_CITY_TARGET_CANDIDATES = 25
+
+
 def atlas_target_near_city(city: dict, max_distance_km: float = 100.0) -> dict | None:
-    """Find the nearest connected RIPE Atlas probe IPv4 near a geocoded city."""
+    """Find the nearest connected RIPE Atlas probe IPv4 near a geocoded city.
+
+    Atlas probe locations are owner-supplied and can go stale when a probe
+    physically moves, so candidates are cross-checked against the Cymru
+    registry country before one is trusted as the city target.
+    """
     lat, lon = city.get("lat"), city.get("lon")
     country_code = city.get("country_code")
     if lat is None or lon is None or not country_code:
         return None
-    try:
-        r = requests.get(
-            country_mod.RIPE_ATLAS_PROBES,
-            params={"status": 1, "country_code": country_code, "page_size": 500},
-            timeout=20,
-        )
-        r.raise_for_status()
-    except requests.RequestException:
+
+    probes: list[dict] = []
+    url: str | None = country_mod.RIPE_ATLAS_PROBES
+    params: dict | None = {"status": 1, "country_code": country_code, "page_size": 500}
+    for _ in range(_ATLAS_PROBE_PAGES):
+        try:
+            r = requests.get(url, params=params, timeout=20)
+            r.raise_for_status()
+        except requests.RequestException:
+            break
+        payload = r.json()
+        probes.extend(payload.get("results", []))
+        url = payload.get("next")
+        params = None
+        if not url:
+            break
+    if not probes:
         return None
 
     matches: list[tuple[float, dict]] = []
-    for probe in r.json().get("results", []):
+    for probe in probes:
         ip = probe.get("address_v4")
         coords = (probe.get("geometry") or {}).get("coordinates")
         if not ip or not coords or len(coords) != 2:
@@ -145,14 +163,32 @@ def atlas_target_near_city(city: dict, max_distance_km: float = 100.0) -> dict |
     if not matches:
         return None
     matches.sort(key=lambda x: (x[0], not x[1].get("is_anchor", False)))
+    matches = matches[:_CITY_TARGET_CANDIDATES]
+
+    verification = "registry country unverified"
+    confidence = "medium"
+    rich = cymru_bulk_lookup_rich([probe["address_v4"] for _, probe in matches])
+    if rich:
+        wanted = country_code.upper()
+        validated = [
+            (distance, probe)
+            for distance, probe in matches
+            if (rich.get(probe["address_v4"], {}).get("country") or "").upper() == wanted
+        ]
+        if not validated:
+            return None
+        matches = validated
+        verification = "registry country verified"
+        confidence = "high"
+
     distance, probe = matches[0]
     return {
         "ip": probe["address_v4"],
         "origin": "atlas-city",
-        "confidence": "high",
+        "confidence": confidence,
         "reason": (
             f"nearest connected RIPE Atlas probe to {city['name']}, "
-            f"{city['country_code']} ({distance:.1f} km)"
+            f"{city['country_code']} ({distance:.1f} km) · {verification}"
         ),
         "distance_km": round(distance, 1),
         "asn": f"AS{probe.get('asn_v4')}" if probe.get("asn_v4") else None,

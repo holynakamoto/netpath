@@ -76,6 +76,25 @@ def count_probes_by_asn(probes: list[dict]) -> dict[int, int]:
     return counts
 
 
+def asns_by_country(probes: list[dict], country_code: str) -> dict[int, dict]:
+    """Build {asn: {"count", "networks"}} for connected probes in one country."""
+    wanted = country_code.upper()
+    out: dict[int, dict] = {}
+    for probe in probes:
+        location = probe.get("location", {})
+        if (location.get("country") or "").upper() != wanted:
+            continue
+        asn = location.get("asn")
+        if not isinstance(asn, int):
+            continue
+        entry = out.setdefault(asn, {"count": 0, "networks": []})
+        entry["count"] += 1
+        network = location.get("network")
+        if network and network not in entry["networks"]:
+            entry["networks"].append(network)
+    return out
+
+
 def coverage_by_country(probes: list[dict]) -> dict[str, int]:
     """Build {country_code: connected probe count} from a probe inventory."""
     coverage: dict[str, int] = {}

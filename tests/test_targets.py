@@ -141,9 +141,11 @@ def test_geocode_city_returns_first_result():
     assert result["lat"] == 32.08088
 
 
-def test_atlas_target_near_city_picks_nearest_ipv4_probe():
-    city = {"name": "Tel Aviv", "country_code": "IL", "lat": 32.08088, "lon": 34.78057}
-    resp = _response({
+_TEL_AVIV = {"name": "Tel Aviv", "country_code": "IL", "lat": 32.08088, "lon": 34.78057}
+
+
+def _atlas_probes_response() -> MagicMock:
+    return _response({
         "results": [
             {
                 "id": 1,
@@ -159,10 +161,75 @@ def test_atlas_target_near_city_picks_nearest_ipv4_probe():
             },
         ]
     })
-    with patch("netpath.targets.requests.get", return_value=resp):
-        result = targets.atlas_target_near_city(city)
+
+
+def test_atlas_target_near_city_picks_nearest_ipv4_probe():
+    with patch("netpath.targets.requests.get", return_value=_atlas_probes_response()), \
+         patch("netpath.targets.cymru_bulk_lookup_rich", return_value={
+             "192.0.2.20": {"country": "IL"},
+             "192.0.2.10": {"country": "IL"},
+         }):
+        result = targets.atlas_target_near_city(_TEL_AVIV)
 
     assert result["ip"] == "192.0.2.10"
     assert result["origin"] == "atlas-city"
     assert result["asn"] == "AS64510"
     assert result["distance_km"] < 1
+    assert result["confidence"] == "high"
+    assert "registry country verified" in result["reason"]
+
+
+def test_atlas_target_near_city_skips_probe_registered_in_another_country():
+    with patch("netpath.targets.requests.get", return_value=_atlas_probes_response()), \
+         patch("netpath.targets.cymru_bulk_lookup_rich", return_value={
+             "192.0.2.10": {"country": "AU"},
+             "192.0.2.20": {"country": "IL"},
+         }):
+        result = targets.atlas_target_near_city(_TEL_AVIV)
+
+    assert result["ip"] == "192.0.2.20"
+    assert result["confidence"] == "high"
+
+
+def test_atlas_target_near_city_returns_none_when_no_probe_validates():
+    with patch("netpath.targets.requests.get", return_value=_atlas_probes_response()), \
+         patch("netpath.targets.cymru_bulk_lookup_rich", return_value={
+             "192.0.2.10": {"country": "AU"},
+             "192.0.2.20": {"country": "AU"},
+         }):
+        result = targets.atlas_target_near_city(_TEL_AVIV)
+
+    assert result is None
+
+
+def test_atlas_target_near_city_falls_back_unverified_when_cymru_fails():
+    with patch("netpath.targets.requests.get", return_value=_atlas_probes_response()), \
+         patch("netpath.targets.cymru_bulk_lookup_rich", return_value={}):
+        result = targets.atlas_target_near_city(_TEL_AVIV)
+
+    assert result["ip"] == "192.0.2.10"
+    assert result["confidence"] == "medium"
+    assert "registry country unverified" in result["reason"]
+
+
+def test_atlas_target_near_city_follows_pagination():
+    first = _response({
+        "results": [{
+            "id": 1,
+            "address_v4": "192.0.2.20",
+            "asn_v4": 64520,
+            "geometry": {"coordinates": [35.0, 32.5]},
+        }],
+        "next": "https://atlas.ripe.net/api/v2/probes/?page=2",
+    })
+    second = _atlas_probes_response()
+    with patch("netpath.targets.requests.get", side_effect=[first, second]) as get, \
+         patch("netpath.targets.cymru_bulk_lookup_rich", return_value={
+             "192.0.2.20": {"country": "IL"},
+             "192.0.2.10": {"country": "IL"},
+         }):
+        result = targets.atlas_target_near_city(_TEL_AVIV)
+
+    assert get.call_count == 2
+    assert get.call_args.args[0] == "https://atlas.ripe.net/api/v2/probes/?page=2"
+    assert result["ip"] == "192.0.2.10"

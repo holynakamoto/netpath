@@ -117,6 +117,46 @@ def cymru_bulk_lookup_rich(ips: list[str], timeout: int = 30) -> dict[str, dict]
     return result
 
 
+def cymru_bulk_asn_lookup(asns: list[str], timeout: int = 30) -> dict[str, dict]:
+    """
+    Bulk Cymru whois for AS numbers.
+    Response format: AS | CC | Registry | Allocated | AS Name
+    Returns {"AS15169": {"country": "US", "registry": "arin", "name": "GOOGLE - Google LLC"}}.
+    """
+    tokens = [normalize_asn(str(asn)) for asn in asns]
+    if not tokens:
+        return {}
+    try:
+        response = _cymru_query(tokens, timeout)
+    except OSError:
+        try:
+            time.sleep(1)
+            response = _cymru_query(tokens, timeout)
+        except OSError as exc:
+            warnings.warn(f"Cymru ASN lookup failed after retry: {exc}")
+            return {}
+
+    result: dict[str, dict] = {}
+    for line in response.splitlines():
+        line = line.strip()
+        if not line or line.startswith("Bulk") or "|" not in line:
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) < 2:
+            continue
+        asn_num  = parts[0]
+        country  = parts[1] if len(parts) > 1 else ""
+        registry = parts[2] if len(parts) > 2 else ""
+        name     = parts[4].split(",")[0].strip() if len(parts) > 4 else ""
+        if asn_num and asn_num not in ("NA", ""):
+            result[f"AS{asn_num}"] = {
+                "country":  country,
+                "registry": registry,
+                "name":     name,
+            }
+    return result
+
+
 def normalize_asn(asn: str) -> str:
     asn = asn.upper().strip()
     if not asn.startswith("AS"):

@@ -123,6 +123,22 @@ def test_coverage_by_country_empty_inventory():
     assert coverage_by_country([]) == {}
 
 
+def test_asns_by_country_aggregates_counts_and_networks():
+    """asns_by_country() groups one country's probes by ASN with network names."""
+    from netpath.globalping import asns_by_country
+    probes = [
+        {"location": {"asn": 64500, "country": "US", "network": "ExampleNet"}},
+        {"location": {"asn": 64500, "country": "US", "network": "ExampleNet"}},
+        {"location": {"asn": 38195, "country": "us", "network": "Superloop"}},
+        {"location": {"asn": 64501, "country": "DE", "network": "Other"}},
+        {"location": {"country": "US"}},
+    ]
+    assert asns_by_country(probes, "us") == {
+        64500: {"count": 2, "networks": ["ExampleNet"]},
+        38195: {"count": 1, "networks": ["Superloop"]},
+    }
+
+
 # --- schedule_measurements ---
 
 def test_schedule_measurements_posts_ping_and_mtr():

@@ -605,3 +605,33 @@ def test_monitor_reports_regression_and_can_fail(tmp_path):
     assert "AS path changed" in result.output
     assert "RTT regression" in result.output
     assert "Packet loss increased" in result.output
+
+
+def test_coverage_country_validates_asns_against_registry():
+    probes = [
+        {"location": {"country": "US", "asn": 64500, "network": "ExampleNet"}},
+        {"location": {"country": "US", "asn": 64500, "network": "ExampleNet"}},
+        {"location": {"country": "US", "asn": 38195, "network": "Superloop"}},
+        {"location": {"country": "DE", "asn": 64501, "network": "Elsewhere"}},
+    ]
+    with patch("netpath.cli.globalping_mod.fetch_probes", return_value=probes), \
+         patch("netpath.cli.cymru_bulk_asn_lookup", return_value={
+             "AS64500": {"country": "US", "registry": "arin", "name": "EXAMPLE"},
+             "AS38195": {"country": "AU", "registry": "apnic", "name": "SUPERLOOP-AS-AP"},
+         }) as lookup:
+        result = CliRunner().invoke(cli.app, ["coverage", "--country", "us"])
+
+    assert result.exit_code == 0
+    assert sorted(lookup.call_args.args[0]) == ["AS38195", "AS64500"]
+    assert "AS64500" in result.output
+    assert "AS64501" not in result.output
+    assert "1 registry country mismatch" in result.output
+    assert "1 registry-verified" in result.output
+
+
+def test_coverage_country_with_no_probes_exits_nonzero():
+    with patch("netpath.cli.globalping_mod.fetch_probes", return_value=[]):
+        result = CliRunner().invoke(cli.app, ["coverage", "--country", "ZZ"])
+
+    assert result.exit_code == 1
+    assert "No connected Globalping probes" in result.output

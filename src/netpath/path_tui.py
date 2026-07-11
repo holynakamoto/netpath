@@ -60,7 +60,7 @@ _MODE_FIELDS = {
     "country": ("Country code", "Number of ASNs (optional)"),
     "monitor": ("Target ASN", "Exact hostname or IP (optional)"),
     "target": ("Target ASN", "Preferred target IP (optional)"),
-    "coverage": ("Number of countries (default 50)", ""),
+    "coverage": ("Top-N countries (default 50), or a country code to validate its ASNs", ""),
     "serve": ("Optional: advertised hostname/IP", "Optional: port (default 5201)"),
     "capture": ("Describe what to capture", ""),
 }
@@ -128,7 +128,8 @@ _MODE_COPY = {
     ),
     "coverage": (
         "Inspect remote probe coverage",
-        "See where connected Globalping probes can provide independent evidence.",
+        "See where connected Globalping probes can provide independent evidence. "
+        "Enter a country code to validate every ASN covered there against the registry.",
         "Fetch  ›  rank coverage",
         "Load coverage",
     ),
@@ -150,7 +151,7 @@ _MODE_LABELS = {
     "country": ("Country", "ASN count"),
     "monitor": ("Target ASN", "Exact target"),
     "target": ("Target ASN", "Preferred IP"),
-    "coverage": ("Country count", ""),
+    "coverage": ("Count or country", ""),
     "serve": ("Advertised host", "Port"),
     "capture": ("Capture request", ""),
 }
@@ -272,7 +273,10 @@ def build_command(mode: str, primary: str, secondary: str = "") -> list[str]:
         if secondary:
             command.extend(["--target", secondary])
     elif mode == "coverage":
-        command.extend(["coverage", "--top", primary or "50"])
+        if primary and not primary.isdigit():
+            command.extend(["coverage", "--country", primary])
+        else:
+            command.extend(["coverage", "--top", primary or "50"])
     elif mode == "serve":
         command.extend(["serve", "--setup-only", "--no-register-local"])
         if primary:
