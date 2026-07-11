@@ -326,6 +326,20 @@ def test_export_shortcut_works_while_target_input_has_focus():
     asyncio.run(exercise())
 
 
+def test_diagnose_without_snapshot_passes_no_baseline():
+    async def exercise():
+        app = PathTui()
+        async with app.run_test(size=(100, 30)) as pilot:
+            app.query_one("#source", Input).value = "google.com"
+            with patch.object(app, "run_structured_command") as run:
+                app.action_run_measurement()
+                await pilot.pause()
+            mode, source, destination, baseline, run_id = run.call_args.args
+            assert baseline == ""
+
+    asyncio.run(exercise())
+
+
 def test_cancelled_run_cannot_overwrite_or_finish_a_new_run():
     async def exercise():
         app = PathTui()

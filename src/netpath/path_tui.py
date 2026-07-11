@@ -602,7 +602,7 @@ class PathTui(App[None]):
         self.workers.cancel_all()
 
     def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id == "mode" and event.value is not Select.BLANK:
+        if event.select.id == "mode" and event.value is not Select.NULL:
             mode = str(event.value)
             if mode != self.active_mode:
                 self._switch_mode(mode)
@@ -665,7 +665,7 @@ class PathTui(App[None]):
         source = self.query_one("#source", Input).value.strip()
         destination = self.query_one("#destination", Input).value.strip()
         baseline_value = self.query_one("#baseline", Select).value
-        baseline = "" if baseline_value is Select.BLANK else str(baseline_value)
+        baseline = "" if baseline_value is Select.NULL else str(baseline_value)
         if mode == "dns":
             destination = str(self.query_one("#record-type", Select).value)
 
