@@ -1,6 +1,7 @@
 import json
 
 from netpath.cli_json import _apply_path_json_contract
+from netpath.dns import summarize_public_resolver_rows
 from netpath.investigation import from_payload, render_markdown, save_bundle
 
 
@@ -87,7 +88,7 @@ def test_from_payload_infers_dns_disagreement_and_resolver_evidence():
     assert result.verdict == "Propagation differs"
     assert result.severity == "warning"
     assert result.culprit == "DNS propagation"
-    assert ("Propagation", "50%") in result.metrics
+    assert ("Agreement", "50%") in result.metrics
     assert len(result.path) == 2
     assert any("Cloudflare returned 198.51.100.20" in item for item in result.evidence)
     assert "TTL" in result.recommendation
@@ -112,11 +113,55 @@ def test_from_payload_marks_consistent_dns_answers_healthy():
 
     result = from_payload("dns", "example.com", payload)
 
-    assert result.verdict == "Healthy"
+    assert result.verdict == "DNS consistent"
     assert result.severity == "ok"
     assert result.confidence == "high"
     assert result.culprit == "none"
-    assert "All 3 responding resolvers" in result.evidence[-1]
+    assert "No conflicting answer was found across 3 usable responses" in result.evidence[-1]
+
+
+def test_dns_empty_response_is_an_exception_not_a_conflicting_answer_group():
+    rows = [
+        {
+            "name": "Google",
+            "status": "ok",
+            "values": ["216.198.79.1"],
+            "elapsed_ms": 24,
+        },
+        {
+            "name": "Cloudflare",
+            "status": "ok",
+            "values": ["216.198.79.1"],
+            "elapsed_ms": 30,
+        },
+        {
+            "name": "Bezeq Intl",
+            "status": "none",
+            "values": [],
+            "elapsed_ms": 1842,
+        },
+    ]
+    summary = summarize_public_resolver_rows(rows)
+
+    assert summary["responding"] == 3
+    assert summary["usable"] == 2
+    assert summary["agree"] == 2
+    assert summary["groups"] == 1
+    assert summary["none"] == 1
+
+    result = from_payload(
+        "dns",
+        "dave.io",
+        {"record_type": "A", "summary": summary, "resolvers": rows},
+    )
+
+    assert result.verdict == "Mostly consistent"
+    assert result.severity == "ok"
+    assert result.confidence == "medium"
+    assert "No conflicting record was confirmed" in result.detail
+    assert "Bezeq Intl: no answer" in result.evidence[1]
+    assert ("Exceptions", "1") in result.metrics
+    assert "one TTL" not in result.recommendation
 
 
 def test_from_payload_normalizes_aspath_hop_points_and_metrics():

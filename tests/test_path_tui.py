@@ -9,7 +9,7 @@ import os
 import pytest
 from textual.widgets import DataTable, Input, Static, TabbedContent
 
-from netpath import local_capture
+from netpath import dns as dns_mod, local_capture
 from netpath.investigation import from_payload
 from netpath.path_tui import (
     CaptureConfirmation,
@@ -225,6 +225,68 @@ def test_structured_result_renders_verdict_evidence_and_path_natively():
             assert "api.example.com" in verdict
             assert "Remote loss was 2.0%" in findings
             assert app.query_one("#hops", DataTable).row_count == 1
+
+    asyncio.run(exercise())
+
+
+def test_dns_result_is_compact_and_separates_exceptions_from_conflicts():
+    rows = [
+        {
+            "name": "Google",
+            "location": "Anycast",
+            "status": "ok",
+            "values": ["216.198.79.1"],
+            "elapsed_ms": 24,
+            "min_ttl": 60,
+        },
+        {
+            "name": "Cloudflare",
+            "location": "Anycast",
+            "status": "ok",
+            "values": ["216.198.79.1"],
+            "elapsed_ms": 30,
+            "min_ttl": 55,
+        },
+        {
+            "name": "Bezeq Intl",
+            "location": "Israel",
+            "status": "none",
+            "values": [],
+            "elapsed_ms": 1842,
+            "min_ttl": None,
+        },
+    ]
+    payload = {
+        "domain": "dave.io",
+        "record_type": "A",
+        "summary": dns_mod.summarize_public_resolver_rows(rows),
+        "resolvers": rows,
+    }
+
+    async def exercise():
+        app = PathTui(mode="dns", source="dave.io", destination="A")
+        async with app.run_test(size=(140, 32)) as pilot:
+            app._apply_investigation(from_payload("dns", "dave.io", payload))
+            await pilot.pause()
+
+            verdict = app.query_one("#verdict", Static).render().plain
+            findings = app.query_one("#findings", Static).render().plain
+            table = app.query_one("#hops", DataTable)
+            assert "MOSTLY CONSISTENT" in verdict
+            assert "Assessment  resolver exception" in verdict
+            assert "dave.io · A · 3 resolvers" in verdict
+            assert not app.query_one("#form").display
+            assert "ASSESSMENT" in findings
+            assert "No conflicting record was confirmed" in findings
+            assert "WHY WE THINK THIS" not in findings
+            assert app.query_one("#tabs", TabbedContent).get_tab("path-tab").label.plain == "Resolvers"
+            assert table.row_count == 3
+            assert table.get_row_at(0)[0] == "Bezeq Intl"
+            assert table.get_row_at(0)[2].plain == "NO ANSWER"
+
+            await pilot.press("escape")
+            await pilot.pause()
+            assert app.query_one("#form").display
 
     asyncio.run(exercise())
 

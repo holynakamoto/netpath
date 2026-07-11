@@ -373,10 +373,6 @@ def query_public_resolvers(
 def _answer_key(row: dict) -> tuple[str, ...] | None:
     if row.get("status") == "ok":
         return tuple(row.get("values") or ())
-    if row.get("status") == "none":
-        return ("<none>",)
-    if row.get("status") == "servfail":
-        return ("<servfail>",)
     return None
 
 
@@ -387,15 +383,20 @@ def summarize_public_resolver_rows(rows: list[dict]) -> dict:
     if counts:
         majority_key = counts.most_common(1)[0][0]
     majority_rows = [key == majority_key and key is not None for key in keys]
-    responding = sum(1 for key in keys if key is not None)
+    # Only concrete record sets participate in propagation agreement.  Empty,
+    # SERVFAIL, and transport-error outcomes are resolver availability
+    # exceptions, not alternate DNS answers.
+    usable = sum(1 for key in keys if key is not None)
+    responding = sum(1 for row in rows if row.get("status") != "error")
     agree = sum(majority_rows)
     total = len(rows)
     return {
         "total": total,
         "done": total,
         "responding": responding,
+        "usable": usable,
         "agree": agree,
-        "percentage": round((agree / responding) * 100.0) if responding else 0,
+        "percentage": round((agree / usable) * 100.0) if usable else 0,
         "errors": sum(1 for row in rows if row.get("status") == "error"),
         "none": sum(1 for row in rows if row.get("status") == "none"),
         "servfail": sum(1 for row in rows if row.get("status") == "servfail"),

@@ -469,6 +469,7 @@ class PathTui(App[None]):
         self.narrow_layout = False
         self.showing_outcome = False
         self.outcome_available = False
+        self.outcome_time = ""
         self.process: subprocess.Popen[str] | None = None
 
     def compose(self) -> ComposeResult:
@@ -574,8 +575,7 @@ class PathTui(App[None]):
     def on_mount(self) -> None:
         candidates = self.query_one("#candidates", DataTable)
         candidates.add_columns("#", "RTT", "State", "Vantage", "AS path")
-        hops = self.query_one("#hops", DataTable)
-        hops.add_columns("Hop", "Latency", "Loss", "Endpoint", "Network", "Context")
+        self._configure_detail_table(self.initial_mode)
         self._refresh_baselines()
         self._update_placeholders(self.initial_mode)
         self.query_one("#mode", Select).border_title = "Workspace"
@@ -591,7 +591,7 @@ class PathTui(App[None]):
         self._update_result_density()
 
     def _update_result_density(self) -> None:
-        compact_result = self.narrow_layout and self.showing_outcome
+        compact_result = self.showing_outcome
         self.query_one("#mode", Select).display = self.narrow_layout and not compact_result
         self.query_one("#form").display = not compact_result
         self.query_one("#status", Static).display = not compact_result
@@ -1184,6 +1184,7 @@ class PathTui(App[None]):
         run_id = self.run_generation
         self.showing_outcome = False
         self.outcome_available = False
+        self.outcome_time = ""
         self.result = None
         self.investigation_result = None
         self.query_one("#candidates", DataTable).clear()
@@ -1259,13 +1260,15 @@ class PathTui(App[None]):
     def _apply_investigation(self, view: investigation.InvestigationResult) -> None:
         self.showing_outcome = True
         self.outcome_available = True
+        if not self.outcome_time:
+            self.outcome_time = f"{datetime.now():%H:%M:%S}"
         self.investigation_result = view
         self._set_verdict(
             view.verdict,
             view.severity,
             view.culprit,
             view.confidence,
-            view.recommendation,
+            "" if view.mode == "dns" else view.recommendation,
             self._sample_context(view),
         )
         self.query_one("#findings", Static).update(self._findings_text(view))
@@ -1384,6 +1387,9 @@ class PathTui(App[None]):
         return False
 
     def _render_path_rows(self, rows: list[dict]) -> None:
+        if self.active_mode == "dns":
+            self._render_dns_rows(rows)
+            return
         table = self.query_one("#hops", DataTable)
         table.clear()
         rows = list(rows)
@@ -1444,6 +1450,46 @@ class PathTui(App[None]):
                 Text("ICMP TTL-exceeded filtered beyond this point", style="dim"),
             )
 
+    def _render_dns_rows(self, rows: list[dict]) -> None:
+        table = self.query_one("#hops", DataTable)
+        table.clear()
+        summary = (self.investigation_result.raw.get("summary") or {}) if self.investigation_result else {}
+        majority_rows = summary.get("majority_rows") or []
+        indexed = list(enumerate(rows))
+
+        def rank(item: tuple[int, dict]) -> int:
+            index, row = item
+            if row.get("status") != "ok":
+                return 0
+            return 2 if index < len(majority_rows) and majority_rows[index] else 1
+
+        for index, row in sorted(indexed, key=rank):
+            status = str(row.get("status") or "unknown").lower()
+            agrees = index < len(majority_rows) and bool(majority_rows[index])
+            if status == "none":
+                result = Text("NO ANSWER", style="bold yellow")
+            elif status == "servfail":
+                result = Text("SERVFAIL", style="bold red")
+            elif status == "error":
+                result = Text("ERROR", style="bold red")
+            elif agrees:
+                result = Text("AGREES", style="bold green")
+            else:
+                result = Text("DIFFERS", style="bold magenta")
+            answer = ", ".join(str(value) for value in row.get("values") or [])
+            if not answer:
+                answer = str(row.get("error") or row.get("dns_status") or "—")
+            elapsed = row.get("elapsed_ms")
+            ttl = row.get("min_ttl")
+            table.add_row(
+                str(row.get("name") or row.get("ip") or "resolver"),
+                str(row.get("location") or "—"),
+                result,
+                answer,
+                f"{float(elapsed):.0f} ms" if elapsed is not None else "—",
+                str(ttl) if ttl is not None else "—",
+            )
+
     def _switch_mode(self, mode: str) -> None:
         if self.running or mode == self.active_mode:
             return
@@ -1462,6 +1508,7 @@ class PathTui(App[None]):
     def _clear_result(self) -> None:
         self.showing_outcome = False
         self.outcome_available = False
+        self.outcome_time = ""
         self.result = None
         self.investigation_result = None
         self.selected_candidate = 0
@@ -1501,6 +1548,7 @@ class PathTui(App[None]):
         baseline.set_class(mode != "explain", "hidden")
         self.query_one("#planner", Select).set_class(mode != "capture", "hidden")
         self.query_one("#globe", Button).set_class(mode not in _PATH_MODES, "hidden")
+        self._configure_detail_table(mode)
         self.query_one("#run", Button).label = action
         self.query_one("#form-title", Static).update(title)
         self.query_one("#form-help", Static).update(help_text)
@@ -1520,6 +1568,17 @@ class PathTui(App[None]):
         else:
             message = help_text
         self._set_status(message)
+
+    def _configure_detail_table(self, mode: str) -> None:
+        table = self.query_one("#hops", DataTable)
+        table.clear(columns=True)
+        tab = self.query_one("#tabs", TabbedContent).get_tab("path-tab")
+        if mode == "dns":
+            tab.label = "Resolvers"
+            table.add_columns("Resolver", "Region", "Result", "Answer", "RTT", "TTL")
+        else:
+            tab.label = "Path"
+            table.add_columns("Hop", "Latency", "Loss", "Endpoint", "Network", "Context")
 
     def _refresh_baselines(self, select_newest: bool = False) -> None:
         select = self.query_one("#baseline", Select)
@@ -1546,8 +1605,15 @@ class PathTui(App[None]):
         }.get(severity, "#a9c0c7")
         text = Text()
         text.append(f"{verdict.upper()}\n", style=f"bold {color}")
-        text.append("Likely owner  ", style="dim")
-        text.append(culprit or "undetermined", style="bold")
+        if self.active_mode == "dns":
+            text.append("Assessment  ", style="dim")
+            text.append(
+                "no propagation fault" if culprit == "none" else culprit,
+                style="bold",
+            )
+        else:
+            text.append("Likely owner  ", style="dim")
+            text.append(culprit or "undetermined", style="bold")
         text.append("    Confidence  ", style="dim")
         text.append(confidence or "unknown", style="bold")
         widget = self.query_one("#verdict", Static)
@@ -1617,6 +1683,16 @@ class PathTui(App[None]):
 
     def _findings_text(self, view: investigation.InvestigationResult) -> Text:
         text = Text()
+        if view.mode == "dns":
+            text.append("ASSESSMENT\n", style="bold #6fd6e7")
+            text.append(f"{view.detail}\n\n")
+            text.append("EVIDENCE\n", style="bold #6fd6e7")
+            for item in view.evidence[:5]:
+                text.append("• ", style="#6fd6e7")
+                text.append(f"{item}\n")
+            text.append("\nNEXT\n", style="bold #6fd6e7")
+            text.append(view.recommendation)
+            return text
         if view.detail:
             text.append("WHAT HAPPENED\n", style="bold #6fd6e7")
             text.append(f"{view.detail}\n\n")
@@ -1658,8 +1734,16 @@ class PathTui(App[None]):
         view: investigation.InvestigationResult,
         candidate: dict | None = None,
     ) -> str:
+        if view.mode == "dns":
+            raw = view.raw
+            record_type = raw.get("record_type") or "record"
+            total = (raw.get("summary") or {}).get("total")
+            count = f" · {total} resolvers" if total is not None else ""
+            stamp = f" · {self.outcome_time}" if self.outcome_time else ""
+            return f"{view.target} · {record_type}{count}{stamp}"
         if view.mode not in _PATH_MODES:
-            return f"Target  {view.target}" if view.target else ""
+            stamp = f" · {self.outcome_time}" if self.outcome_time else ""
+            return f"Target  {view.target}{stamp}" if view.target else ""
         raw = view.raw
         candidate = candidate or raw.get("optimal_path") or next(
             iter(raw.get("candidates") or []), {}

@@ -291,27 +291,19 @@ def _from_dns(
     groups = _integer(summary.get("groups"))
     none_count = _integer(summary.get("none"))
     servfail = _integer(summary.get("servfail"))
+    usable_value = summary.get("usable")
+    usable = (
+        _integer(usable_value)
+        if usable_value is not None
+        else max(0, responding - none_count - servfail)
+    )
     percentage_value = summary.get("percentage")
     if percentage_value is None:
-        percentage = round((agree / responding) * 100) if responding else 0
+        percentage = round((agree / usable) * 100) if usable else 0
     else:
         percentage = _number(percentage_value)
-    healthy = (
-        responding > 0
-        and agree == responding
-        and errors == 0
-        and groups <= 1
-        and none_count == 0
-        and servfail == 0
-    )
-    verdict = "Healthy" if healthy else "Propagation differs"
-    severity = "ok" if healthy else ("critical" if responding == 0 else "warning")
-    confidence = "low" if responding == 0 else ("high" if responding >= 3 else "medium")
-    culprit = "none" if healthy else "DNS propagation"
-    detail = (
-        f"{agree}/{responding} responding resolvers agree ({_format_number(percentage)}%); "
-        f"{errors} unreachable and {groups} answer group(s)."
-    )
+    exception_count = errors + none_count + servfail
+    exception_resolvers = f"{exception_count} resolver{'s' if exception_count != 1 else ''}"
 
     majority_values = _values(summary.get("majority_values"))
     evidence: List[str] = []
@@ -320,12 +312,17 @@ def _from_dns(
     majority_rows = summary.get("majority_rows")
     row_agreement = majority_rows if isinstance(majority_rows, (list, tuple)) else []
     differing: List[str] = []
-    unreachable: List[str] = []
+    exceptions: List[str] = []
     for index, row in enumerate(resolvers):
         name = _text(row.get("name") or row.get("ip"), f"resolver {index + 1}")
         status = _text(row.get("status"), "unknown").lower()
         if status in {"error", "servfail", "none"}:
-            unreachable.append(f"{name} ({status})")
+            label = {
+                "none": "no answer",
+                "servfail": "SERVFAIL",
+                "error": "query error",
+            }[status]
+            exceptions.append(f"{name}: {label}")
             continue
         if index < len(row_agreement):
             agrees = bool(row_agreement[index])
@@ -334,37 +331,94 @@ def _from_dns(
         if not agrees:
             answer = ", ".join(_values(row.get("values"))) or "no answer"
             differing.append(f"{name} returned {answer}")
-    if differing:
-        evidence.append("Different answers: " + "; ".join(differing))
-    if unreachable:
-        evidence.append("Unreachable or empty: " + "; ".join(unreachable))
-    if healthy:
-        evidence.append(
-            f"All {responding} responding resolvers returned the majority answer."
+
+    has_conflict = groups > 1 or bool(differing)
+    if usable == 0:
+        if none_count and not errors and not servfail:
+            verdict = "No record returned"
+            severity = "warning"
+            confidence = "high" if none_count >= 3 else "medium"
+            culprit = "DNS record"
+            detail = (
+                f"{none_count} resolver{'s' if none_count != 1 else ''} responded "
+                "without a usable record value."
+            )
+        else:
+            verdict = "No usable DNS answers"
+            severity = "critical"
+            confidence = "low"
+            culprit = "DNS resolution"
+            detail = (
+                f"No resolver returned a usable record set; {exception_resolvers} "
+                "reported an exception."
+            )
+    elif has_conflict:
+        verdict = "Propagation differs"
+        severity = "warning"
+        confidence = "high" if len(differing) >= 2 and usable >= 3 else "medium"
+        culprit = "DNS propagation"
+        detail = (
+            f"{agree}/{usable} usable answers match the majority "
+            f"({_format_number(percentage)}%); {len(differing)} "
+            f"resolver{'s' if len(differing) != 1 else ''} returned "
+            "a conflicting record set."
         )
+    elif exception_count:
+        verdict = "Mostly consistent"
+        severity = "ok"
+        confidence = "high" if usable >= 3 else "medium"
+        culprit = "resolver exception"
+        detail = (
+            f"All {usable} usable answers agree; {exception_resolvers} "
+            "returned no usable answer. No conflicting record was confirmed."
+        )
+    else:
+        verdict = "DNS consistent"
+        severity = "ok"
+        confidence = "high" if usable >= 3 else "medium"
+        culprit = "none"
+        detail = f"All {usable} usable resolver answers agree."
+
+    if differing:
+        evidence.append("Conflicting answers: " + "; ".join(differing))
+    if exceptions:
+        evidence.append("Resolver exceptions: " + "; ".join(exceptions))
+    if not has_conflict and usable:
+        evidence.append(f"No conflicting answer was found across {usable} usable responses.")
     if not evidence:
         evidence.append("No usable resolver responses were returned.")
 
-    if responding == 0:
+    if usable == 0:
+        if none_count and not errors and not servfail:
+            recommendation = (
+                "Confirm that the requested record type exists at the authoritative "
+                "nameservers, then retry."
+            )
+        else:
+            recommendation = (
+                "Verify network access and authoritative DNS availability, then retry the "
+                "resolver checks."
+            )
+    elif has_conflict:
         recommendation = (
-            "Verify network access and authoritative DNS availability, then retry the "
-            "resolver checks."
+            "Confirm the authoritative record and compare TTLs for the conflicting resolvers; "
+            "rerun after one TTL before escalating propagation."
         )
-    elif healthy:
+    elif exception_count:
         recommendation = (
-            "No DNS propagation issue was detected; continue monitoring if user reports persist."
+            "Retry the resolver exceptions and check the authoritative nameservers. Escalate "
+            "only if a resolver repeatedly returns a conflicting record."
         )
     else:
         recommendation = (
-            "Confirm the authoritative records, allow at least one TTL for caches to expire, "
-            "and rerun the propagation check."
+            "No DNS propagation issue was detected; continue monitoring if user reports persist."
         )
 
     metrics: List[Tuple[str, str]] = [
-        ("Propagation", f"{_format_number(percentage)}%"),
-        ("Responding", str(responding)),
+        ("Agreement", f"{_format_number(percentage)}%"),
+        ("Usable answers", str(usable)),
         ("Answer groups", str(groups)),
-        ("Errors", str(errors)),
+        ("Exceptions", str(exception_count)),
     ]
     record_type = payload.get("record_type")
     if record_type:

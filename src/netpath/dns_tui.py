@@ -163,9 +163,10 @@ class DnsTui(App[None]):
         self.query_one("#resolver-map", Static).update(self._map_text())
         self.query_one("#majority", Static).update(self._majority_text())
         self._set_status(
-            f"propagation {self.summary['agree']}/{self.summary['responding']} "
+            f"usable answers {self.summary['agree']}/{self.summary['usable']} agree "
             f"({self.summary['percentage']}%) · {self.summary['errors']} unreachable · "
-            f"{self.summary['groups']} answer group(s) · refreshed {datetime.now().strftime('%H:%M:%S')}"
+            f"{self.summary['none'] + self.summary['servfail']} empty/failed · "
+            f"{self.summary['groups']} record group(s) · refreshed {datetime.now().strftime('%H:%M:%S')}"
         )
 
     def _render_table(self) -> None:

@@ -204,6 +204,10 @@ def _resolver_map(rows: list[dict], majority_rows: list[bool]) -> Panel:
 
 
 def dns_propagation(domain: str, record_type: str, rows: list[dict], summary: dict) -> None:
+    usable = summary.get(
+        "usable",
+        max(0, summary["responding"] - summary["none"] - summary["servfail"]),
+    )
     type_labels = "   ".join(
         f"[black on cyan bold] {rtype} [/]" if rtype == record_type else f"[dim] {rtype} [/]"
         for rtype in ("A", "AAAA", "CNAME", "MX", "NS", "TXT", "SOA")
@@ -218,10 +222,10 @@ def dns_propagation(domain: str, record_type: str, rows: list[dict], summary: di
     )
     console.print(
         "[cyan]━[/cyan] "
-        f"propagation [bold]{summary['agree']}/{summary['responding']}[/bold] "
+        f"usable answers [bold]{summary['agree']}/{usable}[/bold] agree "
         f"({summary['percentage']}%)"
-        f" · {summary['errors']} unreachable"
-        f" · {summary['groups']} answer group(s)"
+        f" · {summary['none'] + summary['servfail'] + summary['errors']} exception(s)"
+        f" · {summary['groups']} record group(s)"
     )
 
     table = Table(
@@ -266,7 +270,7 @@ def dns_propagation(domain: str, record_type: str, rows: list[dict], summary: di
     console.print(Panel(majority_text, border_style="cyan", expand=False))
     console.print(
         f"[bold]{domain} {record_type}:[/bold] "
-        f"{summary['responding'] - summary['none'] - summary['servfail']} ok"
+        f"{usable} usable"
         f" · {summary['none']} none · {summary['servfail']} servfail · {summary['errors']} err"
     )
 
