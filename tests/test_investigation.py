@@ -197,6 +197,32 @@ def test_from_payload_does_not_call_an_all_partial_path_reachable():
     assert "0 entered the destination ASN" in result.evidence[0]
 
 
+def test_trailing_unanswered_hops_collapse_in_markdown_and_metrics():
+    payload = {
+        "severity": "ok",
+        "path": [
+            {"hop": 1, "host": "192.168.1.1", "asn": "AS???", "avg_ms": 24.9, "loss_pct": 0.0},
+            {"hop": 2, "host": "???", "asn": "AS???", "avg_ms": 0.0, "loss_pct": 100.0},
+            {"hop": 3, "host": "206.224.66.82", "asn": "AS14593", "avg_ms": 32.5, "loss_pct": 0.0},
+        ]
+        + [
+            {"hop": hop, "host": "???", "asn": "AS???", "avg_ms": 0.0, "loss_pct": 100.0}
+            for hop in range(4, 31)
+        ],
+    }
+
+    result = from_payload("host", "dave.io", payload)
+
+    assert ("Observed hops", "2") in result.metrics
+    assert ("Unanswered probes", "28") in result.metrics
+    assert ("Maximum loss", "100%") not in result.metrics
+
+    markdown = render_markdown(result)
+    assert "+ 27 hops with no reply" in markdown
+    assert "* * *" in markdown  # the mid-path unanswered hop stays visible
+    assert "???" not in markdown
+
+
 def test_render_and_save_bundle_are_useful_valid_and_redacted(tmp_path):
     secret = "super-secret-token"
     cookie_secret = "session-very-secret"

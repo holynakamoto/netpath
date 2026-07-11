@@ -335,6 +335,14 @@ def parse_json_output(output: str) -> dict:
     return payload
 
 
+def _row_endpoint_known(row: dict) -> bool:
+    """True when a path row identifies its hop by name, address, or label."""
+    return any(
+        row.get(key) not in (None, "", "???")
+        for key in ("name", "host", "ip", "label")
+    )
+
+
 class PathTui(App[None]):
     """Diagnosis-first incident workbench backed by netpath's existing probes."""
 
@@ -1378,7 +1386,23 @@ class PathTui(App[None]):
     def _render_path_rows(self, rows: list[dict]) -> None:
         table = self.query_one("#hops", DataTable)
         table.clear()
+        rows = list(rows)
+        last_known = max(
+            (index for index, row in enumerate(rows) if _row_endpoint_known(row)),
+            default=-1,
+        )
+        trailing = len(rows) - last_known - 1
+        if trailing:
+            rows = rows[: last_known + 1]
+        dash = Text("—", style="dim")
         for index, row in enumerate(rows, 1):
+            hop = str(row.get("hop") or row.get("count") or index)
+            if not _row_endpoint_known(row):
+                table.add_row(
+                    hop, dash, dash, Text("* * *", style="dim"), dash,
+                    Text("no reply", style="dim"),
+                )
+                continue
             latency = row.get("avg_ms")
             if latency is None:
                 latency = row.get("rtt_ms")
@@ -1390,6 +1414,8 @@ class PathTui(App[None]):
             endpoint_parts = [row.get("name"), row.get("host") or row.get("ip")]
             endpoint = " · ".join(str(value) for value in endpoint_parts if value)
             network = row.get("asn") or row.get("ASN") or row.get("label") or "—"
+            if network in ("AS???", "???"):
+                network = "—"
             location = ", ".join(
                 str(value)
                 for value in (
@@ -1402,12 +1428,20 @@ class PathTui(App[None]):
             answers = ", ".join(str(value) for value in row.get("values") or [])
             context = " · ".join(value for value in (location, answers) if value)
             table.add_row(
-                str(row.get("hop") or row.get("count") or index),
+                hop,
                 f"{float(latency):.1f} ms" if latency is not None else "—",
                 f"{float(loss):.1f}%" if loss is not None else "—",
                 endpoint or row.get("label") or "—",
                 str(network),
                 context or str(row.get("status") or "—"),
+            )
+        if trailing:
+            plural = "s" if trailing != 1 else ""
+            table.add_row(
+                Text("…", style="dim"), dash, dash,
+                Text(f"+ {trailing} hop{plural} with no reply", style="dim"),
+                dash,
+                Text("ICMP TTL-exceeded filtered beyond this point", style="dim"),
             )
 
     def _switch_mode(self, mode: str) -> None:

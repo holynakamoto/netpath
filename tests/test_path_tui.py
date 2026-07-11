@@ -229,6 +229,42 @@ def test_structured_result_renders_verdict_evidence_and_path_natively():
     asyncio.run(exercise())
 
 
+def test_trace_table_collapses_trailing_unanswered_hops():
+    payload = {
+        "verdict": "Healthy",
+        "severity": "ok",
+        "confidence": "high",
+        "recommendation": "Keep monitoring.",
+        "path": [
+            {"hop": 1, "host": "192.168.1.1", "asn": "AS???", "avg_ms": 24.9, "loss_pct": 0.0},
+            {"hop": 2, "host": "???", "asn": "AS???", "avg_ms": 0.0, "loss_pct": 100.0},
+            {"hop": 3, "host": "206.224.66.82", "asn": "AS14593", "avg_ms": 32.5, "loss_pct": 0.0},
+        ]
+        + [
+            {"hop": hop, "host": "???", "asn": "AS???", "avg_ms": 0.0, "loss_pct": 100.0}
+            for hop in range(4, 31)
+        ],
+    }
+
+    async def exercise():
+        app = PathTui()
+        async with app.run_test(size=(100, 30)) as pilot:
+            app._apply_investigation(from_payload("host", "dave.io", payload))
+            await pilot.pause()
+            table = app.query_one("#hops", DataTable)
+            assert table.row_count == 4  # three probed hops plus the summary row
+            mid_path = [str(cell) for cell in table.get_row_at(1)]
+            assert "* * *" in mid_path
+            assert "no reply" in mid_path
+            assert "0.0 ms" not in mid_path
+            first = [str(cell) for cell in table.get_row_at(0)]
+            assert "AS???" not in first
+            summary = " ".join(str(cell) for cell in table.get_row_at(3))
+            assert "+ 27 hops with no reply" in summary
+
+    asyncio.run(exercise())
+
+
 def test_editing_inputs_invalidates_the_visible_result_and_export():
     payload = {
         "verdict": "Healthy",

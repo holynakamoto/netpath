@@ -14,7 +14,7 @@ import html
 import json
 from pathlib import Path
 import re
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 
 @dataclass(frozen=True)
@@ -159,6 +159,7 @@ def render_markdown(result: InvestigationResult) -> str:
         )
 
     if result.path:
+        path_rows, trailing = _trim_trailing_no_reply(result.path)
         lines.extend(
             [
                 "",
@@ -168,12 +169,18 @@ def render_markdown(result: InvestigationResult) -> str:
                 "| ---: | --- | --- | ---: | --- |",
             ]
         )
-        for index, row in enumerate(result.path, 1):
+        for index, row in enumerate(path_rows, 1):
             step, endpoint, network, latency, observation = _path_row(index, row)
             lines.append(
                 f"| {_markdown_cell(step)} | {_markdown_cell(endpoint)} | "
                 f"{_markdown_cell(network)} | {_markdown_cell(latency)} | "
                 f"{_markdown_cell(observation)} |"
+            )
+        if trailing:
+            plural = "s" if trailing != 1 else ""
+            lines.append(
+                f"| … | + {trailing} hop{plural} with no reply | — | — | "
+                "ICMP TTL-exceeded filtered beyond this point |"
             )
 
     lines.extend(
@@ -519,11 +526,15 @@ def _report_metrics(
         _add_metric(metrics, "Download", throughput.get("download_mbps"), "Mbps")
         _add_metric(metrics, "Upload", throughput.get("upload_mbps"), "Mbps")
     if path:
-        metrics.append(("Observed hops", str(len(path))))
+        responding = [row for row in path if _path_row_known(row)]
+        metrics.append(("Observed hops", str(len(responding))))
+        unanswered = len(path) - len(responding)
+        if unanswered:
+            metrics.append(("Unanswered probes", str(unanswered)))
         last_rtt = next(
             (
                 row.get("avg_ms") if row.get("avg_ms") is not None else row.get("rtt_ms")
-                for row in reversed(path)
+                for row in reversed(responding)
                 if row.get("avg_ms") is not None or row.get("rtt_ms") is not None
             ),
             None,
@@ -531,7 +542,7 @@ def _report_metrics(
         _add_metric(metrics, "Final RTT", last_rtt, "ms")
         losses = [
             _number(row.get("loss_pct"))
-            for row in path
+            for row in responding
             if row.get("loss_pct") is not None
         ]
         if losses:
@@ -614,8 +625,34 @@ def _default_recommendation(severity: str) -> str:
     return "Rerun to confirm the finding, then share the evidence with the suspected network owner."
 
 
+def _path_row_known(row: Mapping[str, Any]) -> bool:
+    """True when a path row identifies its hop by name, address, or label."""
+    return any(
+        _text(row.get(key)) not in ("", "???")
+        for key in ("name", "host", "ip", "label")
+    )
+
+
+def _trim_trailing_no_reply(
+    path: Sequence[Mapping[str, Any]],
+) -> Tuple[List[Mapping[str, Any]], int]:
+    """Split off the run of unidentified hops at the end of a path.
+
+    Returns ``(kept_rows, trailing_count)``; an all-unknown path keeps nothing.
+    """
+    rows = list(path)
+    last_known = max(
+        (index for index, row in enumerate(rows) if _path_row_known(row)),
+        default=-1,
+    )
+    trailing = len(rows) - last_known - 1
+    return rows[: last_known + 1], trailing
+
+
 def _path_row(index: int, row: Mapping[str, Any]) -> Tuple[str, str, str, str, str]:
     step = _text(row.get("hop") or row.get("count"), str(index))
+    if not _path_row_known(row):
+        return step, "* * *", "—", "—", "no reply"
     name = _text(row.get("name"))
     address = _text(row.get("host") or row.get("ip"))
     label = _text(row.get("label"))
@@ -625,6 +662,8 @@ def _path_row(index: int, row: Mapping[str, Any]) -> Tuple[str, str, str, str, s
         endpoint = name or address or label or "—"
 
     network = _text(row.get("asn") or row.get("ASN") or row.get("network"))
+    if network in ("AS???", "???"):
+        network = ""
     location = _text(row.get("location"))
     status = _text(row.get("status"))
     network_parts = [part for part in (network, location, status) if part]
