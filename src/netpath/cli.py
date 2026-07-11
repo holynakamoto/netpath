@@ -18,7 +18,7 @@ from netpath import display, dns as dns_mod, globalping as globalping_mod, globe
 from netpath import explain as explain_mod
 from netpath import monitor as monitor_mod
 from netpath import iperf as iperf_mod, mtr as mtr, paris as paris, serve as serve_mod, servers, speedtest, targets as targets_mod
-from netpath.asn import cymru_bulk_asn_lookup, normalize_asn
+from netpath.asn import normalize_asn
 from netpath.cli_json import _apply_path_json_contract, _worst_exit_code
 from netpath.cli_measurement import _fetch_rum, _merge_globalping_path_results
 from netpath.cli_monitor import _display_monitor_result, _parse_interval_seconds
@@ -1363,71 +1363,66 @@ _COUNTRY_NAMES: dict[str, str] = {
 }
 
 
-def _coverage_country_asns(probes: list, country_code: str) -> None:
-    """Render every ASN covered in one country, validated against Cymru."""
+def _coverage_country_payload(probes: list, country_code: str) -> dict:
+    """Return the connected-probe ASN inventory for one country."""
     asn_map = globalping_mod.asns_by_country(probes, country_code)
     if not asn_map:
-        display.warn(
-            f"No connected Globalping probes report country {country_code}."
-        )
+        return {
+            "country": country_code,
+            "country_name": _COUNTRY_NAMES.get(country_code, country_code),
+            "asn_count": 0,
+            "probe_count": 0,
+            "asns": [],
+        }
+    ranked = sorted(asn_map.items(), key=lambda x: (-x[1]["count"], x[0]))
+    rows = [
+        {
+            "asn": f"AS{asn}",
+            "probe_count": entry["count"],
+            "networks": entry["networks"],
+            "network": ", ".join(entry["networks"]) or "—",
+        }
+        for asn, entry in ranked
+    ]
+    return {
+        "country": country_code,
+        "country_name": _COUNTRY_NAMES.get(country_code, country_code),
+        "asn_count": len(rows),
+        "probe_count": sum(row["probe_count"] for row in rows),
+        "asns": rows,
+    }
+
+
+def _coverage_country_asns(probes: list, country_code: str) -> None:
+    """Render every ASN with a connected probe in one country."""
+    payload = _coverage_country_payload(probes, country_code)
+    if not payload["asns"]:
+        display.warn(f"No connected Globalping probes report country {country_code}.")
         raise typer.Exit(1)
 
-    registry = cymru_bulk_asn_lookup([f"AS{asn}" for asn in asn_map])
-    ranked = sorted(asn_map.items(), key=lambda x: (-x[1]["count"], x[0]))
-
-    country_name = _COUNTRY_NAMES.get(country_code, country_code)
     table = Table(
         box=box.ROUNDED,
         border_style="dim",
         title=(
-            f"[bold]Globalping ASN Coverage — {country_name} "
-            f"({len(ranked)} ASNs)[/bold]"
+            f"[bold]Globalping ASN Coverage — {payload['country_name']} "
+            f"({payload['asn_count']} ASNs · {payload['probe_count']} probes)[/bold]"
         ),
     )
     table.add_column("ASN", justify="right")
     table.add_column("Probes", justify="right", style="bold")
-    table.add_column("Network (probe-reported)", max_width=28)
-    table.add_column("Registry name", max_width=28)
-    table.add_column("Reg CC", justify="center")
-    table.add_column("Check", justify="center")
-
-    mismatches = 0
-    unknown = 0
-    for asn, entry in ranked:
-        record = registry.get(f"AS{asn}")
-        reg_country = (record or {}).get("country") or ""
-        if record is None or not reg_country:
-            unknown += 1
-            check = "[dim]?[/dim]"
-        elif reg_country.upper() == country_code:
-            check = "[green]✓[/green]"
-        else:
-            mismatches += 1
-            check = "[red]✗[/red]"
+    table.add_column("Network", max_width=54)
+    for row in payload["asns"]:
         table.add_row(
-            f"AS{asn}",
-            str(entry["count"]),
-            ", ".join(entry["networks"]) or "—",
-            (record or {}).get("name") or "—",
-            reg_country or "—",
-            check,
+            row["asn"],
+            str(row["probe_count"]),
+            row["network"],
         )
 
     display.console.print(table)
-    verified = len(ranked) - mismatches - unknown
-    summary = (
-        f"[green]{verified} registry-verified[/green] · "
-        f"[red]{mismatches} registry country mismatch[/red]"
+    display.console.print(
+        f"  [bold]{payload['asn_count']} ASNs[/bold] with "
+        f"[bold]{payload['probe_count']} connected probes[/bold] in {country_code}"
     )
-    if unknown:
-        summary += f" · [dim]{unknown} not in registry data[/dim]"
-    display.console.print(f"  {summary}")
-    if mismatches:
-        display.console.print(
-            "  [dim]A mismatch is not proof of error — multinational networks "
-            "register in one country — but it flags coverage worth "
-            "double-checking before trusting probe locations.[/dim]"
-        )
 
 
 @app.command()
@@ -1436,12 +1431,14 @@ def coverage(
     top: int = typer.Option(50, "--top", "-t", help="Number of top countries to show"),
     country: Optional[str] = typer.Option(
         None, "--country", "-c",
-        help="Validate the ASNs covered by connected probes in this country (ISO code)",
+        help="List ASNs with connected probes in this country (ISO code)",
     ),
     globe: bool = typer.Option(False, "--globe", "-g", help="Render choropleth globe after fetching"),
+    output_json: bool = typer.Option(False, "--json", help="Output coverage as JSON"),
 ):
     """Show Globalping probe coverage ranked by country."""
-    display.header(__version__)
+    if not output_json:
+        display.header(__version__)
     try:
         probes = globalping_mod.fetch_probes(gp_token)
     except globalping_mod.GlobalpingAuthError:
@@ -1454,7 +1451,20 @@ def coverage(
         raise typer.Exit(1)
 
     if country:
-        _coverage_country_asns(probes, country.strip().upper())
+        country_code = country.strip().upper()
+        if output_json:
+            payload = _coverage_country_payload(probes, country_code)
+            if not payload["asns"]:
+                print(json.dumps({
+                    "error": (
+                        "No connected Globalping probes report country "
+                        f"{country_code}."
+                    )
+                }, indent=2))
+                raise typer.Exit(1)
+            print(json.dumps(payload, indent=2))
+        else:
+            _coverage_country_asns(probes, country_code)
         return
 
     coverage_map = globalping_mod.coverage_by_country(probes)
@@ -1464,6 +1474,24 @@ def coverage(
         raise typer.Exit(1)
 
     ranked = sorted(coverage_map.items(), key=lambda x: x[1], reverse=True)[:top]
+
+    if output_json:
+        print(json.dumps(
+            {
+                "countries": [
+                    {
+                        "country": code,
+                        "country_name": _COUNTRY_NAMES.get(code, code),
+                        "probe_count": count,
+                    }
+                    for code, count in ranked
+                ],
+                "country_count": len(ranked),
+                "probe_count": sum(count for _, count in ranked),
+            },
+            indent=2,
+        ))
+        return
 
     table = Table(
         box=box.ROUNDED,

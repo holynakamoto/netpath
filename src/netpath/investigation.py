@@ -118,11 +118,54 @@ def from_payload(
         and isinstance(payload.get("resolvers"), (list, tuple))
     ):
         return _from_dns(normalized_mode, normalized_target, payload, raw)
+    if normalized_mode == "coverage" and "asns" in payload:
+        return _from_coverage(normalized_mode, normalized_target, payload, raw)
     if normalized_mode in {"city", "citypath", "aspath"} or (
         "candidates" in payload or "optimal_path" in payload
     ):
         return _from_path(normalized_mode, normalized_target, payload, raw)
     return _from_report(normalized_mode, normalized_target, payload, raw)
+
+
+def _from_coverage(
+    mode: str,
+    target: str,
+    payload: Mapping[str, Any],
+    raw: Dict[str, Any],
+) -> InvestigationResult:
+    rows = tuple(
+        dict(row)
+        for row in payload.get("asns") or []
+        if isinstance(row, Mapping)
+    )
+    country = _text(payload.get("country"), target.upper())
+    country_name = _text(payload.get("country_name"), country)
+    asn_count = _integer(payload.get("asn_count")) or len(rows)
+    probe_count = _integer(payload.get("probe_count"))
+    return InvestigationResult(
+        mode=mode,
+        target=country,
+        verdict="ASN coverage",
+        severity="ok",
+        confidence="high",
+        culprit="Globalping inventory",
+        detail=(
+            f"{asn_count} ASNs have {probe_count} connected Globalping "
+            f"probe{'s' if probe_count != 1 else ''} in {country_name}."
+        ),
+        evidence=(
+            "Only ASNs with connected probes reporting this country are included.",
+        ),
+        recommendation="Choose an ASN from the inventory for a remote measurement.",
+        path=rows,
+        baseline_changes=(),
+        metrics=(
+            ("Country", f"{country_name} ({country})"),
+            ("Covered ASNs", str(asn_count)),
+            ("Connected probes", str(probe_count)),
+        ),
+        raw=raw,
+    )
 
 
 def render_markdown(result: InvestigationResult) -> str:

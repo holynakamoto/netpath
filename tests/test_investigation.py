@@ -164,6 +164,43 @@ def test_dns_empty_response_is_an_exception_not_a_conflicting_answer_group():
     assert "one TTL" not in result.recommendation
 
 
+def test_from_payload_normalizes_country_asn_coverage_inventory():
+    payload = {
+        "country": "US",
+        "country_name": "United States",
+        "asn_count": 2,
+        "probe_count": 3,
+        "asns": [
+            {
+                "asn": "AS64500",
+                "probe_count": 2,
+                "network": "ExampleNet",
+                "networks": ["ExampleNet"],
+            },
+            {
+                "asn": "AS64501",
+                "probe_count": 1,
+                "network": "OtherNet",
+                "networks": ["OtherNet"],
+            },
+        ],
+    }
+
+    result = from_payload("coverage", "US", payload)
+
+    assert result.verdict == "ASN coverage"
+    assert result.target == "US"
+    assert result.detail == (
+        "2 ASNs have 3 connected Globalping probes in United States."
+    )
+    assert result.path[0]["asn"] == "AS64500"
+    assert result.metrics == (
+        ("Country", "United States (US)"),
+        ("Covered ASNs", "2"),
+        ("Connected probes", "3"),
+    )
+
+
 def test_from_payload_normalizes_aspath_hop_points_and_metrics():
     payload = {
         "source_asn": "AS64500",

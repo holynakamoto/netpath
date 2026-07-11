@@ -90,6 +90,12 @@ def test_build_structured_command_uses_explain_report_and_optional_snapshot():
         "AS64501",
         "--json",
     ]
+    assert build_structured_command("coverage", "us")[3:] == [
+        "coverage",
+        "--country",
+        "US",
+        "--json",
+    ]
 
 
 def test_parse_json_output_tolerates_dependency_note_before_payload():
@@ -287,6 +293,54 @@ def test_dns_result_is_compact_and_separates_exceptions_from_conflicts():
             await pilot.press("escape")
             await pilot.pause()
             assert app.query_one("#form").display
+
+    asyncio.run(exercise())
+
+
+def test_coverage_result_is_a_native_country_asn_inventory():
+    payload = {
+        "country": "US",
+        "country_name": "United States",
+        "asn_count": 2,
+        "probe_count": 3,
+        "asns": [
+            {
+                "asn": "AS64500",
+                "probe_count": 2,
+                "network": "ExampleNet",
+                "networks": ["ExampleNet"],
+            },
+            {
+                "asn": "AS64501",
+                "probe_count": 1,
+                "network": "OtherNet",
+                "networks": ["OtherNet"],
+            },
+        ],
+    }
+
+    async def exercise():
+        app = PathTui(mode="coverage", source="US")
+        async with app.run_test(size=(120, 30)) as pilot:
+            app._apply_investigation(from_payload("coverage", "US", payload))
+            app.query_one("#tabs", TabbedContent).active = "path-tab"
+            await pilot.pause()
+
+            verdict = app.query_one("#verdict", Static).render().plain
+            table = app.query_one("#hops", DataTable)
+            assert "ASN COVERAGE" in verdict
+            assert "US · 2 ASNs · 3 probes" in verdict
+            assert "Inventory  Globalping inventory" in verdict
+            assert app.query_one("#tabs", TabbedContent).active == "path-tab"
+            assert (
+                app.query_one("#tabs", TabbedContent)
+                .get_tab("path-tab")
+                .label.plain
+                == "ASNs"
+            )
+            assert table.row_count == 2
+            assert table.get_row_at(0) == ["AS64500", "2", "ExampleNet"]
+            assert table.get_row_at(1) == ["AS64501", "1", "OtherNet"]
 
     asyncio.run(exercise())
 

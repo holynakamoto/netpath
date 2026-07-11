@@ -607,26 +607,57 @@ def test_monitor_reports_regression_and_can_fail(tmp_path):
     assert "Packet loss increased" in result.output
 
 
-def test_coverage_country_validates_asns_against_registry():
+def test_coverage_country_lists_only_asns_with_probes_in_country():
     probes = [
         {"location": {"country": "US", "asn": 64500, "network": "ExampleNet"}},
         {"location": {"country": "US", "asn": 64500, "network": "ExampleNet"}},
         {"location": {"country": "US", "asn": 38195, "network": "Superloop"}},
         {"location": {"country": "DE", "asn": 64501, "network": "Elsewhere"}},
     ]
-    with patch("netpath.cli.globalping_mod.fetch_probes", return_value=probes), \
-         patch("netpath.cli.cymru_bulk_asn_lookup", return_value={
-             "AS64500": {"country": "US", "registry": "arin", "name": "EXAMPLE"},
-             "AS38195": {"country": "AU", "registry": "apnic", "name": "SUPERLOOP-AS-AP"},
-         }) as lookup:
+    with patch("netpath.cli.globalping_mod.fetch_probes", return_value=probes):
         result = CliRunner().invoke(cli.app, ["coverage", "--country", "us"])
 
     assert result.exit_code == 0
-    assert sorted(lookup.call_args.args[0]) == ["AS38195", "AS64500"]
     assert "AS64500" in result.output
+    assert "AS38195" in result.output
     assert "AS64501" not in result.output
-    assert "1 registry country mismatch" in result.output
-    assert "1 registry-verified" in result.output
+    assert "registry country mismatch" not in result.output
+    assert "2 ASNs" in result.output
+    assert "3 connected probes" in result.output
+
+
+def test_coverage_country_json_is_a_compact_asn_inventory():
+    probes = [
+        {"location": {"country": "US", "asn": 64500, "network": "ExampleNet"}},
+        {"location": {"country": "US", "asn": 64500, "network": "ExampleNet"}},
+        {"location": {"country": "US", "asn": 64501, "network": "OtherNet"}},
+        {"location": {"country": "CA", "asn": 64502, "network": "CanadaNet"}},
+    ]
+    with patch("netpath.cli.globalping_mod.fetch_probes", return_value=probes):
+        result = CliRunner().invoke(
+            cli.app,
+            ["coverage", "--country", "us", "--json"],
+        )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["country"] == "US"
+    assert payload["asn_count"] == 2
+    assert payload["probe_count"] == 3
+    assert payload["asns"] == [
+        {
+            "asn": "AS64500",
+            "probe_count": 2,
+            "networks": ["ExampleNet"],
+            "network": "ExampleNet",
+        },
+        {
+            "asn": "AS64501",
+            "probe_count": 1,
+            "networks": ["OtherNet"],
+            "network": "OtherNet",
+        },
+    ]
 
 
 def test_coverage_country_with_no_probes_exits_nonzero():

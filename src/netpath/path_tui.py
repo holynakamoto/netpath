@@ -34,8 +34,8 @@ _DEFAULT_CAPTURE_PLANNER = (
     _ENV_CAPTURE_PLANNER if _ENV_CAPTURE_PLANNER in {"codex", "claude"} else "off"
 )
 _PATH_MODES = {"city", "aspath"}
-_STRUCTURED_MODES = {"host", "explain", "dns", *_PATH_MODES}
-_OPTIONAL_PRIMARY_MODES = {"coverage", "serve"}
+_STRUCTURED_MODES = {"host", "explain", "dns", "coverage", *_PATH_MODES}
+_OPTIONAL_PRIMARY_MODES = {"serve"}
 _MODES = [
     ("City path", "city"),
     ("ASN path", "aspath"),
@@ -60,7 +60,7 @@ _MODE_FIELDS = {
     "country": ("Country code", "Number of ASNs (optional)"),
     "monitor": ("Target ASN", "Exact hostname or IP (optional)"),
     "target": ("Target ASN", "Preferred target IP (optional)"),
-    "coverage": ("Top-N countries (default 50), or a country code to validate its ASNs", ""),
+    "coverage": ("Country code, e.g. US", ""),
     "serve": ("Optional: advertised hostname/IP", "Optional: port (default 5201)"),
     "capture": ("Describe what to capture", ""),
 }
@@ -127,11 +127,10 @@ _MODE_COPY = {
         "Find target",
     ),
     "coverage": (
-        "Inspect remote probe coverage",
-        "See where connected Globalping probes can provide independent evidence. "
-        "Enter a country code to validate every ASN covered there against the registry.",
-        "Fetch  ›  rank coverage",
-        "Load coverage",
+        "Find covered ASNs in a country",
+        "List the ASNs that currently have connected Globalping probes in this country.",
+        "Fetch probes  ›  filter country  ›  group by ASN",
+        "Find ASNs",
     ),
     "serve": (
         "Set up an iperf3 target",
@@ -309,6 +308,8 @@ def build_structured_command(
         command.extend(["citypath", primary, secondary, "--json"])
     elif mode == "aspath":
         command.extend(["aspath", primary, secondary, "--json"])
+    elif mode == "coverage":
+        command.extend(["coverage", "--country", primary.upper(), "--json"])
     else:
         raise ValueError(f"Unsupported structured mode: {mode}")
     return command
@@ -698,7 +699,7 @@ class PathTui(App[None]):
         self._set_running(True)
         if mode in _PATH_MODES and self.custom_path_impls:
             self.run_measurement(mode, source, destination, run_id)
-        elif mode in {"host", "explain", "dns", "city", "aspath"}:
+        elif mode in {"host", "explain", "dns", "city", "aspath", "coverage"}:
             self.run_structured_command(mode, source, destination, baseline, run_id)
         elif mode == "capture":
             provider = str(self.query_one("#planner", Select).value)
@@ -1268,7 +1269,7 @@ class PathTui(App[None]):
             view.severity,
             view.culprit,
             view.confidence,
-            "" if view.mode == "dns" else view.recommendation,
+            "" if view.mode in {"dns", "coverage"} else view.recommendation,
             self._sample_context(view),
         )
         self.query_one("#findings", Static).update(self._findings_text(view))
@@ -1278,7 +1279,9 @@ class PathTui(App[None]):
         log = self.query_one("#console", RichLog)
         log.clear()
         log.write(json.dumps(view.raw, indent=2, sort_keys=True, default=str))
-        self.query_one("#tabs", TabbedContent).active = "findings-tab"
+        self.query_one("#tabs", TabbedContent).active = (
+            "path-tab" if view.mode == "coverage" else "findings-tab"
+        )
         self._update_result_density()
 
     def _render_selected_candidate(self) -> None:
@@ -1390,6 +1393,9 @@ class PathTui(App[None]):
         if self.active_mode == "dns":
             self._render_dns_rows(rows)
             return
+        if self.active_mode == "coverage":
+            self._render_coverage_rows(rows)
+            return
         table = self.query_one("#hops", DataTable)
         table.clear()
         rows = list(rows)
@@ -1490,6 +1496,16 @@ class PathTui(App[None]):
                 str(ttl) if ttl is not None else "—",
             )
 
+    def _render_coverage_rows(self, rows: list[dict]) -> None:
+        table = self.query_one("#hops", DataTable)
+        table.clear()
+        for row in rows:
+            table.add_row(
+                str(row.get("asn") or "—"),
+                str(row.get("probe_count") or 0),
+                str(row.get("network") or "—"),
+            )
+
     def _switch_mode(self, mode: str) -> None:
         if self.running or mode == self.active_mode:
             return
@@ -1576,6 +1592,9 @@ class PathTui(App[None]):
         if mode == "dns":
             tab.label = "Resolvers"
             table.add_columns("Resolver", "Region", "Result", "Answer", "RTT", "TTL")
+        elif mode == "coverage":
+            tab.label = "ASNs"
+            table.add_columns("ASN", "Probes", "Network")
         else:
             tab.label = "Path"
             table.add_columns("Hop", "Latency", "Loss", "Endpoint", "Network", "Context")
@@ -1611,6 +1630,9 @@ class PathTui(App[None]):
                 "no propagation fault" if culprit == "none" else culprit,
                 style="bold",
             )
+        elif self.active_mode == "coverage":
+            text.append("Inventory  ", style="dim")
+            text.append(culprit, style="bold")
         else:
             text.append("Likely owner  ", style="dim")
             text.append(culprit or "undetermined", style="bold")
@@ -1693,6 +1715,14 @@ class PathTui(App[None]):
             text.append("\nNEXT\n", style="bold #6fd6e7")
             text.append(view.recommendation)
             return text
+        if view.mode == "coverage":
+            text.append("COVERAGE\n", style="bold #6fd6e7")
+            text.append(f"{view.detail}\n\n")
+            text.append("SCOPE\n", style="bold #6fd6e7")
+            text.append("Only connected probes reporting the selected country are counted.\n")
+            text.append("\nNEXT\n", style="bold #6fd6e7")
+            text.append(view.recommendation)
+            return text
         if view.detail:
             text.append("WHAT HAPPENED\n", style="bold #6fd6e7")
             text.append(f"{view.detail}\n\n")
@@ -1741,6 +1771,12 @@ class PathTui(App[None]):
             count = f" · {total} resolvers" if total is not None else ""
             stamp = f" · {self.outcome_time}" if self.outcome_time else ""
             return f"{view.target} · {record_type}{count}{stamp}"
+        if view.mode == "coverage":
+            raw = view.raw
+            asns = raw.get("asn_count") or len(raw.get("asns") or [])
+            probes = raw.get("probe_count") or 0
+            stamp = f" · {self.outcome_time}" if self.outcome_time else ""
+            return f"{view.target} · {asns} ASNs · {probes} probes{stamp}"
         if view.mode not in _PATH_MODES:
             stamp = f" · {self.outcome_time}" if self.outcome_time else ""
             return f"Target  {view.target}{stamp}" if view.target else ""
