@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -34,7 +35,8 @@ _DEFAULT_CAPTURE_PLANNER = (
     _ENV_CAPTURE_PLANNER if _ENV_CAPTURE_PLANNER in {"codex", "claude"} else "off"
 )
 _PATH_MODES = {"city", "aspath"}
-_STRUCTURED_MODES = {"host", "explain", "dns", "coverage", *_PATH_MODES}
+_STRUCTURED_MODES = {"host", "explain", "dns", "country", "coverage", *_PATH_MODES}
+_COUNTRY_REPORT_PREFIX = "__NETPATH_REPORT_JSON__"
 _OPTIONAL_PRIMARY_MODES = {"serve"}
 _MODES = [
     ("City path", "city"),
@@ -57,7 +59,7 @@ _MODE_FIELDS = {
     "city": ("Source city", "Destination city"),
     "aspath": ("Source ASN", "Destination ASN"),
     "asn": ("Target ASN", "Server count (optional)"),
-    "country": ("Country code", "Number of ASNs (optional)"),
+    "country": ("Country code", "Representative ASNs (default 3)"),
     "monitor": ("Target ASN", "Exact hostname or IP (optional)"),
     "target": ("Target ASN", "Preferred target IP (optional)"),
     "coverage": ("Country code, e.g. US", ""),
@@ -103,10 +105,10 @@ _MODE_COPY = {
         "Run test",
     ),
     "country": (
-        "Scan a country",
-        "Compare representative networks and surface the strongest anomalies.",
-        "Select  ›  probe  ›  rank findings",
-        "Run scan",
+        "Compare networks in a country",
+        "Decide whether a symptom is broad across representative networks or isolated to one ASN.",
+        "Select networks  ›  measure  ›  compare  ›  answer",
+        "Compare networks",
     ),
     "monitor": (
         "Save a diagnostic snapshot",
@@ -308,6 +310,15 @@ def build_structured_command(
         command.extend(["citypath", primary, secondary, "--json"])
     elif mode == "aspath":
         command.extend(["aspath", primary, secondary, "--json"])
+    elif mode == "country":
+        command.extend([
+            "country",
+            primary.upper(),
+            "--top",
+            secondary or "3",
+            "--no-throughput",
+            "--report-json",
+        ])
     elif mode == "coverage":
         command.extend(["coverage", "--country", primary.upper(), "--json"])
     else:
@@ -334,6 +345,29 @@ def parse_json_output(output: str) -> dict:
     if not isinstance(payload, dict):
         raise ValueError("The diagnostic command returned an unexpected JSON shape")
     return payload
+
+
+def _country_stage(line: str, total: int) -> str:
+    """Translate verbose country CLI output into one stable progress sentence."""
+    clean = " ".join(line.split())
+    if not clean:
+        return ""
+    if "Ranking top" in clean:
+        return "Selecting representative networks…"
+    if "Fetching + resolving iperf3" in clean:
+        return "Preparing live measurement targets…"
+    if "Discovering Globalping probes" in clean:
+        return "Finding independent probes inside the selected networks…"
+    match = re.search(r"#(\d+)\s+(AS\d+)", clean)
+    if match:
+        return f"Measuring network {match.group(1)}/{total} · {match.group(2)}…"
+    if "Scheduling Globalping measurements" in clean:
+        return "Scheduling independent in-network measurements…"
+    if "Waiting for" in clean and "Globalping measurements" in clean:
+        return "Waiting for independent measurements (bounded to 60 seconds)…"
+    if "summary" in clean.lower():
+        return "Comparing findings across networks…"
+    return ""
 
 
 def _row_endpoint_known(row: dict) -> bool:
@@ -699,6 +733,8 @@ class PathTui(App[None]):
         self._set_running(True)
         if mode in _PATH_MODES and self.custom_path_impls:
             self.run_measurement(mode, source, destination, run_id)
+        elif mode == "country":
+            self.run_country_command(source, destination, run_id)
         elif mode in {"host", "explain", "dns", "city", "aspath", "coverage"}:
             self.run_structured_command(mode, source, destination, baseline, run_id)
         elif mode == "capture":
@@ -946,6 +982,80 @@ class PathTui(App[None]):
             self._call_if_current(self._finish_run, run_id, process)
 
     @work(thread=True, exclusive=True)
+    def run_country_command(
+        self,
+        country: str,
+        count: str,
+        run_id: int,
+    ) -> None:
+        log = self.query_one("#console", RichLog)
+        process: subprocess.Popen[str] | None = None
+        report: dict | None = None
+        total = int(count) if count.isdigit() else 3
+        try:
+            command = build_structured_command("country", country, count)
+            env = {**os.environ, "NO_COLOR": "1", "PYTHONUNBUFFERED": "1"}
+            if self.token:
+                env["NETPATH_GLOBALPING_TOKEN"] = self.token
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+                start_new_session=os.name == "posix",
+            )
+            self._track_process(run_id, process)
+            self._call_if_current(
+                self._country_progress_if_current,
+                run_id,
+                "Selecting representative networks…",
+            )
+            assert process.stdout is not None
+            for line in process.stdout:
+                if not self._run_is_current(run_id):
+                    break
+                stripped = line.strip()
+                if stripped.startswith(_COUNTRY_REPORT_PREFIX):
+                    report = json.loads(stripped.removeprefix(_COUNTRY_REPORT_PREFIX))
+                    continue
+                self._call_if_current(
+                    self._write_log_if_current,
+                    run_id,
+                    log,
+                    line.rstrip(),
+                )
+                stage = _country_stage(stripped, total)
+                if stage:
+                    self._call_if_current(
+                        self._country_progress_if_current,
+                        run_id,
+                        stage,
+                    )
+            process.wait()
+            if not self._run_is_current(run_id):
+                return
+            if report is None:
+                raise RuntimeError(
+                    "The country comparison ended without a structured report. Review Raw."
+                )
+            view = investigation.from_payload("country", country, report)
+            self._call_if_current(
+                self._structured_finished_if_current,
+                run_id,
+                view,
+            )
+        except Exception as exc:
+            self._call_if_current(
+                self._measurement_failed_if_current,
+                run_id,
+                str(exc),
+            )
+        finally:
+            self._call_if_current(self._finish_run, run_id, process)
+
+    @work(thread=True, exclusive=True)
     def plan_local_capture(self, prompt: str, provider: str, run_id: int) -> None:
         try:
             spec = local_capture.plan_capture(
@@ -1162,6 +1272,20 @@ class PathTui(App[None]):
         if self._run_is_current(run_id):
             log.write(message)
 
+    def _country_progress_if_current(self, run_id: int, stage: str) -> None:
+        if not self._run_is_current(run_id):
+            return
+        self._set_status(stage)
+        text = Text("COUNTRY COMPARISON RUNNING\n", style="bold #69d9ed")
+        text.append(f"{stage}\n\n", style="bold")
+        text.append(
+            "This compares path health across a bounded set of representative networks. "
+            "It answers whether a symptom appears broad or isolated; detailed probe output "
+            "is retained in Raw.",
+            style="#91a8ae",
+        )
+        self.query_one("#findings", Static).update(text)
+
     def _set_running(self, running: bool) -> None:
         self.running = running
         self.query_one("#run", Button).set_class(running, "hidden")
@@ -1269,7 +1393,7 @@ class PathTui(App[None]):
             view.severity,
             view.culprit,
             view.confidence,
-            "" if view.mode in {"dns", "coverage"} else view.recommendation,
+            "" if view.mode in {"dns", "country", "coverage"} else view.recommendation,
             self._sample_context(view),
         )
         self.query_one("#findings", Static).update(self._findings_text(view))
@@ -1396,6 +1520,9 @@ class PathTui(App[None]):
         if self.active_mode == "coverage":
             self._render_coverage_rows(rows)
             return
+        if self.active_mode == "country":
+            self._render_country_rows(rows)
+            return
         table = self.query_one("#hops", DataTable)
         table.clear()
         rows = list(rows)
@@ -1506,6 +1633,42 @@ class PathTui(App[None]):
                 str(row.get("network") or "—"),
             )
 
+    def _render_country_rows(self, rows: list[dict]) -> None:
+        table = self.query_one("#hops", DataTable)
+        table.clear()
+
+        def rank(row: dict) -> tuple[int, str]:
+            severity = (row.get("verdict") or {}).get("severity", "ok")
+            return (-{"critical": 2, "warning": 1}.get(severity, 0), str(row.get("asn")))
+
+        for row in sorted(rows, key=rank):
+            verdict = row.get("verdict") or {}
+            severity = verdict.get("severity", "ok")
+            if row.get("skip_reason"):
+                result = Text("NO TARGET", style="dim")
+                detail = str(row.get("skip_reason"))
+            elif row.get("remote_only"):
+                result = Text("REMOTE ONLY", style="bold cyan")
+                detail = "Globalping/RUM evidence only"
+            else:
+                style = {
+                    "critical": "bold red",
+                    "warning": "bold yellow",
+                    "ok": "bold green",
+                }.get(severity, "")
+                result = Text(str(verdict.get("verdict") or "Measured"), style=style)
+                detail = str(verdict.get("detail") or "—")
+            rtt = row.get("verified_rtt_ms")
+            if rtt is None:
+                rtt = row.get("last_rtt_ms")
+            table.add_row(
+                str(row.get("asn") or "—"),
+                str(row.get("name") or "—"),
+                result,
+                f"{float(rtt):.1f} ms" if rtt is not None else "—",
+                detail,
+            )
+
     def _switch_mode(self, mode: str) -> None:
         if self.running or mode == self.active_mode:
             return
@@ -1595,6 +1758,9 @@ class PathTui(App[None]):
         elif mode == "coverage":
             tab.label = "ASNs"
             table.add_columns("ASN", "Probes", "Network")
+        elif mode == "country":
+            tab.label = "Networks"
+            table.add_columns("ASN", "Network", "Result", "RTT", "Evidence")
         else:
             tab.label = "Path"
             table.add_columns("Hop", "Latency", "Loss", "Endpoint", "Network", "Context")
@@ -1633,6 +1799,12 @@ class PathTui(App[None]):
         elif self.active_mode == "coverage":
             text.append("Inventory  ", style="dim")
             text.append(culprit, style="bold")
+        elif self.active_mode == "country":
+            text.append("Assessment  ", style="dim")
+            text.append(
+                "no shared fault" if culprit == "none" else culprit,
+                style="bold",
+            )
         else:
             text.append("Likely owner  ", style="dim")
             text.append(culprit or "undetermined", style="bold")
@@ -1723,6 +1895,16 @@ class PathTui(App[None]):
             text.append("\nNEXT\n", style="bold #6fd6e7")
             text.append(view.recommendation)
             return text
+        if view.mode == "country":
+            text.append("COUNTRY ASSESSMENT\n", style="bold #6fd6e7")
+            text.append(f"{view.detail}\n\n")
+            text.append("STRONGEST EVIDENCE\n", style="bold #6fd6e7")
+            for item in view.evidence[:4]:
+                text.append("• ", style="#6fd6e7")
+                text.append(f"{item}\n")
+            text.append("\nNEXT\n", style="bold #6fd6e7")
+            text.append(view.recommendation)
+            return text
         if view.detail:
             text.append("WHAT HAPPENED\n", style="bold #6fd6e7")
             text.append(f"{view.detail}\n\n")
@@ -1777,6 +1959,16 @@ class PathTui(App[None]):
             probes = raw.get("probe_count") or 0
             stamp = f" · {self.outcome_time}" if self.outcome_time else ""
             return f"{view.target} · {asns} ASNs · {probes} probes{stamp}"
+        if view.mode == "country":
+            raw = view.raw
+            measured = raw.get("measured_asns") or 0
+            requested = raw.get("requested_asns") or 0
+            warnings = raw.get("warning_asns") or 0
+            stamp = f" · {self.outcome_time}" if self.outcome_time else ""
+            return (
+                f"{view.target} · {measured}/{requested} networks measured · "
+                f"{warnings} warning{'s' if warnings != 1 else ''}{stamp}"
+            )
         if view.mode not in _PATH_MODES:
             stamp = f" · {self.outcome_time}" if self.outcome_time else ""
             return f"Target  {view.target}{stamp}" if view.target else ""

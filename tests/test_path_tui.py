@@ -12,10 +12,12 @@ from textual.widgets import DataTable, Input, Static, TabbedContent
 from netpath import dns as dns_mod, local_capture
 from netpath.investigation import from_payload
 from netpath.path_tui import (
+    _COUNTRY_REPORT_PREFIX,
     CaptureConfirmation,
     PathTui,
     build_command,
     build_structured_command,
+    _country_stage,
     discover_baselines,
     parse_json_output,
 )
@@ -96,6 +98,26 @@ def test_build_structured_command_uses_explain_report_and_optional_snapshot():
         "US",
         "--json",
     ]
+    assert build_structured_command("country", "us")[3:] == [
+        "country",
+        "US",
+        "--top",
+        "3",
+        "--no-throughput",
+        "--report-json",
+    ]
+
+
+def test_country_progress_translates_verbose_cli_stages():
+    assert _country_stage("Ranking top 3 ASNs for US", 3) == (
+        "Selecting representative networks…"
+    )
+    assert _country_stage("──── #2  AS7018  AT&T ────", 3) == (
+        "Measuring network 2/3 · AS7018…"
+    )
+    assert _country_stage("Waiting for 6 Globalping measurements", 3) == (
+        "Waiting for independent measurements (bounded to 60 seconds)…"
+    )
 
 
 def test_parse_json_output_tolerates_dependency_note_before_payload():
@@ -341,6 +363,122 @@ def test_coverage_result_is_a_native_country_asn_inventory():
             assert table.row_count == 2
             assert table.get_row_at(0) == ["AS64500", "2", "ExampleNet"]
             assert table.get_row_at(1) == ["AS64501", "1", "OtherNet"]
+
+    asyncio.run(exercise())
+
+
+def test_country_result_answers_broad_vs_isolated_and_renders_networks():
+    payload = {
+        "country": "US",
+        "requested_asns": 3,
+        "measured_asns": 3,
+        "warning_asns": 1,
+        "operator_answer": {
+            "verdict": "Near-target Packet Loss",
+            "severity": "warning",
+            "confidence": "high",
+            "likely_culprit": "AS7018",
+            "evidence": ["Affected networks: AS7018 Near-target Packet Loss"],
+            "recommendation": "Investigate AS7018 directly.",
+        },
+        "results": [
+            {
+                "asn": "AS7018",
+                "name": "AT&T",
+                "verified_rtt_ms": 48.0,
+                "verdict": {
+                    "verdict": "Near-target Packet Loss",
+                    "severity": "warning",
+                    "detail": "Loss persisted near the destination.",
+                },
+            },
+            {
+                "asn": "AS7922",
+                "name": "Comcast",
+                "verified_rtt_ms": 31.0,
+                "verdict": {"verdict": "Healthy", "severity": "ok"},
+            },
+            {
+                "asn": "AS20115",
+                "name": "Charter",
+                "skip_reason": "no live target",
+            },
+        ],
+    }
+
+    async def exercise():
+        app = PathTui(mode="country", source="US")
+        async with app.run_test(size=(120, 30)) as pilot:
+            app._apply_investigation(from_payload("country", "US", payload))
+            app.query_one("#tabs", TabbedContent).active = "path-tab"
+            await pilot.pause()
+
+            verdict = app.query_one("#verdict", Static).render().plain
+            findings = app.query_one("#findings", Static).render().plain
+            table = app.query_one("#hops", DataTable)
+            assert "ISOLATED NETWORK ANOMALY" in verdict
+            assert "US · 3/3 networks measured · 1 warning" in verdict
+            assert "Compared 3 of 3 representative networks" in findings
+            assert (
+                app.query_one("#tabs", TabbedContent)
+                .get_tab("path-tab")
+                .label.plain
+                == "Networks"
+            )
+            assert table.row_count == 3
+            assert table.get_row_at(0)[0] == "AS7018"
+            assert table.get_row_at(0)[2].plain == "Near-target Packet Loss"
+
+    asyncio.run(exercise())
+
+
+def test_country_worker_finishes_from_report_even_when_findings_exit_nonzero():
+    report = {
+        "country": "US",
+        "requested_asns": 1,
+        "measured_asns": 1,
+        "warning_asns": 1,
+        "operator_answer": {
+            "verdict": "Packet Loss",
+            "severity": "warning",
+            "confidence": "high",
+            "likely_culprit": "AS64500",
+            "evidence": ["Affected networks: AS64500 Packet Loss"],
+            "recommendation": "Investigate AS64500.",
+        },
+        "results": [
+            {
+                "asn": "AS64500",
+                "name": "ExampleNet",
+                "verdict": {"verdict": "Packet Loss", "severity": "warning"},
+            }
+        ],
+    }
+    process = Mock(returncode=1, pid="not-a-real-pid")
+    process.stdout = iter(
+        [
+            "Ranking top 1 ASNs for US\n",
+            "──── #1 AS64500 ExampleNet ────\n",
+            _COUNTRY_REPORT_PREFIX + json.dumps(report) + "\n",
+        ]
+    )
+    process.wait.return_value = 1
+    process.poll.return_value = 1
+
+    async def exercise():
+        app = PathTui(mode="country", source="US")
+        async with app.run_test(size=(120, 30)) as pilot:
+            run_id = app._prepare_run()
+            app._set_running(True)
+            with patch("netpath.path_tui.subprocess.Popen", return_value=process):
+                worker = app.run_country_command("US", "1", run_id)
+                await worker.wait()
+                await pilot.pause()
+
+            assert app.running is False
+            assert app.investigation_result is not None
+            assert app.investigation_result.verdict == "Isolated network anomaly"
+            assert "pending" not in app.query_one("#verdict", Static).render().plain
 
     asyncio.run(exercise())
 

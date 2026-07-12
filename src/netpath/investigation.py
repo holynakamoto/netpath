@@ -120,6 +120,8 @@ def from_payload(
         return _from_dns(normalized_mode, normalized_target, payload, raw)
     if normalized_mode == "coverage" and "asns" in payload:
         return _from_coverage(normalized_mode, normalized_target, payload, raw)
+    if normalized_mode == "country" and "results" in payload:
+        return _from_country(normalized_mode, normalized_target, payload, raw)
     if normalized_mode in {"city", "citypath", "aspath"} or (
         "candidates" in payload or "optimal_path" in payload
     ):
@@ -163,6 +165,75 @@ def _from_coverage(
             ("Country", f"{country_name} ({country})"),
             ("Covered ASNs", str(asn_count)),
             ("Connected probes", str(probe_count)),
+        ),
+        raw=raw,
+    )
+
+
+def _from_country(
+    mode: str,
+    target: str,
+    payload: Mapping[str, Any],
+    raw: Dict[str, Any],
+) -> InvestigationResult:
+    rows = tuple(
+        dict(row)
+        for row in payload.get("results") or []
+        if isinstance(row, Mapping)
+    )
+    requested = _integer(payload.get("requested_asns"))
+    measured = _integer(payload.get("measured_asns"))
+    warning_count = _integer(payload.get("warning_asns"))
+    answer_value = payload.get("operator_answer")
+    answer = answer_value if isinstance(answer_value, Mapping) else {}
+    if answer:
+        verdict = (
+            "Isolated network anomaly"
+            if warning_count == 1
+            else "Multiple networks affected"
+        )
+        severity = _text(answer.get("severity"), "warning").lower()
+        confidence = _text(answer.get("confidence"), "medium")
+        culprit = _text(answer.get("likely_culprit"), "multiple networks")
+        evidence = (
+            f"Strongest finding: {_text(answer.get('verdict'), 'Network anomaly')}",
+            *_string_tuple(answer.get("evidence")),
+        )
+        recommendation = _text(
+            answer.get("recommendation"),
+            "Open the Networks tab and investigate the affected ASN directly.",
+        )
+    else:
+        verdict = "No shared anomaly found"
+        severity = "ok"
+        confidence = "medium" if measured else "low"
+        culprit = "none"
+        evidence = (
+            "No warning or critical verdict was shared across the measured networks.",
+        )
+        recommendation = (
+            "If users still report a problem, diagnose the affected hostname or ASN directly."
+        )
+    detail = (
+        f"Compared {measured} of {requested} representative networks in {target.upper()}; "
+        f"{warning_count} produced a warning or critical finding."
+    )
+    return InvestigationResult(
+        mode=mode,
+        target=target.upper(),
+        verdict=verdict,
+        severity=severity,
+        confidence=confidence,
+        culprit=culprit,
+        detail=detail,
+        evidence=evidence,
+        recommendation=recommendation,
+        path=rows,
+        baseline_changes=(),
+        metrics=(
+            ("Requested networks", str(requested)),
+            ("Measured networks", str(measured)),
+            ("Warnings", str(warning_count)),
         ),
         raw=raw,
     )

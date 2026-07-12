@@ -201,6 +201,54 @@ def test_from_payload_normalizes_country_asn_coverage_inventory():
     )
 
 
+def test_from_payload_normalizes_country_network_comparison():
+    payload = {
+        "country": "US",
+        "requested_asns": 3,
+        "measured_asns": 3,
+        "warning_asns": 1,
+        "operator_answer": {
+            "verdict": "Near-target Packet Loss",
+            "severity": "warning",
+            "confidence": "high",
+            "likely_culprit": "AS7018",
+            "evidence": ["Affected networks: AS7018 Near-target Packet Loss"],
+            "recommendation": "Investigate AS7018 directly.",
+        },
+        "results": [
+            {
+                "asn": "AS7018",
+                "name": "AT&T",
+                "verdict": {
+                    "verdict": "Near-target Packet Loss",
+                    "severity": "warning",
+                },
+            },
+            {
+                "asn": "AS7922",
+                "name": "Comcast",
+                "verdict": {"verdict": "Healthy", "severity": "ok"},
+            },
+        ],
+    }
+
+    result = from_payload("country", "US", payload)
+
+    assert result.verdict == "Isolated network anomaly"
+    assert result.evidence[0] == "Strongest finding: Near-target Packet Loss"
+    assert result.culprit == "AS7018"
+    assert result.detail == (
+        "Compared 3 of 3 representative networks in US; "
+        "1 produced a warning or critical finding."
+    )
+    assert result.path[0]["asn"] == "AS7018"
+    assert result.metrics == (
+        ("Requested networks", "3"),
+        ("Measured networks", "3"),
+        ("Warnings", "1"),
+    )
+
+
 def test_from_payload_normalizes_aspath_hop_points_and_metrics():
     payload = {
         "source_asn": "AS64500",

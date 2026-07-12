@@ -590,6 +590,7 @@ def country(
     ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
     trace_fusion:  bool = _TRACE_FUSION,
     show_ids:      bool = typer.Option(False, "--show-ids", help="Show Globalping measurement IDs while scheduling"),
+    report_json:   bool = typer.Option(False, "--report-json", hidden=True),
 ):
     """Test the top N ASNs (by allocated IPv4 address space) for a country."""
     code = code.upper()
@@ -917,6 +918,23 @@ def country(
     display.country_summary(code, summary_rows)
     if globe and hubs_for_globe:
         globe_mod.render(hubs_for_globe)
+
+    if report_json:
+        report = {
+            "country": code,
+            "requested_asns": len(top_asns),
+            "measured_asns": sum(
+                not row.get("skip_reason") for row in summary_rows
+            ),
+            "warning_asns": sum(
+                (row.get("verdict") or {}).get("severity")
+                in {"warning", "critical"}
+                for row in summary_rows
+            ),
+            "operator_answer": country_answer,
+            "results": summary_rows,
+        }
+        print("__NETPATH_REPORT_JSON__" + json.dumps(report, default=str))
 
     verdicts = [row["verdict"] for row in summary_rows if row.get("verdict")]
     exit_code = _worst_exit_code(verdicts)
