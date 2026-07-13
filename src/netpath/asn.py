@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import socket
 import time
 import warnings
@@ -26,6 +27,24 @@ def resolve_hosts_parallel(hostnames: list[str], workers: int = 50) -> dict[str,
     return results
 
 
+def _public_ips(values: list[str]) -> list[str]:
+    """Only literal public IPs may leave the machine via the whois egress.
+
+    Private, loopback, and link-local addresses are the user's LAN topology,
+    and hostnames may be internal names — both are dropped here, at the egress
+    point, rather than trusting every caller to pre-filter (INV-3 in
+    docs/INVARIANTS.md). Mirrors the filter in globe.geolocate_hosts.
+    """
+    public = []
+    for value in values:
+        try:
+            if not ipaddress.ip_address(value).is_private:
+                public.append(value)
+        except ValueError:
+            continue
+    return public
+
+
 def _cymru_query(ips: list[str], timeout: int = 30) -> str:
     """Raw Cymru bulk whois query. Returns the full response text."""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -50,6 +69,7 @@ def cymru_bulk_lookup(ips: list[str], timeout: int = 30) -> dict[str, str]:
     Bulk ASN lookup via Team Cymru whois.
     Returns {ip: "AS12345"} for all IPs with known ASNs.
     """
+    ips = _public_ips(ips)
     if not ips:
         return {}
     try:
@@ -82,6 +102,7 @@ def cymru_bulk_lookup_rich(ips: list[str], timeout: int = 30) -> dict[str, dict]
     Response format: ASN | IP | prefix | country | registry | date | name
     Returns {ip: {asn, prefix, country, name}}.
     """
+    ips = _public_ips(ips)
     if not ips:
         return {}
     try:
