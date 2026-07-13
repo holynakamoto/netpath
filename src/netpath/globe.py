@@ -71,10 +71,16 @@ def _is_private(host: str) -> bool:
 
 
 def geolocate_hosts(hosts: list[str]) -> dict[str, dict]:
-    """Batch geolocate hosts/IPs. Returns {host: geo metadata} for successful lookups."""
+    """Batch geolocate hosts/IPs. Returns {host: geo metadata} for successful lookups.
+
+    Private, loopback, and link-local addresses are dropped here — at the egress
+    point — rather than trusting every caller to filter them (INV-3 in
+    docs/INVARIANTS.md).
+    """
+    public_hosts = [host for host in hosts if not _is_private(host)]
     results: dict[str, dict] = {}
-    for i in range(0, len(hosts), _BATCH_SIZE):
-        batch = hosts[i : i + _BATCH_SIZE]
+    for i in range(0, len(public_hosts), _BATCH_SIZE):
+        batch = public_hosts[i : i + _BATCH_SIZE]
         payload = [{
             "query": h,
             "fields": "query,lat,lon,status,city,regionName,country,countryCode,as,org",
