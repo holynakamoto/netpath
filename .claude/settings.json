@@ -31,7 +31,8 @@
       "Bash(git worktree:list*)",
       "Bash(git worktree:prune)",
       "Bash(git worktree:move*)",
-      "Bash(git worktree:remove:*)"
+      "Bash(git worktree:remove:*)",
+      "mcp__defract"
     ],
     "deny": [
       "Bash(rm:*)",
@@ -49,7 +50,9 @@
       "Bash(sudo:*)",
       "Bash(curl:*)",
       "Bash(wget:*)",
-      "Bash(brew:*)"
+      "Bash(brew:*)",
+      "Bash(claude)",
+      "Bash(claude:*)"
     ]
   }
 }

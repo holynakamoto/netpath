@@ -1,0 +1,245 @@
+{
+  "lenses": [
+    "security",
+    "performance",
+    "architecture",
+    "refactor"
+  ],
+  "areas": [
+    {
+      "key": "cli-core",
+      "name": "CLI Core & Orchestration",
+      "description": "Typer app, subcommands, measurement orchestration, and shared result types.",
+      "paths": [
+        "src/netpath/cli.py",
+        "src/netpath/cli_json.py",
+        "src/netpath/cli_measurement.py",
+        "src/netpath/cli_monitor.py",
+        "src/netpath/__main__.py",
+        "src/netpath/types.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "asn-lookup",
+      "name": "ASN Lookup",
+      "description": "ASN normalization and Team Cymru bulk lookup.",
+      "paths": [
+        "src/netpath/asn.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "country-coverage",
+      "name": "Country Coverage",
+      "description": "RIPE allocation data driving top-N ASN selection per country.",
+      "paths": [
+        "src/netpath/country.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "path-probing",
+      "name": "Path Probing & Fusion",
+      "description": "mtr/traceroute running, Paris traceroute fallback, and multi-source trace fusion.",
+      "paths": [
+        "src/netpath/mtr.py",
+        "src/netpath/paris.py",
+        "src/netpath/trace_fusion.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "pmtu",
+      "name": "PMTU Detection",
+      "description": "ICMP PMTU black-hole detection.",
+      "paths": [
+        "src/netpath/pmtu.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "connection-latency",
+      "name": "Connection & Edge Latency",
+      "description": "TCP connect/TLS handshake latency and edge/TLS reachability checks.",
+      "paths": [
+        "src/netpath/latency.py",
+        "src/netpath/edge.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "throughput",
+      "name": "Throughput Measurement",
+      "description": "Bidirectional iperf3 throughput and Cloudflare HTTP speedtest fallback.",
+      "paths": [
+        "src/netpath/iperf.py",
+        "src/netpath/speedtest.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "rum",
+      "name": "Cloudflare RUM Overlay",
+      "description": "Cloudflare Radar real-user-monitoring data fetch and overlay.",
+      "paths": [
+        "src/netpath/rum.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "globalping",
+      "name": "Globalping Integration",
+      "description": "Globalping probe inventory, measurement scheduling, and result parsing.",
+      "paths": [
+        "src/netpath/globalping.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "diagnosis",
+      "name": "Diagnosis & Verdict Engine",
+      "description": "Signal checks and severity/verdict computation across all probe results.",
+      "paths": [
+        "src/netpath/diagnosis.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "display",
+      "name": "Terminal Display",
+      "description": "Rich terminal tables, panels, and dual-stack columns.",
+      "paths": [
+        "src/netpath/display.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z",
+      "excludedLenses": [
+        "performance"
+      ]
+    },
+    {
+      "key": "globe-geo",
+      "name": "Globe Visualization & Geo",
+      "description": "Interactive 3D globe visualization and geo/coordinate helpers.",
+      "paths": [
+        "src/netpath/globe.py",
+        "src/netpath/geo.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "dns",
+      "name": "DNS Propagation & TUI",
+      "description": "DNS resolver probing/propagation checks and their interactive TUI.",
+      "paths": [
+        "src/netpath/dns.py",
+        "src/netpath/dns_tui.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "path-tui",
+      "name": "Interactive Path TUI & Service",
+      "description": "Interactive path-monitoring TUI and its backing service layer.",
+      "paths": [
+        "src/netpath/path_tui.py",
+        "src/netpath/path_service.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "monitor",
+      "name": "Continuous Monitoring",
+      "description": "Long-running monitoring/alerting on measurement history.",
+      "paths": [
+        "src/netpath/monitor.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "investigation",
+      "name": "Investigation & Reporting",
+      "description": "Normalizes results into portable investigation reports and human-readable explanations.",
+      "paths": [
+        "src/netpath/investigation.py",
+        "src/netpath/explain.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "local-capture",
+      "name": "Local Packet Capture",
+      "description": "Local packet capture collection and analysis.",
+      "paths": [
+        "src/netpath/local_capture.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "server-registry",
+      "name": "iperf3 Server Registry & Discovery",
+      "description": "Public/self-hosted iperf3 server list fetch, local registry, and community registry service.",
+      "paths": [
+        "src/netpath/servers.py",
+        "src/netpath/serve.py",
+        "src/netpath/deploy/",
+        "listed_iperf3_servers.json"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "targets",
+      "name": "Target Resolution",
+      "description": "Resolves and validates probe targets (hostnames, IPs, ASN-derived endpoints).",
+      "paths": [
+        "src/netpath/targets.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "shared-infra",
+      "name": "Shared Infrastructure Helpers",
+      "description": "HTTP retry helper and process-lifecycle helpers shared across interactive workflows.",
+      "paths": [
+        "src/netpath/utils.py",
+        "src/netpath/processes.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z"
+    },
+    {
+      "key": "invariants-ci",
+      "name": "Privacy Invariants & CI Enforcement",
+      "description": "CI-checked privacy/behavioural invariants and repo hygiene tests.",
+      "paths": [
+        "docs/INVARIANTS.md",
+        "tests/test_invariants.py",
+        "tests/test_repo_hygiene.py"
+      ],
+      "status": "active",
+      "addedAt": "2026-07-16T11:46:53Z",
+      "excludedLenses": [
+        "performance"
+      ]
+    }
+  ]
+}
