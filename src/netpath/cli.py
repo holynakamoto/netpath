@@ -23,6 +23,7 @@ from netpath.cli_json import _apply_path_json_contract, _worst_exit_code
 from netpath.cli_measurement import _fetch_rum, _merge_globalping_path_results
 from netpath.cli_monitor import _display_monitor_result, _parse_interval_seconds
 from netpath.diagnosis import diagnose
+from netpath import analytics as _analytics
 
 app = typer.Typer(
     help="netpath — diagnosis-first network incident investigation from the terminal.",
@@ -184,6 +185,15 @@ def asn(
         )
         print(json.dumps(output, indent=2))
         code = _worst_exit_code([output.get("verdict", {})])
+        _analytics.capture("asn_test_completed", {
+            "server_count": len(found),
+            "verdict_severity": (output.get("verdict") or {}).get("severity"),
+            "verdict": (output.get("verdict") or {}).get("verdict"),
+            "json_mode": True,
+            "skip_throughput": skip_throughput,
+            "compare_v6": compare_v6,
+            "trace_fusion": trace_fusion,
+        })
         if code:
             raise typer.Exit(code)
     else:
@@ -204,6 +214,17 @@ def asn(
         if globe and last_hubs:
             globe_mod.render({asn_norm: last_hubs})
         code = _worst_exit_code(verdicts)
+        worst_verdict = max(verdicts, key=lambda v: {"ok": 0, "warning": 1, "critical": 2}.get(v.get("severity", "ok"), 0)) if verdicts else {}
+        _analytics.capture("asn_test_completed", {
+            "server_count": len(found),
+            "verdict_severity": worst_verdict.get("severity"),
+            "verdict": worst_verdict.get("verdict"),
+            "json_mode": False,
+            "globe": globe,
+            "skip_throughput": skip_throughput,
+            "compare_v6": compare_v6,
+            "trace_fusion": trace_fusion,
+        })
         if code:
             raise typer.Exit(code)
 
@@ -297,6 +318,15 @@ def host(
             globe_mod.render({target_asn: hubs})
 
     code = _worst_exit_code([result.get("verdict", {})])
+    _analytics.capture("host_trace_completed", {
+        "verdict_severity": (result.get("verdict") or {}).get("severity"),
+        "verdict": (result.get("verdict") or {}).get("verdict"),
+        "json_mode": output_json,
+        "globe": globe,
+        "compare_v6": compare_v6,
+        "trace_fusion": trace_fusion,
+        "hop_count": len(result.get("path") or []),
+    })
     if code:
         raise typer.Exit(code)
 
@@ -341,6 +371,11 @@ def dns(
         }, indent=2))
     else:
         display.dns_propagation(domain, record_type, rows, summary)
+    _analytics.capture("dns_check_completed", {
+        "record_type": record_type,
+        "resolver_count": len(rows),
+        "json_mode": output_json,
+    })
 
 
 @app.command("tui")
@@ -354,6 +389,11 @@ def tui(
     from netpath import path_tui
 
     launch_mode = "asn" if asn_mode else ("city" if source or destination else "host")
+    _analytics.capture("tui_launched", {
+        "mode": launch_mode,
+        "has_source": bool(source),
+        "has_destination": bool(destination),
+    })
     path_tui.run(
         source=source,
         destination=destination,
@@ -439,6 +479,14 @@ def explain(
         display.explain_report(report)
 
     code = _worst_exit_code([result.get("verdict", {})])
+    _analytics.capture("explain_report_generated", {
+        "verdict_severity": report.get("severity"),
+        "verdict": report.get("verdict"),
+        "has_baseline": baseline_snapshot is not None,
+        "culprit_scope": report.get("culprit_scope"),
+        "json_mode": output_json,
+        "trace_fusion": trace_fusion,
+    })
     if code:
         raise typer.Exit(code)
 
@@ -549,9 +597,22 @@ def monitor(
         history_file = monitor_mod.append_snapshot(snapshot, store)
         _display_monitor_result(snapshot, changes, str(history_file))
 
+        _analytics.capture("monitor_snapshot_saved", {
+            "run_index": run_index,
+            "verdict_severity": snapshot.get("severity"),
+            "verdict": snapshot.get("verdict"),
+            "has_endpoint_target": endpoint_target is not None,
+        })
+
         regressions = [c for c in changes if c != "No regression detected." and not c.startswith("No previous")]
         if regressions:
             regression_seen = True
+            _analytics.capture("network_regression_detected", {
+                "regression_count": len(regressions),
+                "verdict_severity": snapshot.get("severity"),
+                "verdict": snapshot.get("verdict"),
+                "has_webhook": bool(webhook),
+            })
             if webhook:
                 try:
                     requests.post(
@@ -938,6 +999,20 @@ def country(
 
     verdicts = [row["verdict"] for row in summary_rows if row.get("verdict")]
     exit_code = _worst_exit_code(verdicts)
+    warning_count = sum(
+        (row.get("verdict") or {}).get("severity") in {"warning", "critical"}
+        for row in summary_rows
+    )
+    _analytics.capture("country_sweep_completed", {
+        "country_code": code,
+        "asn_count": len(top_asns),
+        "measured_asn_count": sum(not row.get("skip_reason") for row in summary_rows),
+        "warning_asn_count": warning_count,
+        "globe": globe,
+        "no_remote": no_remote,
+        "compare_v6": compare_v6,
+        "trace_fusion": trace_fusion,
+    })
     if exit_code:
         raise typer.Exit(exit_code)
 
@@ -1045,6 +1120,13 @@ def aspath(
         if globe:
             globe_mod.render_aspath(result)
 
+    _analytics.capture("aspath_measured", {
+        "optimal_path_found": bool(result.get("optimal_path")),
+        "candidate_count": len(result.get("candidates") or []),
+        "target_origin": target_origin,
+        "globe": globe,
+        "json_mode": output_json,
+    })
     if not result.get("optimal_path"):
         raise typer.Exit(1)
 
@@ -1155,6 +1237,13 @@ def citypath(
         if globe:
             globe_mod.render_aspath(result)
 
+    _analytics.capture("citypath_measured", {
+        "optimal_path_found": bool(result.get("optimal_path")),
+        "candidate_count": len(result.get("candidates") or []),
+        "target_origin": target_info.get("origin"),
+        "globe": globe,
+        "json_mode": output_json,
+    })
     if not result.get("optimal_path"):
         raise typer.Exit(1)
 
@@ -1333,9 +1422,23 @@ def serve(
     if setup_only:
         if publish:
             publish_server()
+        _analytics.capture("iperf3_server_setup", {
+            "setup_only": True,
+            "publish": publish,
+            "port": port,
+            "register_local": register_local,
+            "has_announce_url": bool(announce_url),
+        })
         return
 
     display.console.print(f"[bold]Starting iperf3 server on port {port}[/bold] — Ctrl-C to stop\n")
+    _analytics.capture("iperf3_server_setup", {
+        "setup_only": False,
+        "publish": publish,
+        "port": port,
+        "register_local": register_local,
+        "has_announce_url": bool(announce_url),
+    })
     code = serve_mod.run_server(port, on_started=publish_server if publish else None)
     if code:
         raise typer.Exit(code)
@@ -1483,6 +1586,13 @@ def coverage(
             print(json.dumps(payload, indent=2))
         else:
             _coverage_country_asns(probes, country_code)
+        _analytics.capture("coverage_check_completed", {
+            "country_filter": country_code,
+            "top": top,
+            "globe": globe,
+            "json_mode": output_json,
+            "country_count": 1,
+        })
         return
 
     coverage_map = globalping_mod.coverage_by_country(probes)
@@ -1531,9 +1641,18 @@ def coverage(
 
     display.console.print(table)
 
+    _analytics.capture("coverage_check_completed", {
+        "country_filter": country,
+        "top": top,
+        "globe": globe,
+        "json_mode": output_json,
+        "country_count": len(ranked),
+    })
+
     if globe:
         globe_mod.render_coverage(coverage_map)
 
 
 def run():
+    _analytics.init()
     app()
