@@ -218,6 +218,11 @@ def host(
     cycles:        int  = _CYCLES,
     throughput:    bool = typer.Option(False, "--throughput", help="Try iperf3 throughput to the destination on port 5201"),
     cf_token:      Optional[str] = _CF_TOK,
+    gp_token:      Optional[str] = _GP_TOK,
+    no_remote_escalation: bool = typer.Option(
+        False, "--no-remote-escalation",
+        help="Don't auto-escalate to a Globalping near-target probe when local signals show a problem",
+    ),
     output_json:   bool = typer.Option(False, "--json", help="Output results as JSON to stdout; suppresses terminal display"),
     globe:         bool = typer.Option(False, "--globe", "-g", help="Open interactive 3D globe visualization after probe"),
     ecmp_passes:   int  = typer.Option(1, "--ecmp-passes", help="Number of mtr passes for ECMP path divergence detection"),
@@ -275,6 +280,8 @@ def host(
         json_mode=output_json,
         iperf_host=advertised["host"] if advertised else None,
         iperf_port=advertised["port"] if advertised else None,
+        gp_token=gp_token,
+        gp_auto_escalate=not no_remote_escalation,
     )
     if output_json:
         print(json.dumps(result, indent=2))

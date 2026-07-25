@@ -285,6 +285,8 @@ def _collect_endpoint_json(
     show_operator_answer: bool = True,
     iperf_host: Optional[str] = None,
     iperf_port: Optional[int] = None,
+    gp_token: Optional[str] = None,
+    gp_auto_escalate: bool = False,
     _run_test_impl=None,
 ) -> dict:
     run_test = _run_test_impl or _run_test
@@ -305,5 +307,6 @@ def _collect_endpoint_json(
         trace_fusion=trace_fusion,
         show_operator_answer=show_operator_answer,
         iperf_host=iperf_host, iperf_port=iperf_port,
+        gp_token=gp_token, gp_auto_escalate=gp_auto_escalate,
     )
     return _endpoint_json_payload(endpoint, result)
