@@ -12,7 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from netpath import display, dns as dns_mod, edge as edge_mod, explain as explain_mod
 from netpath import geo as geo_mod, globalping as globalping_mod, globe as globe_mod
-from netpath import iperf as iperf_mod, latency as latency_mod, mtr, paris, pmtu as pmtu_mod
+from netpath import iperf as iperf_mod, kg as kg_mod, latency as latency_mod, mtr, paris, pmtu as pmtu_mod
 from netpath import trace_fusion as trace_fusion_mod
 from netpath import rum as rum_mod, speedtest
 from netpath.asn import normalize_asn
@@ -353,6 +353,15 @@ def _measure(host: str, port: int, target_asn: str,
 
         result["as_path"] = _extract_as_path(hubs)
         result["hubs"] = hubs
+
+        try:
+            historical_graph = kg_mod.build_graph()
+            result["historical_segments"] = kg_mod.flag_known_bad_segments(
+                historical_graph, result["as_path"]
+            )
+        except Exception as e:
+            result["probe_errors"]["kg"] = str(e)
+            result["historical_segments"] = []
 
         if result["_trace_method"] == "trace-fusion":
             result["probe_count"] = min(cycles, trace_fusion_mod.MAX_FUSION_PROBES)

@@ -175,6 +175,8 @@ def _json_recommendation(verdict: dict) -> str:
         return "Escalate to the DNS/application edge owner with lookup, TTFB, and redirect evidence."
     if "route_flapping" in conditions:
         return "Escalate route instability with the observed ECMP/path-change evidence."
+    if "historical_segment_risk" in conditions:
+        return "This hop has a history of degraded performance across other targets; corroborate with a fresh probe before escalating to the ASN pair involved."
     return "Share the report with the suspected network owner and rerun to confirm whether the condition persists."
 
 

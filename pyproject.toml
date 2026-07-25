@@ -40,6 +40,13 @@ Homepage = "https://github.com/holynakamoto/netpath"
 dev = [
     "pytest>=8",
     "ruff>=0.4",
+    "networkx>=3.0",
+]
+telemetry = [
+    "posthog>=3.0; python_version >= '3.10'",
+]
+kg = [
+    "networkx>=3.0",
 ]
 
 [project.scripts]
