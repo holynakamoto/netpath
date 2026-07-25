@@ -282,6 +282,9 @@ ALLOWED_EGRESS_HOSTS = {
     "cloudflare-dns.com",
     "export.iperf3serverlist.net",
     "geocoding-api.open-meteo.com",
+    # opt-in usage telemetry sink; inert unless the user sets their own
+    # NETPATH_TELEMETRY_KEY (see telemetry.py)
+    "us.i.posthog.com",
     # ASN attribution via bulk whois (raw TCP, port 43)
     "whois.cymru.com",
     # assets referenced from generated HTML (loaded by the user's browser)
@@ -564,6 +567,7 @@ APPROVED_WRITE_SITES = {
     ("paris.py", "_run_dublin"),  # dublin-traceroute temp working dir
     ("registry.py", "do_POST"),  # opt-in registry server's own store
     ("serve.py", "register_local"),  # ~/.netpath/servers.json
+    ("telemetry.py", "_save"),  # ~/.netpath/telemetry.json (opt-in flag + anon id)
 }
 
 # .replace/.rename are excluded: they collide with str methods, and a rename's

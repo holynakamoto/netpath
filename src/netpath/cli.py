@@ -17,6 +17,7 @@ from netpath import cli_json as _cli_json_mod, cli_measurement as _cli_measureme
 from netpath import display, dns as dns_mod, globalping as globalping_mod, globe as globe_mod
 from netpath import explain as explain_mod
 from netpath import monitor as monitor_mod
+from netpath import telemetry as telemetry_mod
 from netpath import iperf as iperf_mod, mtr as mtr, paris as paris, serve as serve_mod, servers, speedtest, targets as targets_mod
 from netpath.asn import normalize_asn
 from netpath.cli_json import _apply_path_json_contract, _worst_exit_code
@@ -297,6 +298,7 @@ def host(
             globe_mod.render({target_asn: hubs})
 
     code = _worst_exit_code([result.get("verdict", {})])
+    telemetry_mod.capture("host", "failure" if code else "success")
     if code:
         raise typer.Exit(code)
 
@@ -332,6 +334,7 @@ def dns(
 
     rows = dns_mod.query_public_resolvers(domain, record_type, timeout=timeout)
     summary = dns_mod.summarize_public_resolver_rows(rows)
+    telemetry_mod.capture("dns", "success" if summary.get("responding") else "failure")
     if output_json:
         print(json.dumps({
             "domain": domain,
@@ -341,6 +344,36 @@ def dns(
         }, indent=2))
     else:
         display.dns_propagation(domain, record_type, rows, summary)
+
+
+@app.command("telemetry")
+def telemetry(
+    action: str = typer.Argument(..., help="on, off, or status"),
+):
+    """Enable, disable, or check opt-in anonymous usage telemetry.
+
+    Disabled by default and inert either way unless NETPATH_TELEMETRY_KEY is
+    also set to a PostHog project key of your own — netpath ships with no
+    telemetry destination built in. Only check_type and result (e.g.
+    "host"/"success") are ever sent; never a target host or resolved IP.
+    """
+    action = action.lower()
+    if action == "on":
+        telemetry_mod.set_enabled(True)
+        display.console.print(
+            "[green]Telemetry enabled.[/green] Set NETPATH_TELEMETRY_KEY to a "
+            "PostHog project key to start sending events."
+        )
+    elif action == "off":
+        telemetry_mod.set_enabled(False)
+        display.console.print("[yellow]Telemetry disabled.[/yellow]")
+    elif action == "status":
+        state = telemetry_mod.status()
+        display.console.print(
+            f"enabled: {state['enabled']}, key_configured: {state['key_configured']}"
+        )
+    else:
+        raise typer.BadParameter("action must be one of: on, off, status")
 
 
 @app.command("tui")
