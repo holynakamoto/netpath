@@ -289,8 +289,6 @@ ALLOWED_EGRESS_HOSTS = {
     "cdn.plot.ly",
     # documentation links shown in help text
     "github.com",
-    # PostHog analytics ingestion endpoint (default POSTHOG_HOST)
-    "us.i.posthog.com",
 }
 
 _URL_HOST_RE = re.compile(r"https?://([A-Za-z0-9.-]+)")
@@ -566,7 +564,6 @@ APPROVED_WRITE_SITES = {
     ("paris.py", "_run_dublin"),  # dublin-traceroute temp working dir
     ("registry.py", "do_POST"),  # opt-in registry server's own store
     ("serve.py", "register_local"),  # ~/.netpath/servers.json
-    ("analytics.py", "_get_install_id"),  # anonymous install UUID in ~/.netpath/
 }
 
 # .replace/.rename are excluded: they collide with str methods, and a rename's
