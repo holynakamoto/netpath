@@ -32,11 +32,18 @@ def load_baseline(path: str) -> dict[str, Any] | None:
     return None
 
 
+def as_path_from_result(result: dict[str, Any]) -> list[str]:
+    """The deduped AS path for `result`, for callers that need it before
+    build_report() runs — e.g. to retrieve graph facts for historical_context."""
+    return _as_path(_path_from_result(result))
+
+
 def build_report(
     *,
     destination: str,
     result: dict[str, Any],
     baseline: dict[str, Any] | None = None,
+    historical_context: str | None = None,
 ) -> dict[str, Any]:
     verdict = result.get("verdict") or {}
     path = _path_from_result(result)
@@ -57,7 +64,10 @@ def build_report(
     culprit = _infer_culprit(result_for_inference, baseline)
     evidence = _build_evidence(result_for_inference, baseline_changes, as_path)
     recommendation = _recommended_action(culprit, verdict)
-    summary = _ticket_summary(destination, result_for_inference, verdict, culprit, evidence, baseline_changes, recommendation)
+    summary = _ticket_summary(
+        destination, result_for_inference, verdict, culprit, evidence, baseline_changes,
+        recommendation, historical_context,
+    )
     return {
         "destination": destination,
         "target": {
@@ -79,6 +89,7 @@ def build_report(
         "baseline_changes": baseline_changes,
         "recommendation": recommendation,
         "recommended_action": recommendation,
+        "historical_context": historical_context,
         "ticket_summary": summary,
     }
 
@@ -414,6 +425,7 @@ def _ticket_summary(
     evidence: list[str],
     baseline_changes: list[str],
     recommendation: str,
+    historical_context: str | None = None,
 ) -> str:
     target = result.get("resolved_ip") or result.get("target_host") or destination
     culprit_label = culprit.get("asn") or culprit.get("scope") or "unknown"
@@ -425,5 +437,7 @@ def _ticket_summary(
         lines.append("Evidence: " + " | ".join(evidence[:4]))
     if baseline_changes:
         lines.append("Baseline comparison: " + " | ".join(baseline_changes))
+    if historical_context:
+        lines.append("Historical context: " + historical_context)
     lines.append("Requested action: " + recommendation)
     return "\n".join(lines)
