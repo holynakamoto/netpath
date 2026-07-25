@@ -357,6 +357,9 @@ name = "netpath"
 source = { editable = "." }
 dependencies = [
     { name = "dpkt" },
+    { name = "networkx", version = "3.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "requests", version = "2.34.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "rich" },
@@ -367,17 +370,9 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
-    { name = "networkx", version = "3.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
-    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "ruff" },
-]
-kg = [
-    { name = "networkx", version = "3.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
-    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 telemetry = [
     { name = "posthog", marker = "python_full_version >= '3.10'" },
@@ -386,8 +381,7 @@ telemetry = [
 [package.metadata]
 requires-dist = [
     { name = "dpkt", specifier = ">=1.9.8" },
-    { name = "networkx", marker = "extra == 'dev'", specifier = ">=3.0" },
-    { name = "networkx", marker = "extra == 'kg'", specifier = ">=3.0" },
+    { name = "networkx", specifier = ">=3.0" },
     { name = "posthog", marker = "python_full_version >= '3.10' and extra == 'telemetry'", specifier = ">=3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "requests", specifier = ">=2.28" },
@@ -396,7 +390,7 @@ requires-dist = [
     { name = "textual", specifier = ">=0.86" },
     { name = "typer", specifier = ">=0.9" },
 ]
-provides-extras = ["dev", "kg", "telemetry"]
+provides-extras = ["dev", "telemetry"]
 
 [[package]]
 name = "networkx"
