@@ -36,6 +36,7 @@ _CONDITION_VERDICT = {
     "dns_latency": "DNS Latency",
     "http_ttfb_latency": "HTTP Edge Latency",
     "large_icmp_payload_filtered": "Healthy",
+    "historical_segment_risk": "Known Problem Segment",
 }
 
 
@@ -662,6 +663,35 @@ def diagnose(result: dict) -> dict:
                     "status_code": edge.get("status_code"),
                     "redirect_count": edge.get("redirect_count"),
                 },
+            ))
+
+        # (11) Historical segment risk — AS-to-AS hops this path crosses that
+        # showed degraded performance in past diagnoses of *other* targets.
+        # The caller (not this pure function) is responsible for computing
+        # this from the knowledge graph in netpath.kg; here it's just data.
+        for segment in result.get("historical_segments") or []:
+            upstream = segment.get("upstream")
+            downstream = segment.get("downstream")
+            observations = segment.get("observations")
+            degraded_rate = segment.get("degraded_rate") or 0.0
+            signals.append(_signal(
+                "historical_segment_risk",
+                "warning",
+                (
+                    f"{upstream} → {downstream} showed degraded performance in "
+                    f"{degraded_rate:.0%} of {observations} previous diagnoses "
+                    "of other targets crossing this hop."
+                ),
+                "history",
+                CONFIDENCE_MEDIUM,
+                {
+                    "upstream": upstream,
+                    "downstream": downstream,
+                    "observations": observations,
+                    "degraded_rate": degraded_rate,
+                    "last_seen": segment.get("last_seen"),
+                },
+                sample_size=observations,
             ))
 
         if not signals:

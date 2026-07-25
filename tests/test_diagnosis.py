@@ -601,6 +601,38 @@ def test_routing_loop_no_repeat():
     assert not any(s["condition"] == "routing_loop" for s in result["signals"])
 
 
+def test_historical_segment_risk_from_knowledge_graph():
+    """A flagged segment (computed by the caller via netpath.kg) becomes a warning signal."""
+    result = diagnose({
+        "historical_segments": [
+            {
+                "upstream": "AS1",
+                "downstream": "AS2",
+                "observations": 3,
+                "degraded_rate": 0.67,
+                "last_seen": "2026-01-01T00:00:00Z",
+            }
+        ],
+    })
+    assert result["verdict"] == "Known Problem Segment"
+    assert result["severity"] == "warning"
+    signal = _signal(result, "historical_segment_risk")
+    _assert_signal_metadata(
+        signal,
+        "history",
+        "medium",
+        {"upstream": "AS1", "downstream": "AS2", "observations": 3},
+        sample_size=3,
+    )
+    assert "AS1 → AS2" in signal["detail"]
+    assert "67%" in signal["detail"]
+
+
+def test_no_historical_segments_is_healthy():
+    result = diagnose({"historical_segments": []})
+    assert result["verdict"] == "Healthy"
+
+
 def test_remote_only_row_healthy():
     # A remote-only summary row: merged Globalping metrics plus optional RUM,
     # no hubs, no local trace, no throughput. Must produce a clean verdict
