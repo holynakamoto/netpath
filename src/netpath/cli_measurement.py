@@ -220,6 +220,69 @@ def _merge_globalping_path_results(
         )
 
 
+def _should_escalate_to_globalping(result: dict, target_asn: str) -> bool:
+    """Only pay for a Globalping round-trip once the cheap local probes found trouble.
+
+    Local trace/DNS/TCP/TLS/PMTU probes above are cheap and always run; a
+    near-target vantage point costs a network round-trip (and Globalping's
+    rate limit), so it's only worth paying for when the local verdict is
+    already ambiguous enough to want corroboration.
+    """
+    if not target_asn or target_asn == "AS???":
+        return False
+    severity = (result.get("verdict") or {}).get("severity")
+    return severity in ("warning", "critical")
+
+
+def _escalate_to_globalping(result: dict, host: str, target_asn: str, gp_token: Optional[str]) -> None:
+    """Corroborate an ambiguous local verdict from a vantage point near the target ASN.
+
+    Populates result["globalping"] in the same shape diagnose() already reads
+    (ping_loss_pct / ping_jitter_ms / ping_packets), then re-runs diagnose()
+    so the near-target evidence is reflected in the final verdict — mirroring
+    the re-derivation cli.py already does for bulk country scans. Never
+    raises: failures are recorded in probe_errors and the local verdict
+    stands unchanged.
+    """
+    try:
+        user_ip = globalping_mod.get_public_ip()
+        if not user_ip:
+            result["probe_errors"]["globalping"] = "could not determine public IP"
+            return
+        mids = globalping_mod.schedule_measurements(target_asn, host, user_ip, gp_token)
+    except Exception as e:
+        result["probe_errors"]["globalping"] = str(e)
+        return
+
+    statuses = globalping_mod.poll_until_done(list(mids.values()), gp_token)
+    gp_data: dict = {"measurement_ids": mids}
+
+    if statuses.get(mids["ping"]) == "finished":
+        ping_results = globalping_mod.fetch_results(mids["ping"], gp_token)
+        rtt = globalping_mod.parse_ping_rtt(ping_results)
+        if rtt:
+            gp_data["ping_rtt"] = rtt
+        stats = globalping_mod.parse_ping_stats(ping_results)
+        if stats:
+            gp_data["ping_packets"] = stats.get("packets")
+            if "loss_pct" in stats:
+                gp_data["ping_loss_pct"] = stats["loss_pct"]
+            if "jitter_ms" in stats:
+                gp_data["ping_jitter_ms"] = stats["jitter_ms"]
+    elif statuses.get(mids["ping"]) == "timed_out":
+        result["probe_errors"]["globalping"] = "timed out"
+
+    if statuses.get(mids["mtr"]) == "finished":
+        path = globalping_mod.parse_mtr_as_path(globalping_mod.fetch_results(mids["mtr"], gp_token))
+        if path:
+            gp_data["outbound_as_path"] = path
+    elif statuses.get(mids["mtr"]) == "timed_out":
+        result["probe_errors"].setdefault("globalping", "timed out")
+
+    result["globalping"] = gp_data
+    result["verdict"] = diagnose(result)
+
+
 def _measure(host: str, port: int, target_asn: str,
              cycles: int, duration: int, skip_throughput: bool,
              cf_token: Optional[str] = None, prefer_tcp: bool = False,
@@ -497,6 +560,7 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
               service_host: Optional[str] = None, trace_fusion: bool = False,
               show_operator_answer: bool = True,
               iperf_host: Optional[str] = None, iperf_port: Optional[int] = None,
+              gp_token: Optional[str] = None, gp_auto_escalate: bool = False,
               _measure_impl=None) -> dict:
     """Run trace + optional throughput test. Returns enriched result dict."""
     measure = _measure_impl or _measure
@@ -533,6 +597,20 @@ def _run_test(host: str, port: int, server_meta: dict, target_asn: str,
         if not json_mode:
             display.error(f"trace: {result['probe_errors']['v4_trace']}")
         return result
+
+    if gp_auto_escalate and _should_escalate_to_globalping(result, target_asn):
+        if not json_mode:
+            severity = result["verdict"].get("severity")
+            with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                          console=display.console, transient=True) as p:
+                p.add_task(
+                    f"local signals show {severity} — corroborating from a "
+                    f"vantage point near {target_asn}…",
+                    total=None,
+                )
+                _escalate_to_globalping(result, host, target_asn, gp_token)
+        else:
+            _escalate_to_globalping(result, host, target_asn, gp_token)
 
     if result.get("_trace_method") == "traceroute" and not json_mode:
         display.console.print("  [dim](mtr unavailable — using traceroute + Cymru ASN lookup)[/dim]\n")
