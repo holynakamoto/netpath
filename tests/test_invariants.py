@@ -376,11 +376,14 @@ PLANNER_CLIS = {"codex", "claude"}
 #   local_capture.default_interface  — iterates ["route" …] / ["ip" …] literals
 #   local_capture._run_planner_command — argv from shutil.which(codex|claude),
 #     validated upstream in plan_capture
+#   llm_cli.run_schema_constrained — argv from shutil.which(codex|claude),
+#     provider validated against _PROVIDERS in the same function
 #   mtr._run_traceroute_cmd — argv[0] from traceroute_path() (PATH or /usr/sbin)
 #   path_tui.run_* — netpath re-invoking itself via sys.executable
 APPROVED_DYNAMIC_ARGV_SITES = {
     ("local_capture.py", "default_interface"),
     ("local_capture.py", "_run_planner_command"),
+    ("llm_cli.py", "run_schema_constrained"),
     ("mtr.py", "_run_traceroute_cmd"),
     ("path_tui.py", "run_structured_command"),
     ("path_tui.py", "run_console_command"),
@@ -563,6 +566,7 @@ APPROVED_WRITE_SITES = {
     ("local_capture.py", "_audit"),  # capture audit log in ~/.netpath/captures
     ("local_capture.py", "_plan_with_cli"),  # planner schema temp file
     ("local_capture.py", "execute_capture"),  # bounded pcap, deleted after use
+    ("llm_cli.py", "run_schema_constrained"),  # codex output-schema temp file, deleted after use
     ("monitor.py", "append_snapshot"),  # snapshot store in ~/.netpath/monitor
     ("paris.py", "_run_dublin"),  # dublin-traceroute temp working dir
     ("registry.py", "do_POST"),  # opt-in registry server's own store

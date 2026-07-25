@@ -16,6 +16,7 @@ from netpath import country as country_mod
 from netpath import cli_json as _cli_json_mod, cli_measurement as _cli_measurement_mod
 from netpath import display, dns as dns_mod, globalping as globalping_mod, globe as globe_mod
 from netpath import explain as explain_mod
+from netpath import graphrag as graphrag_mod
 from netpath import monitor as monitor_mod
 from netpath import telemetry as telemetry_mod
 from netpath import iperf as iperf_mod, mtr as mtr, paris as paris, serve as serve_mod, servers, speedtest, targets as targets_mod
@@ -412,6 +413,11 @@ def explain(
     throughput:    bool = typer.Option(False, "--throughput", help="Try iperf3 throughput to the destination on port 5201"),
     cf_token:      Optional[str] = _CF_TOK,
     baseline:      Optional[str] = typer.Option(None, "--baseline", help="JSON/JSONL monitor history to compare against"),
+    narrator:      Optional[str] = typer.Option(
+        None, "--narrator", envvar="NETPATH_EXPLAIN_NARRATOR",
+        help="Phrase the historical-context sentence with a locally-authenticated "
+             "'claude' or 'codex' CLI; omit for a deterministic, fact-only sentence",
+    ),
     output_json:   bool = typer.Option(False, "--json", help="Output explanation as JSON to stdout; suppresses terminal display"),
     trace_fusion:  bool = _TRACE_FUSION,
 ):
@@ -467,10 +473,20 @@ def explain(
         show_operator_answer=False,
         json_mode=output_json,
     )
+    as_path = explain_mod.as_path_from_result(result)
+    if narrator and not output_json:
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                      console=display.console, transient=True) as p:
+            p.add_task(f"Retrieving graph history and phrasing it via {narrator}…", total=None)
+            historical_context = graphrag_mod.historical_context(as_path, provider=narrator)
+    else:
+        historical_context = graphrag_mod.historical_context(as_path, provider=narrator)
+
     report = explain_mod.build_report(
         destination=destination,
         result=result,
         baseline=baseline_snapshot,
+        historical_context=historical_context,
     )
 
     if output_json:
