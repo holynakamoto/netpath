@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
   skip-if-match: 'is:issue is:open in:title "Daily Activity Report:"'
 engine: copilot
+model: gpt-5
 permissions:
   contents: read
   issues: read

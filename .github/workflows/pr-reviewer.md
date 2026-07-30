@@ -9,6 +9,7 @@ on:
       - "tests/**"
       - "pyproject.toml"
 engine: copilot
+model: gpt-5
 permissions:
   contents: read
   issues: read
