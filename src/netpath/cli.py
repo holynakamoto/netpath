@@ -51,8 +51,15 @@ def main(
         is_eager=True,
         help="Show the installed netpath version and exit.",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Suppress the startup banner when launching the interactive workbench.",
+    ),
 ) -> None:
     """Evidence-backed network diagnosis from the CLI or incident workbench."""
+    ctx.obj = {"quiet": quiet}
     if ctx.invoked_subcommand is None:
         from netpath import path_tui
 
