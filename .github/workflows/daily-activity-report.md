@@ -5,12 +5,12 @@ on:
   schedule: daily on weekdays
   workflow_dispatch:
   skip-if-match: 'is:issue is:open in:title "Daily Activity Report:"'
-engine: claude
-model: claude-sonnet-5
+engine: copilot
 permissions:
   contents: read
   issues: read
   pull-requests: read
+  copilot-requests: write
 tools:
   github:
     mode: gh-proxy

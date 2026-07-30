@@ -8,12 +8,12 @@ on:
       - "src/netpath/**"
       - "tests/**"
       - "pyproject.toml"
-engine: claude
-model: claude-sonnet-5
+engine: copilot
 permissions:
   contents: read
   issues: read
   pull-requests: read
+  copilot-requests: write
 tools:
   github:
     mode: gh-proxy
