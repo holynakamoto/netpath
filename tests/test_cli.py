@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 from typer.main import get_command
 
 from netpath import cli
+from netpath import cli_measurement
 
 
 def test_help_lists_product_commands():
@@ -121,6 +122,29 @@ def test_dns_rejects_unknown_record_type():
 
     assert result.exit_code == 2
     assert "record type must be one of" in result.output
+
+
+def test_compare_v6_handles_ipv6_only_target_without_unhandled_v4_error():
+    with patch.object(
+        cli_measurement.socket,
+        "getaddrinfo",
+        return_value=[(0, 0, 0, "", ("2001:db8::1", 0, 0, 0))],
+    ), patch.object(
+        cli_measurement,
+        "_trace",
+        side_effect=[OSError("address family not supported"), ([], "mtr")],
+    ):
+        result = cli_measurement._measure(
+            "2001:db8::1",
+            443,
+            "AS???",
+            cycles=1,
+            duration=1,
+            skip_throughput=True,
+            compare_v6=True,
+        )
+
+    assert result["hubs_v6"] == []
 
 
 def test_tui_command_passes_initial_path_and_mode(monkeypatch):
