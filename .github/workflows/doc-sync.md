@@ -23,6 +23,7 @@ safe-outputs:
     allowed-files:
       - "README.md"
       - "docs/**/*.md"
+    protected-files: allowed
     if-no-changes: "warn"
   add-comment:
     max: 1
