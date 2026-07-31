@@ -45,6 +45,8 @@ Launch netpath:
 netpath
 ```
 
+Use `netpath --quiet` (or `netpath -q`) to suppress the startup banner.
+
 Enter a hostname or IP and select **Diagnose**. The workbench leads with a
 verdict, likely owner, confidence, strongest evidence, and recommended next
 action. Path and raw measurements remain available in dedicated tabs.
