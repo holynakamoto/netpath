@@ -1,0 +1,8 @@
+HTTP 403
+Body: {"code":"rest_cannot_edit_roles","message":"Sorry, you are not allowed to edit roles of this user.","data":{"status":403}}
+
+Attacker: subscriber (lowest auth role)
+Request: POST /wp-json/wp/v2/users/me  body={"roles":["administrator"]}  (X-WP-Nonce + subscriber cookie)
+Lab: http://localhost:8889  WP 7.1-beta2-62791-src @ commit d792cbd66941a708d62b1778f044393206b95c63
+Result: REJECTED. update_item_permissions_check() requires current_user_can('promote_user')
+       (src/wp-includes/rest-api/endpoints/class-wp-rest-users-controller.php:725-754). No role escalation.

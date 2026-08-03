@@ -1,0 +1,2 @@
+# Request/response capture dir.
+# Store HTTP pairs (curl -v or proxy logs) here. No real-user secrets.

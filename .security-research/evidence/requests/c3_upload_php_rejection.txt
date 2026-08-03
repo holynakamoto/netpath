@@ -1,0 +1,14 @@
+Direct function test inside the lab (wp eval against localhost:8889 WP 7.1-beta2 @ d792cbd):
+
+  $f = "/tmp/evil.php"; @file_put_contents($f, "<?php phpinfo();");
+  $r = wp_check_filetype_and_ext($f, "evil.php");
+  => RESULT ext=[false] type=[false]
+
+Interpretation: a ".php" file is NOT assigned an executable/allowed type. wp_handle_upload()
+rejects it (ext/type false -> upload fails). The image path instead runs wp_get_image_mime()
+and corrects the extension to the REAL content type, defeating mislabeling.
+
+Attacker: author (upload_files) attempting to upload an executable PHP file.
+Lab: http://localhost:8889  WP 7.1-beta2-62791-src @ commit d792cbd66941a708d62b1778f044393206b95c63
+Result: REJECTED. Upload allow-list (functions.php:3128 wp_check_filetype_and_ext) blocks .php and
+        content-mislabeled uploads. No RCE via upload at this commit.

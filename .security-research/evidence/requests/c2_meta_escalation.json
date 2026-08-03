@@ -1,0 +1,12 @@
+HTTP 200  -- BUT NO ESCALATION (protected meta key silently dropped)
+Response user object (truncated):
+  "roles":["subscriber"]
+  "capabilities":{"read":true,"level_0":true,"subscriber":true}
+  "extra_capabilities":{"subscriber":true}
+
+Attacker: subscriber (lowest auth role)
+Request: POST /wp-json/wp/v2/users/me  body={"meta":{"wp_capabilities":["administrator"]}}  (X-WP-Nonce + subscriber cookie)
+Lab: http://localhost:8889  WP 7.1-beta2-62791-src @ commit d792cbd66941a708d62b1778f044393206b95c63
+Result: REJECTED. The protected meta key `wp_capabilities` is blocked by is_protected_meta()
+       (src/wp-includes/capabilities.php:433-477 -> $allowed = ! is_protected_meta($meta_key,'user')).
+       The rest of the update succeeded (200) but the capability was NOT applied. User stays subscriber.
